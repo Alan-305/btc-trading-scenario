@@ -62,11 +62,23 @@ export interface FearGreedIndex {
   timestamp: string;
 }
 
+export interface ExchangeDerivatives {
+  exchange: string;
+  symbol: string;
+  funding_rate: number | null;
+  open_interest_usd: number | null;
+  long_short_ratio: number | null;
+  mark_price: number | null;
+  quote_currency: string | null;
+}
+
 export interface CoinglassSnapshot {
   open_interest_usd: number | null;
   funding_rate: number | null;
   liquidation_24h_usd: number | null;
   long_short_ratio: number | null;
+  source: string | null;
+  exchanges: ExchangeDerivatives[];
   timestamp: string;
 }
 

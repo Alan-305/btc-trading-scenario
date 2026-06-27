@@ -22,4 +22,6 @@ export const api = {
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
   getHeatmap: () =>
     fetchJson<{ cells: HeatmapCell[] }>("/api/v1/market/orderbook-heatmap"),
+  getMarketSessions: () =>
+    fetchJson<import("../types/sessions").MarketSessionsResponse>("/api/v1/market/sessions"),
 };

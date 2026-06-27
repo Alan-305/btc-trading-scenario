@@ -6,39 +6,45 @@ BTC price prediction and trading scenario web application.
 
 - **Frontend**: React (Vite) + Tailwind CSS + Recharts
 - **Backend**: Python FastAPI
-- **Infra**: GCP Cloud Run, Redis, Cloud Scheduler
+- **Infra**: GCP Cloud Run, Redis, Cloud Scheduler（デプロイは後回し可）
 
-## Quick start
+## ローカル開発（クイックスタート）
 
 ```bash
-# Backend (local)
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+# 初回のみ
+make setup
 
-# With Docker Compose (API + Redis)
-docker compose up --build
+# ターミナル1: API → http://localhost:8000/docs
+make dev
 
-# Frontend
-cd frontend
-npm install
-npm run dev
-
-# Tests
-cd backend && pytest
+# ターミナル2: UI → http://localhost:5173
+make frontend-dev
 ```
+
+Redis は任意です（`CACHE_BACKEND=auto` でメモリキャッシュに自動フォールバック）。
+
+詳細は [docs/local-dev.md](docs/local-dev.md) を参照。
 
 ## API
 
-- `GET /health` — health check
-- `GET /api/v1/market/snapshot` — multi-exchange market snapshot
-- `GET /api/v1/indicators/sentiment` — Fear & Greed index
-- `GET /api/v1/scenario` — trading scenario (ML + LLM)
-- `POST /api/v1/internal/collect` — trigger data collection (scheduler)
+| エンドポイント | 説明 |
+|---|---|
+| `GET /health` | ヘルスチェック |
+| `GET /api/v1/market/snapshot` | マルチ取引所スナップショット |
+| `GET /api/v1/indicators/sentiment` | Fear & Greed + Coinglass |
+| `GET /api/v1/scenario` | トレーディングシナリオ |
+| `POST /api/v1/internal/collect` | データ収集トリガー |
 
-See [docs/api-contract.md](docs/api-contract.md) for JSON contracts.
+JSON 仕様: [docs/api-contract.md](docs/api-contract.md)
+
+## テスト・CI
+
+```bash
+make test
+```
+
+`main` への push/PR で GitHub Actions が pytest + frontend build を実行します（デプロイなし）。
 
 ## Disclaimer
 
-This application provides market analysis for informational purposes only. It is not investment advice.
+本アプリは参考情報であり、投資助言ではありません。

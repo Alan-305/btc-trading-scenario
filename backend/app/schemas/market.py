@@ -47,11 +47,23 @@ class FearGreedIndex(BaseModel):
     timestamp: datetime
 
 
+class ExchangeDerivatives(BaseModel):
+    exchange: str
+    symbol: str
+    funding_rate: float | None = None
+    open_interest_usd: float | None = None
+    long_short_ratio: float | None = None
+    mark_price: float | None = None
+    quote_currency: str | None = None  # USD, JPY, etc.
+
+
 class CoinglassSnapshot(BaseModel):
     open_interest_usd: float | None = None
     funding_rate: float | None = None
     liquidation_24h_usd: float | None = None
     long_short_ratio: float | None = None
+    source: str | None = None  # free_aggregate | binance | coinglass | none
+    exchanges: list[ExchangeDerivatives] = Field(default_factory=list)
     timestamp: datetime
 
 

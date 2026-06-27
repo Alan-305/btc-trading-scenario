@@ -11,9 +11,16 @@ from app.schemas.market import MarketSnapshot
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.volume_profile import OrderbookHeatmapService, VolumeProfileService
-from app.storage.redis_cache import RedisCache
+from app.storage.redis_cache import AppCache
+from app.schemas.sessions import MarketSessionsResponse
+from app.services.market_sessions import MarketSessionsService
 
 router = APIRouter()
+
+
+@router.get("/sessions", response_model=MarketSessionsResponse)
+async def market_sessions():
+    return MarketSessionsService().build()
 
 
 @router.get("/snapshot", response_model=MarketSnapshot)
@@ -21,7 +28,7 @@ async def market_snapshot(
     refresh: bool = False,
     aggregator: MarketAggregator = Depends(get_market_aggregator),
     divergence: DivergenceService = Depends(get_divergence_service),
-    cache: RedisCache = Depends(get_redis_cache),
+    cache: AppCache = Depends(get_redis_cache),
 ):
     if not refresh:
         cached = await cache.get_market_snapshot()

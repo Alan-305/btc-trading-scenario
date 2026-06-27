@@ -19,7 +19,7 @@ export function ScenarioCard({ scenario }: ScenarioCardProps) {
         <h2 className="text-lg font-medium text-slate-100">本日のシナリオ</h2>
         <span className={`text-sm font-medium ${trend.color}`}>{trend.text}</span>
       </header>
-      <p className="font-japanese leading-relaxed text-slate-300">
+      <p className="whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {scenario.scenario_text_ja}
       </p>
       <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">

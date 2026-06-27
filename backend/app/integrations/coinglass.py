@@ -46,6 +46,8 @@ class CoinglassClient:
                 funding_rate=funding,
                 liquidation_24h_usd=None,
                 long_short_ratio=None,
+                source="coinglass",
+                exchanges=[],
                 timestamp=datetime.now(timezone.utc),
             )
         except Exception:
@@ -57,5 +59,7 @@ class CoinglassClient:
             funding_rate=None,
             liquidation_24h_usd=None,
             long_short_ratio=None,
+            source=None,
+            exchanges=[],
             timestamp=datetime.now(timezone.utc),
         )

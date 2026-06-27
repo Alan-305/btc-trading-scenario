@@ -21,6 +21,8 @@ class TokenBucketRateLimiter:
 
 EXCHANGE_RATE_LIMITS: dict[str, float] = {
     "whitebit": 5.0,
+    "bybit": 5.0,
+    "okx": 5.0,
     "binance": 10.0,
     "bitbank": 5.0,
     "coinbase": 5.0,

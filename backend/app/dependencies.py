@@ -7,14 +7,14 @@ from app.collectors.http_client import CollectorHttpClient
 from app.collectors.registry import build_collectors
 from app.config import Settings, get_settings
 from app.integrations.alternative_me import AlternativeMeClient
-from app.integrations.coinglass import CoinglassClient
+from app.integrations.derivatives_provider import DerivativesProvider
 from app.llm.scenario_writer import ScenarioWriter
 from app.ml.inference import ScenarioInference
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.scenario_builder import ScenarioBuilder
 from app.services.volume_profile import OrderbookHeatmapService, VolumeProfileService
-from app.storage.redis_cache import RedisCache
+from app.storage.redis_cache import AppCache
 
 logger = structlog.get_logger()
 
@@ -24,8 +24,8 @@ def get_http_client() -> CollectorHttpClient:
     return CollectorHttpClient()
 
 
-def get_redis_cache() -> RedisCache:
-    return RedisCache()
+def get_redis_cache() -> AppCache:
+    return AppCache()
 
 
 def get_market_aggregator(http: CollectorHttpClient = Depends(get_http_client)) -> MarketAggregator:
@@ -40,21 +40,22 @@ def get_alternative_me(http: CollectorHttpClient = Depends(get_http_client)) -> 
     return AlternativeMeClient(http)
 
 
-def get_coinglass(http: CollectorHttpClient = Depends(get_http_client)) -> CoinglassClient:
-    return CoinglassClient(http)
+def get_coinglass(http: CollectorHttpClient = Depends(get_http_client)) -> DerivativesProvider:
+    return DerivativesProvider(http)
 
 
 def get_scenario_builder(
     aggregator: MarketAggregator = Depends(get_market_aggregator),
     divergence: DivergenceService = Depends(get_divergence_service),
     fear_greed: AlternativeMeClient = Depends(get_alternative_me),
-    coinglass: CoinglassClient = Depends(get_coinglass),
+    coinglass: DerivativesProvider = Depends(get_coinglass),
+    settings: Settings = Depends(get_settings),
 ) -> ScenarioBuilder:
     return ScenarioBuilder(
         aggregator=aggregator,
         divergence=divergence,
         inference=ScenarioInference(),
-        writer=ScenarioWriter(),
+        writer=ScenarioWriter(settings),
         fear_greed=fear_greed,
         coinglass=coinglass,
     )

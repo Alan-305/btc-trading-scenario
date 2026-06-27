@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from app.integrations.alternative_me import AlternativeMeClient
-from app.integrations.coinglass import CoinglassClient
+from app.integrations.derivatives_provider import DerivativesProvider
 from app.ml.inference import ScenarioInference
 from app.llm.scenario_writer import ScenarioWriter
 from app.schemas.market import MarketSnapshot
@@ -15,6 +15,7 @@ from app.schemas.scenario import (
 )
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
+from app.services.scenario_context import reference_price_from_snapshot
 
 
 class ScenarioBuilder:
@@ -25,7 +26,7 @@ class ScenarioBuilder:
         inference: ScenarioInference,
         writer: ScenarioWriter,
         fear_greed: AlternativeMeClient,
-        coinglass: CoinglassClient,
+        coinglass: DerivativesProvider,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -58,12 +59,16 @@ class ScenarioBuilder:
 
         scenario_text = await self.writer.generate(
             macro_trend=signal.macro_trend,
+            confidence=signal.confidence,
+            side=signal.side,
+            reference_price=reference_price_from_snapshot(snapshot),
             entry_low=signal.entry_low,
             entry_high=signal.entry_high,
             take_profit=signal.take_profit,
             stop_loss=signal.stop_loss,
             fear_greed=fg.value if fg else None,
             funding_rate=cg.funding_rate if cg else None,
+            divergence_max_pct=indicators.divergence_max_pct,
         )
 
         return ScenarioResponse(
@@ -96,14 +101,23 @@ class ScenarioBuilder:
             ForecastPoint(ts=now + timedelta(hours=h), price=p)
             for h, p in enumerate(signal.forecast_prices, start=1)
         ]
+        indicators = ScenarioIndicators(
+            fear_greed=fg.value if fg else None,
+            funding_rate=cg.funding_rate if cg else None,
+            divergence_max_pct=DivergenceService.max_divergence_pct(snapshot.divergence_pct),
+        )
         scenario_text = await self.writer.generate(
             macro_trend=signal.macro_trend,
+            confidence=signal.confidence,
+            side=signal.side,
+            reference_price=reference_price_from_snapshot(snapshot),
             entry_low=signal.entry_low,
             entry_high=signal.entry_high,
             take_profit=signal.take_profit,
             stop_loss=signal.stop_loss,
             fear_greed=fg.value if fg else None,
             funding_rate=cg.funding_rate if cg else None,
+            divergence_max_pct=indicators.divergence_max_pct,
         )
         return ScenarioResponse(
             macro_trend=signal.macro_trend,
@@ -121,10 +135,6 @@ class ScenarioBuilder:
             ),
             forecast=forecast,
             scenario_text_ja=scenario_text,
-            indicators=ScenarioIndicators(
-                fear_greed=fg.value if fg else None,
-                funding_rate=cg.funding_rate if cg else None,
-                divergence_max_pct=DivergenceService.max_divergence_pct(snapshot.divergence_pct),
-            ),
+            indicators=indicators,
             generated_at=now,
         )
