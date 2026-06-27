@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
+import firebase_admin.exceptions
 
 from app.config import Settings, get_settings
 from app.dependencies import require_invited_user
@@ -32,6 +33,19 @@ async def send_invite(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except firebase_admin.exceptions.InvalidArgumentError as exc:
+        if "OPERATION_NOT_ALLOWED" in str(exc):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Firebase のメールリンクログインが有効になっていません。"
+                    "Console → Authentication → Sign-in method → Email/Password で"
+                    "「メールリンク（パスワードなし）」を ON にしてください。"
+                ),
+            ) from exc
+        raise HTTPException(status_code=503, detail=f"Firebase エラー: {exc}") from exc
+    except firebase_admin.exceptions.FirebaseError as exc:
+        raise HTTPException(status_code=503, detail=f"Firebase エラー: {exc}") from exc
 
     return InviteResponse(
         email=email,

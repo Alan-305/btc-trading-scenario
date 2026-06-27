@@ -49,8 +49,8 @@ steps:
       - --cpu=1
       - --min-instances=0
       - --max-instances=5
-      - --set-env-vars=APP_ENV=production,CACHE_BACKEND=memory,DERIVATIVES_PROVIDER=free,LLM_PROVIDER=gemini,LOG_LEVEL=INFO,INVITE_ONLY=true,ALLOWED_EMAILS=${_ALLOWED_EMAILS},AUTH_OPEN_GOOGLE=true,APP_PUBLIC_URL=https://nexus-btc-trading.web.app,RESEND_FROM_EMAIL=BTC Trading Scenario <onboarding@resend.dev>
-      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,COINGLASS_API_KEY=COINGLASS_API_KEY:latest,INTERNAL_COLLECT_TOKEN=INTERNAL_COLLECT_TOKEN:latest
+      - --set-env-vars=APP_ENV=production,CACHE_BACKEND=memory,DERIVATIVES_PROVIDER=free,LLM_PROVIDER=gemini,LOG_LEVEL=INFO,INVITE_ONLY=true,ALLOWED_EMAILS=${_ALLOWED_EMAILS},AUTH_OPEN_GOOGLE=true,APP_PUBLIC_URL=https://nexus-btc-trading.web.app,RESEND_FROM_EMAIL=Nexus BTC Scenario <support@nexus-learning.com>
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,COINGLASS_API_KEY=COINGLASS_API_KEY:latest,INTERNAL_COLLECT_TOKEN=INTERNAL_COLLECT_TOKEN:latest,RESEND_API_KEY=RESEND_API_KEY:latest
 
   - id: resolve-api-url
     name: gcr.io/google.com/cloudsdktool/cloud-sdk

@@ -35,6 +35,17 @@ async function fetchJson<T>(path: string, refresh = false): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function apiErrorMessage(res: Response): Promise<string> {
+  let detail = `API error: ${res.status}`;
+  try {
+    const body = (await res.json()) as { detail?: string };
+    if (body.detail) detail = body.detail;
+  } catch {
+    /* ignore */
+  }
+  return detail;
+}
+
 async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
@@ -46,7 +57,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   });
   if (res.status === 401) throw new Error("ログインが必要です。");
   if (res.status === 403) throw new Error("このアカウントは招待されていません。");
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) throw new Error(await apiErrorMessage(res));
   return res.json() as Promise<T>;
 }
 
