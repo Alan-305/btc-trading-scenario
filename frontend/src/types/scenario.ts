@@ -1,0 +1,83 @@
+export type MacroTrend = "bullish" | "bearish" | "range";
+export type TradeSide = "long" | "short" | "neutral";
+
+export interface EntryZone {
+  side: TradeSide;
+  zone_low: number;
+  zone_high: number;
+  rationale: string;
+}
+
+export interface ExitStrategy {
+  take_profit: number[];
+  stop_loss: number;
+  rationale: string;
+}
+
+export interface ForecastPoint {
+  ts: string;
+  price: number;
+}
+
+export interface ScenarioIndicators {
+  fear_greed: number | null;
+  funding_rate: number | null;
+  oi_change_24h_pct: number | null;
+  divergence_max_pct: number | null;
+}
+
+export interface ScenarioResponse {
+  macro_trend: MacroTrend;
+  confidence: number;
+  entry: EntryZone;
+  exit: ExitStrategy;
+  forecast: ForecastPoint[];
+  scenario_text_ja: string;
+  indicators: ScenarioIndicators;
+  generated_at: string;
+  disclaimer: string;
+}
+
+export interface NormalizedTicker {
+  exchange: string;
+  symbol: string;
+  last_price: string;
+  bid: string | null;
+  ask: string | null;
+  volume_24h: string | null;
+  quote_volume_24h: string | null;
+  timestamp: string;
+}
+
+export interface MarketSnapshot {
+  tickers: NormalizedTicker[];
+  orderbooks: unknown[];
+  divergence_pct: Record<string, number>;
+  collected_at: string;
+}
+
+export interface FearGreedIndex {
+  value: number;
+  classification: string;
+  timestamp: string;
+}
+
+export interface CoinglassSnapshot {
+  open_interest_usd: number | null;
+  funding_rate: number | null;
+  liquidation_24h_usd: number | null;
+  long_short_ratio: number | null;
+  timestamp: string;
+}
+
+export interface SentimentIndicators {
+  fear_greed: FearGreedIndex | null;
+  coinglass: CoinglassSnapshot | null;
+  x_sentiment_score: number | null;
+}
+
+export interface HeatmapCell {
+  price_bin: number;
+  bid_depth: number;
+  ask_depth: number;
+}

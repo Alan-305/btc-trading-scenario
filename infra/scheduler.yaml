@@ -1,0 +1,6 @@
+# Cloud Scheduler job (create via gcloud)
+# gcloud scheduler jobs create http btc-collect-job \
+#   --schedule="*/1 * * * *" \
+#   --uri="https://btc-trading-api-xxx.run.app/api/v1/internal/collect" \
+#   --http-method=POST \
+#   --headers="X-Internal-Token=YOUR_TOKEN"

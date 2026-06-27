@@ -1,0 +1,31 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "gcr.io/$PROJECT_ID/btc-trading-api", "./backend"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/btc-trading-api"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - btc-trading-api
+      - --image=gcr.io/$PROJECT_ID/btc-trading-api
+      - --region=asia-northeast1
+      - --platform=managed
+      - --allow-unauthenticated
+      - --set-env-vars=APP_ENV=production
+      - --set-secrets=COINGLASS_API_KEY=COINGLASS_API_KEY:latest,INTERNAL_COLLECT_TOKEN=INTERNAL_COLLECT_TOKEN:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "gcr.io/$PROJECT_ID/btc-trading-frontend", "./frontend"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "gcr.io/$PROJECT_ID/btc-trading-frontend"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - btc-trading-frontend
+      - --image=gcr.io/$PROJECT_ID/btc-trading-frontend
+      - --region=asia-northeast1
+      - --platform=managed
+      - --allow-unauthenticated
