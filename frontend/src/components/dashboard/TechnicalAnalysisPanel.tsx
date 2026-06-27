@@ -1,4 +1,5 @@
 import type { TechnicalAnalysis } from "../../types/market";
+import { candleIntervalLabel, type CandleInterval } from "../../lib/candle-interval";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { ExternalLink } from "../ui/ExternalLink";
 
@@ -11,13 +12,26 @@ const TREND_LABEL = {
 
 interface TechnicalAnalysisPanelProps {
   data: TechnicalAnalysis | null;
+  interval?: CandleInterval;
 }
 
-export function TechnicalAnalysisPanel({ data }: TechnicalAnalysisPanelProps) {
+function intervalTitle(interval: string): string {
+  return candleIntervalLabel(interval as CandleInterval);
+}
+
+function intervalTag(interval: string): string {
+  return interval === "1d" ? "1D" : interval.toUpperCase();
+}
+
+export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnalysisPanelProps) {
+  const activeInterval = data?.interval ?? interval;
+  const title = intervalTitle(activeInterval);
+  const tag = intervalTag(activeInterval);
+
   if (!data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="mb-3 text-sm font-medium text-slate-400">テクニカル分析（4H）</h3>
+        <h3 className="mb-3 text-sm font-medium text-slate-400">テクニカル分析（{title}）</h3>
         <p className="text-sm text-slate-500">データなし</p>
       </div>
     );
@@ -28,7 +42,7 @@ export function TechnicalAnalysisPanel({ data }: TechnicalAnalysisPanelProps) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-400">テクニカル分析（4H）</h3>
+        <h3 className="text-sm font-medium text-slate-400">テクニカル分析（{title}）</h3>
         <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
       </div>
       <p className={`mb-3 text-sm font-medium ${trend.color}`}>総合: {trend.text}</p>
@@ -38,7 +52,7 @@ export function TechnicalAnalysisPanel({ data }: TechnicalAnalysisPanelProps) {
           <dd className="font-english text-slate-200">{data.rsi_14?.toFixed(1) ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">EMA200（4H）</dt>
+          <dt className="text-slate-500">EMA200（{tag}）</dt>
           <dd className="font-english text-violet-300">
             {data.ema_200 ? `$${data.ema_200.toLocaleString()}` : "—"}
           </dd>

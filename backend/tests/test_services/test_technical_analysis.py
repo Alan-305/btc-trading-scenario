@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import numpy as np
 
@@ -53,9 +55,21 @@ def test_technical_analysis_ema200_with_enough_candles():
 
 def test_prediction_evaluator_direction():
     ev = PredictionEvaluator()
+    saved = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)
+    now = saved + timedelta(days=7)
+    candles = [
+        Candle(
+            ts=saved + timedelta(hours=1),
+            open=100000,
+            high=102000,
+            low=99000,
+            close=102000,
+            volume=1.0,
+        )
+    ]
     preds = [
         SavedPredictionInput(
-            saved_at="2026-01-01T00:00:00Z",
+            saved_at=saved.isoformat(),
             macro_trend="bullish",
             reference_price=100000,
             entry_zone_low=99000,
@@ -65,7 +79,7 @@ def test_prediction_evaluator_direction():
             side="long",
         )
     ]
-    summary = ev.evaluate_batch(preds, current_price=102000)
+    summary = ev.evaluate_batch(preds, candles, now=now)
     assert summary.total == 1
-    assert summary.evaluations[0].direction_correct is True
+    assert summary.evaluations[0].trend_correct is True
     assert summary.direction_accuracy_pct == 100.0

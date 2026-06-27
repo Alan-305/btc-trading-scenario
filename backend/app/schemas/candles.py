@@ -84,14 +84,22 @@ class PredictionEvaluation(BaseModel):
     price_change_pct: float
     direction_correct: bool | None = None
     entry_zone_hit: bool | None = None
+    entry_zone_reached: bool | None = None
     take_profit_hit: bool | None = None
     stop_loss_hit: bool | None = None
     outcome: Literal["win", "loss", "partial", "pending", "neutral"]
+    status: Literal["pending", "final"] = "final"
+    swing_score_pct: float | None = None
+    days_remaining: int = 0
+    trend_correct: bool | None = None
 
 
 class AccuracySummary(BaseModel):
     total: int
     evaluated: int
+    pending_count: int = 0
+    finalized_count: int = 0
     direction_accuracy_pct: float | None = None
+    entry_zone_reach_pct: float | None = None
     win_rate_pct: float | None = None
     evaluations: list[PredictionEvaluation]

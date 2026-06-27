@@ -7,7 +7,8 @@ import {
 } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { getFirebaseAuth } from "../lib/firebase";
-import { isEmailInvited, requiresAuthentication } from "../lib/invite-access";
+import { completeEmailLinkSignInIfPresent } from "../lib/email-link-auth";
+import { isAuthOpenToGoogle, isEmailInvited, requiresAuthentication } from "../lib/invite-access";
 
 export function authErrorMessage(error: unknown): string {
   const code = (error as { code?: string }).code;
@@ -26,6 +27,12 @@ export function authErrorMessage(error: unknown): string {
   if (code === "auth/operation-not-allowed") {
     return "Google ログインが有効になっていません。管理者にお問い合わせください。";
   }
+  if (code === "auth/expired-action-code") {
+    return "招待リンクの有効期限が切れています。管理者に再招待を依頼してください。";
+  }
+  if (code === "auth/invalid-action-code") {
+    return "招待リンクが無効です。メール内の最新リンクからお試しください。";
+  }
   if (code === "auth/too-many-requests") {
     return "試行回数が多すぎます。しばらく待ってから再試行してください。";
   }
@@ -35,6 +42,7 @@ export function authErrorMessage(error: unknown): string {
 
 async function ensureInvited(user: User, authRequired: boolean): Promise<boolean> {
   if (!authRequired) return true;
+  if (isAuthOpenToGoogle()) return Boolean(user.email);
   const email = user.email;
   if (!email) return false;
   return isEmailInvited(email);
@@ -92,6 +100,19 @@ export function useAuth(enabled: boolean) {
     }
 
     let cancelled = false;
+
+    void completeEmailLinkSignInIfPresent()
+      .then((cred) => {
+        if (cancelled || !cred) return;
+        return rejectIfNotInvited(cred.user);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAuthError(authErrorMessage(error));
+        setLoading(false);
+        setSigningIn(false);
+      });
+
     const unsub = onAuthStateChanged(
       getFirebaseAuth(),
       (next) => {

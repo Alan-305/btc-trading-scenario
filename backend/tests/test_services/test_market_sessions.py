@@ -29,3 +29,16 @@ def test_timeline_marks_now_hour():
     now_cells = [t for t in resp.timeline_jst if t.is_now]
     assert len(now_cells) == 1
     assert now_cells[0].jst_hour == 9
+    assert len(now_cells[0].markets) == 3
+    assert resp.jst_day_type == "weekday"
+    assert resp.timeline_caption_ja
+
+
+def test_timeline_weekend_mostly_quiet():
+    now = datetime(2026, 6, 27, 3, 0, tzinfo=timezone.utc)  # Sat 12:00 JST
+    resp = MarketSessionsService().build(now)
+    assert resp.jst_day_type == "weekend"
+    low_count = sum(1 for t in resp.timeline_jst if t.activity_level == "low")
+    assert low_count >= 18
+    assert any("土日" in (t.closure_summary_ja or "") for t in resp.timeline_jst)
+

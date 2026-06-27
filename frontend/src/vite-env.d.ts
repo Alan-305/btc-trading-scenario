@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_APP_ID: string;
   readonly VITE_INVITE_ONLY?: string;
   readonly VITE_ALLOWED_EMAILS?: string;
+  readonly VITE_AUTH_OPEN_GOOGLE?: string;
   readonly VITE_DEV_LOGIN_EMAIL?: string;
   readonly VITE_DEV_LOGIN_PASSWORD?: string;
 }

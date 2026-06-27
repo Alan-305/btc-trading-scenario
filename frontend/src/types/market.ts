@@ -75,15 +75,23 @@ export interface PredictionEvaluation {
   price_change_pct: number;
   direction_correct: boolean | null;
   entry_zone_hit: boolean | null;
+  entry_zone_reached: boolean | null;
   take_profit_hit: boolean | null;
   stop_loss_hit: boolean | null;
   outcome: "win" | "loss" | "partial" | "pending" | "neutral";
+  status: "pending" | "final";
+  swing_score_pct: number | null;
+  days_remaining: number;
+  trend_correct: boolean | null;
 }
 
 export interface AccuracySummary {
   total: number;
   evaluated: number;
+  pending_count: number;
+  finalized_count: number;
   direction_accuracy_pct: number | null;
+  entry_zone_reach_pct: number | null;
   win_rate_pct: number | null;
   evaluations: PredictionEvaluation[];
 }

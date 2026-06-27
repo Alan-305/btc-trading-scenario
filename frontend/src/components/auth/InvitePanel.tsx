@@ -37,7 +37,7 @@ export function InvitePanel({ userEmail }: InvitePanelProps) {
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
       <h2 className="mb-1 text-sm font-medium text-slate-300">招待</h2>
       <p className="mb-4 text-xs text-slate-500">
-        閲覧のみのユーザーを追加します。招待したメールアドレスの Google アカウントでログインできます。
+        任意のメールアドレス（Gmail 以外も可）に招待リンクを送ります。相手はメール内のリンクからログインできます。
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">

@@ -8,7 +8,7 @@ export function LoginForm({ signingIn, onGoogleSignIn }: LoginFormProps) {
     <section className="mx-auto w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-6">
       <h2 className="mb-1 text-lg font-medium text-slate-100">ログイン</h2>
       <p className="mb-6 text-sm text-slate-400">
-        登録済みの Google アカウント（matsuo@nexus-learning.com）でのみ閲覧できます。
+        Google アカウントをお持ちの方は Google でログインできます。招待メールを受け取った方は、メール内のリンクからログインしてください。
       </p>
 
       <button

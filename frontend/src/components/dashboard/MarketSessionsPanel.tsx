@@ -2,6 +2,8 @@ import type {
   ActivityLevel,
   MarketSessionsResponse,
   MarketSessionBlock,
+  MarketHourState,
+  MarketStatusCode,
 } from "../../types/sessions";
 
 /** 青=静か / オレンジ=やや活発 / 赤=活発 */
@@ -16,6 +18,19 @@ const SESSION_STATUS_LABEL = {
   active: "稼働中",
   upcoming: "まもなく",
   closed: "オフ",
+};
+
+const MARKET_DOT: Record<MarketStatusCode, string> = {
+  open: "bg-emerald-400",
+  off_hours: "bg-slate-500",
+  weekend: "bg-slate-600",
+  holiday: "bg-amber-400",
+};
+
+const MARKET_LABEL: Record<string, string> = {
+  japan: "日",
+  europe: "欧",
+  us: "米",
 };
 
 const SESSION_ORDER = ["asia", "europe", "us"];
@@ -40,11 +55,16 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
           : "border-surface-border bg-surface-card"
       }`}
     >
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h4 className="font-japanese text-sm font-medium text-slate-200">{session.name_ja}</h4>
         <span className={`text-xs ${statusColor}`}>{SESSION_STATUS_LABEL[session.status]}</span>
       </div>
       <p className="mb-2 text-xs text-slate-500">{session.centers_ja}</p>
+      {session.stock_market_note_ja && (
+        <p className="mb-2 rounded bg-slate-800/80 px-2 py-1 text-[10px] text-amber-200">
+          株式: {session.stock_market_note_ja}
+        </p>
+      )}
       <dl className="space-y-1 text-xs text-slate-400">
         <div className="flex justify-between font-english">
           <dt>JST</dt>
@@ -75,6 +95,36 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
   );
 }
 
+function MarketDots({ markets }: { markets: MarketHourState[] }) {
+  const ordered = ["japan", "europe", "us"].map(
+    (id) => markets.find((m) => m.market_id === id)!,
+  ).filter(Boolean);
+
+  return (
+    <div className="mt-0.5 flex justify-center gap-px">
+      {ordered.map((m) => (
+        <span
+          key={m.market_id}
+          className={`h-1 w-1 rounded-full ${MARKET_DOT[m.status]}`}
+          title={`${m.name_ja}: ${m.status}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function timelineTooltip(h: MarketSessionsResponse["timeline_jst"][number]): string {
+  const parts = [
+    h.jst_label,
+    `稼働 ${h.open_market_count}/3 市場`,
+    h.closure_summary_ja ?? "全時間帯通常",
+  ];
+  const marketDetail = h.markets
+    .map((m) => `${MARKET_LABEL[m.market_id] ?? m.market_id}=${m.status}`)
+    .join(" ");
+  return `${parts.join(" · ")} (${marketDetail})`;
+}
+
 export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
   const orderedSessions = SESSION_ORDER.map(
     (id) => data.sessions.find((s) => s.id === id)!,
@@ -82,9 +132,10 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h2 className="mb-4 font-japanese text-sm font-medium text-slate-300">
+      <h2 className="mb-1 font-japanese text-sm font-medium text-slate-300">
         世界市場の時間帯
       </h2>
+      <p className="mb-4 text-xs leading-relaxed text-slate-500">{data.timeline_caption_ja}</p>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {data.clocks.map((c) => (
@@ -97,6 +148,9 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
               {c.time_hm}
               <span className="ml-1 text-sm font-normal text-slate-400">({c.weekday_ja})</span>
             </p>
+            {c.market_note_ja && (
+              <p className="mt-1 text-[10px] text-amber-200">{c.market_note_ja}</p>
+            )}
           </div>
         ))}
       </div>
@@ -108,7 +162,7 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
       </div>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-        <span>24時間タイムライン（日本時間）</span>
+        <span>24時間タイムライン（日本時間・株式市場ベース）</span>
         <span className="flex flex-wrap items-center gap-3">
           <span>
             <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-red-600/80" />
@@ -131,17 +185,20 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         {data.timeline_jst.map((h) => (
           <div
             key={h.jst_hour}
-            className={`relative aspect-[2/3] rounded-sm ${ACTIVITY_BG[h.activity_level]} ${
+            className={`relative rounded-sm ${ACTIVITY_BG[h.activity_level]} ${
               h.is_now ? "ring-2 ring-white ring-offset-1 ring-offset-slate-900" : ""
-            }`}
-            title={`${h.jst_label} ${h.active_sessions.join("/") || "off"}`}
+            } ${h.closure_summary_ja ? "opacity-90" : ""}`}
+            title={timelineTooltip(h)}
           >
-            {h.good_for_whitebit && (
-              <span className="absolute -top-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-blue-200" />
-            )}
-            {h.good_for_bitbank && (
-              <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-200" />
-            )}
+            <div className="flex aspect-[2/3] flex-col items-stretch justify-end px-px pb-0.5 pt-1">
+              {h.good_for_whitebit && (
+                <span className="mx-auto mb-auto h-1 w-1 rounded-full bg-blue-200" />
+              )}
+              <MarketDots markets={h.markets} />
+              {h.good_for_bitbank && (
+                <span className="mx-auto mt-auto h-1 w-1 rounded-full bg-amber-200" />
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -152,7 +209,19 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         <span>18時</span>
         <span>24時</span>
       </div>
-      <p className="mb-4 text-[10px] text-slate-500">
+      <p className="mb-4 text-[10px] leading-relaxed text-slate-500">
+        棒の色＝日・欧・米の株式市場が同時に開いている数（東証・ロンドン・NYSE の営業時間・土日・祝日を反映）
+        <br />
+        下の点（左から日・欧・米）:
+        <span className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 align-middle" />
+        稼働
+        <span className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-slate-500 align-middle" />
+        時間外
+        <span className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-slate-600 align-middle" />
+        土日
+        <span className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" />
+        祝日
+        <br />
         上の点=WhiteBIT向き / 下の点=bitbank向き　白枠=現在時刻
       </p>
 

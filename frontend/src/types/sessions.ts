@@ -1,5 +1,7 @@
 export type ActivityLevel = "low" | "medium" | "high" | "peak";
 export type SessionStatus = "active" | "upcoming" | "closed";
+export type MarketStatusCode = "open" | "weekend" | "holiday" | "off_hours";
+export type DayType = "weekday" | "weekend" | "holiday";
 
 export interface ClockDisplay {
   timezone: string;
@@ -7,6 +9,8 @@ export interface ClockDisplay {
   datetime_iso: string;
   time_hm: string;
   weekday_ja: string;
+  day_type: DayType;
+  market_note_ja: string | null;
 }
 
 export interface MarketSessionBlock {
@@ -19,8 +23,16 @@ export interface MarketSessionBlock {
   jst_end_hm: string;
   status: SessionStatus;
   activity_level: ActivityLevel;
+  stock_market_status: MarketStatusCode;
+  stock_market_note_ja: string | null;
   overlap_with: string[];
   linked_exchanges: string[];
+}
+
+export interface MarketHourState {
+  market_id: string;
+  name_ja: string;
+  status: MarketStatusCode;
 }
 
 export interface TimelineHour {
@@ -31,6 +43,9 @@ export interface TimelineHour {
   is_now: boolean;
   good_for_whitebit: boolean;
   good_for_bitbank: boolean;
+  markets: MarketHourState[];
+  open_market_count: number;
+  closure_summary_ja: string | null;
 }
 
 export interface ExchangeSessionRole {
@@ -53,4 +68,6 @@ export interface MarketSessionsResponse {
   exchanges: ExchangeSessionRole[];
   entry_hint: EntryTimingHint;
   generated_at: string;
+  jst_day_type: DayType;
+  timeline_caption_ja: string;
 }

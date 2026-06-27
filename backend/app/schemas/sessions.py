@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 SessionStatus = Literal["active", "upcoming", "closed"]
 ActivityLevel = Literal["low", "medium", "high", "peak"]
+MarketStatusCode = Literal["open", "weekend", "holiday", "off_hours"]
+DayType = Literal["weekday", "weekend", "holiday"]
 
 
 class ClockDisplay(BaseModel):
@@ -15,6 +17,8 @@ class ClockDisplay(BaseModel):
     datetime_iso: str
     time_hm: str
     weekday_ja: str
+    day_type: DayType
+    market_note_ja: str | None = None
 
 
 class ExchangeSessionRole(BaseModel):
@@ -34,8 +38,16 @@ class MarketSessionBlock(BaseModel):
     jst_end_hm: str
     status: SessionStatus
     activity_level: ActivityLevel
+    stock_market_status: MarketStatusCode
+    stock_market_note_ja: str | None = None
     overlap_with: list[str] = Field(default_factory=list)
     linked_exchanges: list[str] = Field(default_factory=list)
+
+
+class MarketHourState(BaseModel):
+    market_id: str
+    name_ja: str
+    status: MarketStatusCode
 
 
 class TimelineHour(BaseModel):
@@ -46,6 +58,9 @@ class TimelineHour(BaseModel):
     is_now: bool
     good_for_whitebit: bool
     good_for_bitbank: bool
+    markets: list[MarketHourState] = Field(default_factory=list)
+    open_market_count: int = 0
+    closure_summary_ja: str | None = None
 
 
 class EntryTimingHint(BaseModel):
@@ -61,3 +76,5 @@ class MarketSessionsResponse(BaseModel):
     exchanges: list[ExchangeSessionRole]
     entry_hint: EntryTimingHint
     generated_at: datetime
+    jst_day_type: DayType
+    timeline_caption_ja: str

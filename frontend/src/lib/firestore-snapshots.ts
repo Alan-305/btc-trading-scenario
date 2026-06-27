@@ -6,7 +6,9 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  type Timestamp,
+  where,
+  Timestamp,
+  type Timestamp as FirestoreTimestamp,
 } from "firebase/firestore";
 import type { MarketSnapshot, ScenarioResponse } from "../types/scenario";
 import { getFirebaseDb } from "./firebase";
@@ -27,6 +29,9 @@ interface SaveSnapshotInput {
   scenario: ScenarioResponse;
   snapshot: MarketSnapshot | null;
 }
+
+export const SNAPSHOT_RETENTION_DAYS = 7;
+export const SNAPSHOT_QUERY_LIMIT = 50;
 
 function snapshotsCollection(uid: string) {
   return collection(getFirebaseDb(), "users", uid, "snapshots");
@@ -55,13 +60,21 @@ export function subscribeRecentSnapshots(
   onData: (records: SavedSnapshotRecord[]) => void,
   onError: (message: string) => void,
 ): () => void {
-  const q = query(snapshotsCollection(uid), orderBy("saved_at", "desc"), limit(8));
+  const cutoff = Timestamp.fromDate(
+    new Date(Date.now() - SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+  );
+  const q = query(
+    snapshotsCollection(uid),
+    where("saved_at", ">=", cutoff),
+    orderBy("saved_at", "desc"),
+    limit(SNAPSHOT_QUERY_LIMIT),
+  );
   return onSnapshot(
     q,
     (snap) => {
       const records: SavedSnapshotRecord[] = snap.docs.map((doc) => {
         const data = doc.data();
-        const ts = data.saved_at as Timestamp | undefined;
+        const ts = data.saved_at as FirestoreTimestamp | undefined;
         return {
           id: doc.id,
           scenario: data.scenario as ScenarioResponse,

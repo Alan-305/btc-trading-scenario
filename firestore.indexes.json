@@ -1,0 +1,12 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "snapshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "saved_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

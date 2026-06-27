@@ -20,6 +20,7 @@ export VITE_FIREBASE_MESSAGING_SENDER_ID=$(echo "$FB_JSON" | python3 -c "import 
 export VITE_FIREBASE_APP_ID=$(echo "$FB_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['appId'])")
 export VITE_INVITE_ONLY=true
 export VITE_ALLOWED_EMAILS=matsuo@nexus-learning.com
+export VITE_AUTH_OPEN_GOOGLE=true
 
 echo "==> Build frontend"
 cd frontend && npm run build

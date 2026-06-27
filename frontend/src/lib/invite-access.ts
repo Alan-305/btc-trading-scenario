@@ -5,6 +5,11 @@ export function isInviteOnlyEnabled(): boolean {
   return import.meta.env.VITE_INVITE_ONLY === "true";
 }
 
+/** 一時設定: Google ログインを招待なしで許可 */
+export function isAuthOpenToGoogle(): boolean {
+  return import.meta.env.VITE_AUTH_OPEN_GOOGLE === "true";
+}
+
 /** Firebase 設定済みの本番では常にログイン必須 */
 export function requiresAuthentication(): boolean {
   if (!isFirebaseConfigured()) return isInviteOnlyEnabled();
@@ -30,6 +35,7 @@ export function isEmailAllowedByEnv(email: string): boolean {
 export async function isEmailInvited(email: string): Promise<boolean> {
   const normalized = email.trim().toLowerCase();
   if (!normalized) return false;
+  if (isAuthOpenToGoogle()) return true;
   if (isEmailAllowedByEnv(normalized)) return true;
 
   const snap = await getDoc(doc(getFirebaseDb(), "invites", normalized));

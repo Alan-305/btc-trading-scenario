@@ -19,6 +19,12 @@ import { ScenarioCard } from "../components/scenario/ScenarioCard";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
 import { EXTERNAL_LINKS } from "../lib/external-links";
+import {
+  type CandleInterval,
+  CANDLE_INTERVAL_OPTIONS,
+  candleIntervalLabel,
+  pastTimeLabel,
+} from "../lib/candle-interval";
 import { getMissingFirebaseEnvKeys, isFirebaseConfigured } from "../lib/firebase";
 import {
   saveScenarioSnapshot,
@@ -66,19 +72,33 @@ export function DashboardPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [openedAt, setOpenedAt] = useState<Date | null>(null);
+  const [candleInterval, setCandleInterval] = useState<CandleInterval>("4h");
+  const [chartLoading, setChartLoading] = useState(false);
+
+  const loadChart = useCallback(async (interval: CandleInterval) => {
+    setChartLoading(true);
+    try {
+      const [candleData, ta] = await Promise.all([
+        api.getCandles(interval, 250).catch(() => null),
+        api.getTechnical(interval).catch(() => null),
+      ]);
+      setCandles(candleData);
+      setTechnical(ta);
+    } finally {
+      setChartLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const [snap, scen, sent, hm, sess, candleData, ta, zones] = await Promise.all([
+      const [snap, scen, sent, hm, sess, zones] = await Promise.all([
         api.getMarketSnapshot(refresh),
         api.getScenario(refresh),
         api.getSentiment(),
         api.getHeatmap().catch(() => ({ cells: [] as HeatmapCell[] })),
         api.getMarketSessions(),
-        api.getCandles("4h", 250).catch(() => null),
-        api.getTechnical("4h").catch(() => null),
         api.getRiskZones().catch(() => null),
       ]);
       setSnapshot(snap);
@@ -86,8 +106,6 @@ export function DashboardPage() {
       setSentiment(sent);
       setHeatmap(hm.cells);
       setSessions(sess);
-      setCandles(candleData);
-      setTechnical(ta);
       setRiskZones(zones);
       setOpenedAt((prev) => (refresh || !prev ? new Date() : prev));
     } catch (e) {
@@ -133,6 +151,11 @@ export function DashboardPage() {
       clearInterval(clockId);
     };
   }, [canAccessApp, load]);
+
+  useEffect(() => {
+    if (!canAccessApp) return;
+    void loadChart(candleInterval);
+  }, [canAccessApp, candleInterval, loadChart]);
 
   useEffect(() => {
     if (!user) {
@@ -207,7 +230,7 @@ export function DashboardPage() {
 
   const history = candles?.candles.length
     ? candles.candles.slice(-5).map((c, i, arr) => ({
-        ts: `-${(arr.length - i) * 4}時間前`,
+        ts: pastTimeLabel(arr.length - i, candleInterval),
         price: c.close,
         type: "history" as const,
       }))
@@ -228,7 +251,7 @@ export function DashboardPage() {
           <h1 className="font-english text-2xl font-semibold tracking-tight text-white">
             BTC Trading Scenario
           </h1>
-          <p className="mt-2 text-sm text-slate-400">招待されたアカウントでログインしてください</p>
+          <p className="mt-2 text-sm text-slate-400">Google アカウントまたは招待メールのリンクでログインしてください</p>
         </div>
 
         {authLoading ? (
@@ -280,7 +303,10 @@ export function DashboardPage() {
           )}
           <button
             type="button"
-            onClick={() => load(true)}
+            onClick={() => {
+              void load(true);
+              void loadChart(candleInterval);
+            }}
             disabled={loading || !canAccessApp}
             className="min-h-[44px] rounded-lg bg-accent-blue px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
           >
@@ -327,36 +353,41 @@ export function DashboardPage() {
 
       {scenario && canAccessApp && (
         <div className="space-y-6">
-          <InvitePanel userEmail={user?.email} />
+          {/* 1. 本日のシナリオ */}
           <ScenarioCard scenario={scenario} />
 
-          {openedAt && price > 0 && (
-            <ScenarioPriceChart
-              history={history}
-              currentPrice={price}
-              openedAt={openedAt}
-              forecast={scenario.forecast}
-              entry={scenario.entry}
-              exit={scenario.exit}
-            />
-          )}
-
-          {user && (
-            <>
-              <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />
-              <AccuracyPanel data={accuracy} loading={accuracyLoading} />
-            </>
-          )}
-
+          {/* 2. 世界市場の時間帯 */}
           {sessions && <MarketSessionsPanel data={sessions} />}
 
+          {/* 3. ローソク足 */}
           <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 className="text-sm font-medium text-slate-400">4時間足ローソク足</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h2 className="text-sm font-medium text-slate-400">
+                  {candleIntervalLabel(candleInterval)}ローソク足
+                </h2>
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>足</span>
+                  <select
+                    value={candleInterval}
+                    onChange={(e) => setCandleInterval(e.target.value as CandleInterval)}
+                    disabled={chartLoading}
+                    className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-slate-200"
+                  >
+                    {CANDLE_INTERVAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {chartLoading && <span className="text-xs text-slate-500">読み込み中…</span>}
+              </div>
               <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
             </div>
             <CandlestickChart
               candles={candles?.candles ?? []}
+              interval={candleInterval}
               overlays={technical?.overlay_series ?? []}
               support={technical?.support}
               resistance={technical?.resistance}
@@ -367,8 +398,9 @@ export function DashboardPage() {
             />
           </section>
 
+          {/* 4. テクニカル・清算・スクイズ・センチメントなど */}
           <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <TechnicalAnalysisPanel data={technical} />
+            <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
             <RiskZonesPanel data={riskZones} />
           </section>
 
@@ -386,6 +418,29 @@ export function DashboardPage() {
             <CoinglassPanel data={sentiment?.coinglass ?? null} />
             <VolumeHeatmap cells={heatmap} />
           </section>
+
+          {/* 5. エントリー判断と価格の流れ */}
+          {openedAt && price > 0 && (
+            <ScenarioPriceChart
+              history={history}
+              currentPrice={price}
+              openedAt={openedAt}
+              forecast={scenario.forecast}
+              entry={scenario.entry}
+              exit={scenario.exit}
+            />
+          )}
+
+          {/* 6. AI分析的中率 */}
+          {user && <AccuracyPanel data={accuracy} loading={accuracyLoading} />}
+
+          {/* 7. 保存履歴 */}
+          {user && (
+            <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />
+          )}
+
+          {/* 8. 招待 */}
+          <InvitePanel userEmail={user?.email} />
 
           <p className="text-center text-xs text-slate-600">
             本アプリは参考情報であり、投資助言ではありません。

@@ -44,7 +44,7 @@ export function SavedSnapshotsPanel({ records, loading }: SavedSnapshotsPanelPro
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h2 className="mb-3 text-sm font-medium text-slate-400">保存履歴（直近）</h2>
+      <h2 className="mb-3 text-sm font-medium text-slate-400">保存履歴（直近7日）</h2>
       <ul className="space-y-2">
         {records.map((row) => (
           <li

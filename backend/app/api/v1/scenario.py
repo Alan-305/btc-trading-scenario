@@ -1,17 +1,18 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends
 
 from app.dependencies import (
-    get_market_aggregator,
+    get_klines_client,
     get_prediction_evaluator,
     get_redis_cache,
     get_scenario_builder,
 )
+from app.integrations.binance_klines import BinanceKlinesClient
 from app.schemas.candles import AccuracySummary
 from app.schemas.scenario import ScenarioResponse
-from app.services.market_aggregator import MarketAggregator
 from app.services.prediction_evaluator import PredictionEvaluator, SavedPredictionInput
 from app.services.scenario_builder import ScenarioBuilder
-from app.services.scenario_context import reference_price_from_snapshot
 from app.storage.redis_cache import AppCache
 
 router = APIRouter()
@@ -36,9 +37,10 @@ async def get_scenario(
 @router.post("/scenario/evaluate", response_model=AccuracySummary)
 async def evaluate_predictions(
     predictions: list[SavedPredictionInput],
-    aggregator: MarketAggregator = Depends(get_market_aggregator),
+    klines: BinanceKlinesClient = Depends(get_klines_client),
     evaluator: PredictionEvaluator = Depends(get_prediction_evaluator),
 ):
-    snapshot = await aggregator.collect_all()
-    current_price = reference_price_from_snapshot(snapshot)
-    return evaluator.evaluate_batch(predictions, current_price)
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=7)
+    candles = await klines.fetch_range(start, now, interval="1h")
+    return evaluator.evaluate_batch(predictions, candles, now=now)

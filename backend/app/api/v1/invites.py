@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr
 
 from app.config import Settings, get_settings
 from app.dependencies import require_invited_user
-from app.services.invite_service import add_invite, is_admin_email
+from app.services.invite_service import is_admin_email, send_invite_with_email
 
 router = APIRouter()
 
@@ -27,11 +27,13 @@ async def send_invite(
         raise HTTPException(status_code=403, detail="Only the owner can send invites")
 
     try:
-        email = add_invite(str(body.email), caller_email)
+        email = send_invite_with_email(str(body.email), caller_email, settings)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return InviteResponse(
         email=email,
-        message=f"{email} を招待しました。Google アカウントでログインできます。",
+        message=f"{email} に招待メールを送信しました。メール内のリンクからログインできます。",
     )

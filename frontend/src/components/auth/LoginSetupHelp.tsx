@@ -10,7 +10,7 @@ export function LoginSetupHelp({ localDev }: LoginSetupHelpProps) {
       <p className="font-medium text-slate-200">ローカル開発</p>
       <p className="mt-2">
         本番と同じく <span className="text-slate-300">Google でログイン</span>{" "}
-        を使います。招待された Google アカウント（例: matsuo@nexus-learning.com）で入ってください。
+        を使います。
       </p>
     </div>
   );

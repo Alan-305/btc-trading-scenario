@@ -3,6 +3,7 @@ import type { Candle, OverlayPoint } from "../../types/market";
 
 interface CandlestickChartProps {
   candles: Candle[];
+  interval?: string;
   overlays?: OverlayPoint[];
   support?: number | null;
   resistance?: number | null;
@@ -64,6 +65,7 @@ function buildBandPath(
 
 export function CandlestickChart({
   candles,
+  interval = "4h",
   overlays = [],
   support,
   resistance,
@@ -74,6 +76,7 @@ export function CandlestickChart({
 }: CandlestickChartProps) {
   const [hovered, setHovered] = useState<Candle | null>(null);
 
+  const intervalTag = interval === "1d" ? "1D" : interval.toUpperCase();
   const slice = useMemo(() => candles.slice(-60), [candles]);
   const overlayByTs = useMemo(
     () => new Map(overlays.map((o) => [o.ts, o])),
@@ -356,7 +359,7 @@ export function CandlestickChart({
       <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-500">
         <span className="flex items-center gap-1">
           <span className="inline-block h-0.5 w-4 bg-violet-400" />
-          EMA200（4H）
+          EMA200（{intervalTag}）
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block h-3 w-4 rounded-sm bg-slate-400/20 border border-slate-500/40" />

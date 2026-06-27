@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     # Invite-only access: require Firebase ID token + allowed email on /api routes
     invite_only: bool = False
     allowed_emails: str = ""
+    # Temporary: any Google-authenticated user may access (set false to re-enable invite gate)
+    auth_open_google: bool = True
+
+    # Invite emails (Resend) + magic-link continue URL
+    resend_api_key: str = ""
+    resend_from_email: str = ""
+    app_public_url: str = "https://nexus-btc-trading.web.app"
 
 
 @lru_cache
