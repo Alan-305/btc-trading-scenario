@@ -1,29 +1,33 @@
 import type { User } from "firebase/auth";
 import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithRedirect,
   GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
 import { consumeRedirectResult } from "../lib/auth-redirect";
 import { isLocalDevHost } from "../lib/auth-strategy";
 import { getFirebaseAuth } from "../lib/firebase";
+import { isEmailInvited, requiresAuthentication } from "../lib/invite-access";
 
 export function authErrorMessage(error: unknown): string {
   const code = (error as { code?: string }).code;
-  if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
-    return "メールまたはパスワードが正しくありません。Firebase Console のユーザー設定を確認してください。";
+  if (code === "auth/popup-closed-by-user") {
+    return "ログインがキャンセルされました。";
   }
-  if (code === "auth/user-not-found") {
-    return "ユーザーが見つかりません。Firebase Console でユーザーを作成してください。";
+  if (code === "auth/popup-blocked") {
+    return "ポップアップがブロックされました。Chrome のアドレスバー右の許可アイコンからポップアップを許可してください。";
   }
-  if (code === "auth/invalid-email") {
-    return "メールアドレスの形式が正しくありません。";
+  if (code === "auth/unauthorized-domain") {
+    return "このドメインは Firebase で許可されていません。管理者にお問い合わせください。";
+  }
+  if (code === "auth/account-exists-with-different-credential") {
+    return "別の方法で登録されたアカウントです。Google アカウントを確認してください。";
   }
   if (code === "auth/operation-not-allowed") {
-    return "Firebase Console で「メール/パスワード」ログインを有効にしてください。";
+    return "Google ログインが有効になっていません。管理者にお問い合わせください。";
   }
   if (code === "auth/too-many-requests") {
     return "試行回数が多すぎます。しばらく待ってから再試行してください。";
@@ -32,25 +36,62 @@ export function authErrorMessage(error: unknown): string {
   return "ログインに失敗しました";
 }
 
-function getDevCredentials(): { email: string; password: string } | null {
-  const email = import.meta.env.VITE_DEV_LOGIN_EMAIL?.trim();
-  const password = import.meta.env.VITE_DEV_LOGIN_PASSWORD;
-  if (!email || !password) return null;
-  return { email, password };
+async function ensureInvited(user: User, authRequired: boolean): Promise<boolean> {
+  if (!authRequired) return true;
+  const email = user.email;
+  if (!email) return false;
+  return isEmailInvited(email);
 }
 
 export function useAuth(enabled: boolean) {
+  const authRequired = enabled && requiresAuthentication();
+  const inviteOnly = authRequired;
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(enabled);
   const [signingIn, setSigningIn] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isInvited, setIsInvited] = useState(!inviteOnly);
+  const [inviteChecking, setInviteChecking] = useState(false);
   const localDev = isLocalDevHost();
+
+  const rejectIfNotInvited = useCallback(
+    async (next: User | null) => {
+      if (!next) {
+        setIsInvited(!inviteOnly);
+        return true;
+      }
+      if (!inviteOnly) {
+        setIsInvited(true);
+        return true;
+      }
+
+      setInviteChecking(true);
+      try {
+        const invited = await ensureInvited(next, inviteOnly);
+        if (!invited) {
+          await signOut(getFirebaseAuth());
+          setUser(null);
+          setIsInvited(false);
+          setAuthError("このアカウントは招待されていません。管理者にお問い合わせください。");
+          return false;
+        }
+        setUser(next);
+        setIsInvited(true);
+        setAuthError(null);
+        return true;
+      } finally {
+        setInviteChecking(false);
+      }
+    },
+    [inviteOnly],
+  );
 
   useEffect(() => {
     if (!enabled) {
       setUser(null);
       setLoading(false);
       setSigningIn(false);
+      setIsInvited(true);
       return;
     }
 
@@ -73,10 +114,12 @@ export function useAuth(enabled: boolean) {
         getFirebaseAuth(),
         (next) => {
           if (cancelled) return;
-          setUser(next);
-          setLoading(false);
-          setSigningIn(false);
-          if (next) setAuthError(null);
+          void rejectIfNotInvited(next).finally(() => {
+            if (!cancelled) {
+              setLoading(false);
+              setSigningIn(false);
+            }
+          });
         },
         (error) => {
           if (cancelled) return;
@@ -98,55 +141,56 @@ export function useAuth(enabled: boolean) {
       window.clearTimeout(timeout);
       unsub();
     };
-  }, [enabled, localDev]);
+  }, [enabled, localDev, rejectIfNotInvited]);
 
-  const signIn = useCallback(async () => {
+  const signInWithGoogle = useCallback(async () => {
     if (!enabled) return;
     setAuthError(null);
     setSigningIn(true);
 
     try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+
       if (localDev) {
-        const creds = getDevCredentials();
-        if (!creds) {
-          setAuthError(
-            "frontend/.env.local に VITE_DEV_LOGIN_EMAIL と VITE_DEV_LOGIN_PASSWORD を設定してください。",
-          );
-          setSigningIn(false);
-          return;
-        }
-        await signInWithEmailAndPassword(getFirebaseAuth(), creds.email, creds.password);
-        setSigningIn(false);
+        const cred = await signInWithPopup(getFirebaseAuth(), provider);
+        const ok = await rejectIfNotInvited(cred.user);
+        if (!ok) setSigningIn(false);
         return;
       }
 
-      await signInWithRedirect(getFirebaseAuth(), new GoogleAuthProvider());
+      // Production: redirect + same-origin auth handler (Chrome 115+ compatible)
+      await signInWithRedirect(getFirebaseAuth(), provider);
     } catch (error) {
       setAuthError(authErrorMessage(error));
       setSigningIn(false);
     }
-  }, [enabled, localDev]);
+  }, [enabled, localDev, rejectIfNotInvited]);
 
   const logout = useCallback(async () => {
     if (!enabled) return;
     setAuthError(null);
     try {
       await signOut(getFirebaseAuth());
+      setUser(null);
+      setIsInvited(!inviteOnly);
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "ログアウトに失敗しました");
     }
-  }, [enabled]);
+  }, [enabled, inviteOnly]);
 
-  const devCredentialsReady = !localDev || getDevCredentials() !== null;
+  const canAccessApp = !authRequired || (Boolean(user) && isInvited && !inviteChecking);
 
   return {
     user,
-    loading,
+    loading: loading || inviteChecking,
     signingIn,
     authError,
     localDev,
-    devCredentialsReady,
-    signIn,
+    inviteOnly,
+    isInvited,
+    canAccessApp,
+    signInWithGoogle,
     logout,
   };
 }

@@ -1,4 +1,6 @@
-.PHONY: setup redis redis-brew redis-down dev dev-all test lint docker-up docker-down frontend-dev frontend-build
+.PHONY: setup redis redis-brew redis-down dev dev-all test lint docker-up docker-down frontend-dev frontend-build gcp-bootstrap gcp-deploy
+
+GCP_PROJECT_ID ?= nexus-btc-trading
 
 setup:
 	chmod +x scripts/setup.sh
@@ -64,3 +66,10 @@ frontend-dev:
 
 frontend-build:
 	cd frontend && npm run build
+
+# GCP Cloud Run（プロジェクト: nexus-btc-trading）
+gcp-bootstrap:
+	GCP_PROJECT_ID=$(GCP_PROJECT_ID) ./scripts/gcp-bootstrap.sh
+
+gcp-deploy:
+	gcloud builds submit --config=infra/cloudbuild.yaml --project=$(GCP_PROJECT_ID) .

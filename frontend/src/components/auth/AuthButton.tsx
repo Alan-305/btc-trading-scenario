@@ -4,7 +4,6 @@ interface AuthButtonProps {
   user: User | null;
   loading: boolean;
   signingIn?: boolean;
-  localDev?: boolean;
   onSignIn: () => void;
   onSignOut: () => void;
 }
@@ -13,7 +12,6 @@ export function AuthButton({
   user,
   loading,
   signingIn = false,
-  localDev = true,
   onSignIn,
   onSignOut,
 }: AuthButtonProps) {
@@ -34,7 +32,7 @@ export function AuthButton({
         disabled={signingIn}
         className="min-h-[44px] rounded-lg border border-surface-border bg-surface-card px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800 disabled:opacity-50"
       >
-        {signingIn ? "ログイン中…" : localDev ? "ログイン" : "Google でログイン"}
+        {signingIn ? "ログイン中…" : "Google でログイン"}
       </button>
     );
   }

@@ -1,0 +1,97 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+CandleInterval = Literal["1h", "4h", "1d"]
+
+
+class Candle(BaseModel):
+    ts: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+
+
+class CandlesResponse(BaseModel):
+    symbol: str
+    interval: CandleInterval
+    candles: list[Candle]
+    source: str = "binance"
+
+
+class MacdValues(BaseModel):
+    macd: float
+    signal: float
+    histogram: float
+
+
+class BollingerValues(BaseModel):
+    upper: float
+    middle: float
+    lower: float
+
+
+class OverlaySeriesPoint(BaseModel):
+    ts: datetime
+    ema_200: float | None = None
+    bb_upper: float | None = None
+    bb_middle: float | None = None
+    bb_lower: float | None = None
+
+
+class TechnicalAnalysisResponse(BaseModel):
+    symbol: str
+    interval: CandleInterval
+    rsi_14: float | None = None
+    ema_20: float | None = None
+    ema_50: float | None = None
+    ema_200: float | None = None
+    bollinger: BollingerValues | None = None
+    macd: MacdValues | None = None
+    support: float | None = None
+    resistance: float | None = None
+    trend: Literal["bullish", "bearish", "neutral"] = "neutral"
+    summary_ja: str = ""
+    overlay_series: list[OverlaySeriesPoint] = Field(default_factory=list)
+
+
+class RiskZone(BaseModel):
+    zone_low: float
+    zone_high: float
+    label: str
+    rationale: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class RiskZonesResponse(BaseModel):
+    reference_price: float
+    long_liquidation: RiskZone | None = None
+    short_squeeze: RiskZone | None = None
+    disclaimer: str = "推定値であり、実際の清算価格とは異なる場合があります。"
+
+
+class PredictionEvaluation(BaseModel):
+    saved_at: str | None = None
+    predicted_trend: str
+    reference_price: float
+    current_price: float
+    price_change_pct: float
+    direction_correct: bool | None = None
+    entry_zone_hit: bool | None = None
+    take_profit_hit: bool | None = None
+    stop_loss_hit: bool | None = None
+    outcome: Literal["win", "loss", "partial", "pending", "neutral"]
+
+
+class AccuracySummary(BaseModel):
+    total: int
+    evaluated: int
+    direction_accuracy_pct: float | None = None
+    win_rate_pct: float | None = None
+    evaluations: list[PredictionEvaluation]

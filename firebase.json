@@ -1,5 +1,17 @@
 {
   "firestore": {
     "rules": "firestore.rules"
+  },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "BTC Trading Scenario",
+        "supportEmail": "chokuju1224@gmail.com",
+        "authorizedRedirectUris": [
+          "https://btc-trading-frontend-ajjblismxa-an.a.run.app/__/auth/handler"
+        ]
+      }
+    }
   }
 }

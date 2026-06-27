@@ -45,6 +45,13 @@ class Settings(BaseSettings):
 
     internal_collect_token: str = ""
 
+    # Comma-separated origins for production CORS (optional; nginx proxy avoids browser CORS)
+    cors_origins: str = ""
+
+    # Invite-only access: require Firebase ID token + allowed email on /api routes
+    invite_only: bool = False
+    allowed_emails: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

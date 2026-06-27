@@ -1,31 +1,146 @@
+substitutions:
+  _REGION: asia-northeast1
+  _REPOSITORY: btc-trading
+  _API_SERVICE: btc-trading-api
+  _FRONTEND_SERVICE: btc-trading-frontend
+  _FRONTEND_HOST: btc-trading-frontend-ajjblismxa-an.a.run.app
+  _FIREBASE_AUTH_UPSTREAM: nexus-btc-trading.firebaseapp.com
+  _ALLOWED_EMAILS: matsuo@nexus-learning.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/FIREBASE_WEB_CONFIG/versions/latest
+      env: FIREBASE_WEB_CONFIG
+
 steps:
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "gcr.io/$PROJECT_ID/btc-trading-api", "./backend"]
-  - name: gcr.io/cloud-builders/docker
-    args: ["push", "gcr.io/$PROJECT_ID/btc-trading-api"]
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+  # --- API ---
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api:latest
+      - ./backend
+
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api
+
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
       - run
       - deploy
-      - btc-trading-api
-      - --image=gcr.io/$PROJECT_ID/btc-trading-api
-      - --region=asia-northeast1
+      - ${_API_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api:$BUILD_ID
+      - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
-      - --set-env-vars=APP_ENV=production
-      - --set-secrets=COINGLASS_API_KEY=COINGLASS_API_KEY:latest,INTERNAL_COLLECT_TOKEN=INTERNAL_COLLECT_TOKEN:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest
-  - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "gcr.io/$PROJECT_ID/btc-trading-frontend", "./frontend"]
-  - name: gcr.io/cloud-builders/docker
-    args: ["push", "gcr.io/$PROJECT_ID/btc-trading-frontend"]
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
+      - --port=8000
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=5
+      - --set-env-vars=APP_ENV=production,CACHE_BACKEND=memory,DERIVATIVES_PROVIDER=free,LLM_PROVIDER=gemini,LOG_LEVEL=INFO,INVITE_ONLY=true,ALLOWED_EMAILS=${_ALLOWED_EMAILS}
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,COINGLASS_API_KEY=COINGLASS_API_KEY:latest,INTERNAL_COLLECT_TOKEN=INTERNAL_COLLECT_TOKEN:latest
+
+  - id: resolve-api-url
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
     args:
-      - run
-      - deploy
-      - btc-trading-frontend
-      - --image=gcr.io/$PROJECT_ID/btc-trading-frontend
-      - --region=asia-northeast1
-      - --platform=managed
-      - --allow-unauthenticated
+      - -c
+      - |
+        gcloud run services describe ${_API_SERVICE} \
+          --region=${_REGION} \
+          --format='value(status.url)' > /workspace/api_url.txt
+        echo "API URL: $(cat /workspace/api_url.txt)"
+
+  # --- Frontend ---
+  - id: prepare-firebase-build-args
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    secretEnv: ["FIREBASE_WEB_CONFIG"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        python3 <<'PY'
+        import json, os, pathlib
+        cfg = json.loads(os.environ["FIREBASE_WEB_CONFIG"])
+        lines = [
+            "VITE_API_BASE_URL=",
+            f"VITE_FIREBASE_API_KEY={cfg['apiKey']}",
+            f"VITE_FIREBASE_AUTH_DOMAIN=${_FRONTEND_HOST}",
+            f"VITE_FIREBASE_PROJECT_ID={cfg['projectId']}",
+            f"VITE_FIREBASE_STORAGE_BUCKET={cfg['storageBucket']}",
+            f"VITE_FIREBASE_MESSAGING_SENDER_ID={cfg['messagingSenderId']}",
+            f"VITE_FIREBASE_APP_ID={cfg['appId']}",
+            "VITE_INVITE_ONLY=true",
+            f"VITE_ALLOWED_EMAILS=${_ALLOWED_EMAILS}",
+        ]
+        pathlib.Path("/workspace/firebase.env").write_text("\n".join(lines) + "\n")
+        PY
+
+  - id: build-frontend
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        set -a
+        source /workspace/firebase.env
+        set +a
+        docker build \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:$BUILD_ID \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:latest \
+          --build-arg VITE_API_BASE_URL="$${VITE_API_BASE_URL}" \
+          --build-arg VITE_FIREBASE_API_KEY="$${VITE_FIREBASE_API_KEY}" \
+          --build-arg VITE_FIREBASE_AUTH_DOMAIN="$${VITE_FIREBASE_AUTH_DOMAIN}" \
+          --build-arg VITE_FIREBASE_PROJECT_ID="$${VITE_FIREBASE_PROJECT_ID}" \
+          --build-arg VITE_FIREBASE_STORAGE_BUCKET="$${VITE_FIREBASE_STORAGE_BUCKET}" \
+          --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="$${VITE_FIREBASE_MESSAGING_SENDER_ID}" \
+          --build-arg VITE_FIREBASE_APP_ID="$${VITE_FIREBASE_APP_ID}" \
+          --build-arg VITE_INVITE_ONLY="$${VITE_INVITE_ONLY}" \
+          --build-arg VITE_ALLOWED_EMAILS="$${VITE_ALLOWED_EMAILS}" \
+          --build-arg FIREBASE_AUTH_UPSTREAM=${_FIREBASE_AUTH_UPSTREAM} \
+          ./frontend
+
+  - id: push-frontend
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend
+
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        API_URL=$(cat /workspace/api_url.txt)
+        gcloud run deploy ${_FRONTEND_SERVICE} \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:$BUILD_ID \
+          --region=${_REGION} \
+          --platform=managed \
+          --allow-unauthenticated \
+          --port=80 \
+          --memory=256Mi \
+          --cpu=1 \
+          --min-instances=0 \
+          --max-instances=5 \
+          --set-env-vars=API_UPSTREAM=$${API_URL}
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api:$BUILD_ID
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/frontend:$BUILD_ID

@@ -1,4 +1,6 @@
 import type { NormalizedTicker } from "../../types/scenario";
+import { EXCHANGE_URLS } from "../../lib/external-links";
+import { ExternalLink } from "../ui/ExternalLink";
 
 interface ExchangeDivergenceProps {
   tickers: NormalizedTicker[];
@@ -21,10 +23,16 @@ export function ExchangeDivergence({ tickers, divergence }: ExchangeDivergencePr
           const div = divergence[t.exchange] ?? 0;
           const divColor =
             div > 0.1 ? "text-accent-green" : div < -0.1 ? "text-accent-red" : "text-slate-400";
+          const url = EXCHANGE_URLS[t.exchange];
           return (
-            <li key={t.exchange} className="flex items-center justify-between text-sm">
+            <li key={t.exchange} className="flex items-center justify-between gap-2 text-sm">
               <span className="font-english text-slate-300">
                 {EXCHANGE_LABEL[t.exchange] ?? t.exchange}
+                {url && (
+                  <ExternalLink href={url} className="ml-2 min-h-0 py-0">
+                    開く
+                  </ExternalLink>
+                )}
               </span>
               <span className="font-english text-slate-100">
                 ${parseFloat(t.last_price).toLocaleString(undefined, { maximumFractionDigits: 0 })}

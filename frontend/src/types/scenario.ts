@@ -24,6 +24,8 @@ export interface ScenarioIndicators {
   funding_rate: number | null;
   oi_change_24h_pct: number | null;
   divergence_max_pct: number | null;
+  ta_trend?: MacroTrend | null;
+  rsi_14?: number | null;
 }
 
 export interface ScenarioResponse {

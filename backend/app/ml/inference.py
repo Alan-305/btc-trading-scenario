@@ -32,6 +32,7 @@ class ScenarioInference:
         snapshot: MarketSnapshot,
         fear_greed: FearGreedIndex | None,
         coinglass: CoinglassSnapshot | None,
+        ta_trend: MacroTrend | None = None,
     ) -> InferenceSignal:
         feat = self.features.extract(snapshot, fear_greed, coinglass)
         price = feat.reference_price
@@ -55,6 +56,11 @@ class ScenarioInference:
         if feat.bid_ask_imbalance > 0.05:
             bullish_score += 1
         elif feat.bid_ask_imbalance < -0.05:
+            bearish_score += 1
+
+        if ta_trend == "bullish":
+            bullish_score += 1
+        elif ta_trend == "bearish":
             bearish_score += 1
 
         if bullish_score > bearish_score:

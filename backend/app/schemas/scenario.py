@@ -33,6 +33,8 @@ class ScenarioIndicators(BaseModel):
     funding_rate: float | None = None
     oi_change_24h_pct: float | None = None
     divergence_max_pct: float | None = None
+    ta_trend: MacroTrend | None = None
+    rsi_14: float | None = None
 
 
 class ScenarioResponse(BaseModel):

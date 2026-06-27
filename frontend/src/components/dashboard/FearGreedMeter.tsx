@@ -1,3 +1,6 @@
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { ExternalLink } from "../ui/ExternalLink";
+
 interface FearGreedMeterProps {
   value: number | null;
   classification?: string;
@@ -10,7 +13,10 @@ export function FearGreedMeter({ value, classification }: FearGreedMeterProps) {
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h3 className="mb-3 text-sm font-medium text-slate-400">Fear & Greed</h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-slate-400">Fear & Greed</h3>
+        <ExternalLink href={EXTERNAL_LINKS.fearGreed}>Alternative.me</ExternalLink>
+      </div>
       <div className="flex items-end gap-3">
         <span className={`font-english text-4xl font-semibold ${color}`}>{v}</span>
         <span className="mb-1 text-sm text-slate-500">{classification ?? "—"}</span>

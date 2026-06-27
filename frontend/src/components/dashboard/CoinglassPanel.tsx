@@ -1,4 +1,6 @@
 import type { CoinglassSnapshot, ExchangeDerivatives } from "../../types/scenario";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { ExternalLink } from "../ui/ExternalLink";
 
 interface CoinglassPanelProps {
   data: CoinglassSnapshot | null;
@@ -10,6 +12,14 @@ const EXCHANGE_LABEL: Record<string, string> = {
   okx: "OKX",
   whitebit: "WhiteBIT",
   bitbank: "bitbank",
+};
+
+const EXCHANGE_LINKS: Record<string, string> = {
+  binance: EXTERNAL_LINKS.binanceFutures,
+  bybit: EXTERNAL_LINKS.bybitFutures,
+  okx: EXTERNAL_LINKS.okxFutures,
+  whitebit: EXTERNAL_LINKS.whitebit,
+  bitbank: EXTERNAL_LINKS.bitbank,
 };
 
 function formatOi(ex: ExchangeDerivatives): string {
@@ -33,14 +43,17 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h3 className="mb-3 text-sm font-medium text-slate-400">
-        先物指標
-        {data?.source && (
-          <span className="ml-2 text-xs font-normal text-slate-500">
-            ({data.source === "free_aggregate" ? "無料・複数取引所" : data.source})
-          </span>
-        )}
-      </h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-slate-400">
+          先物指標
+          {data?.source && (
+            <span className="ml-2 text-xs font-normal text-slate-500">
+              ({data.source === "free_aggregate" ? "無料・複数取引所" : data.source})
+            </span>
+          )}
+        </h3>
+        <ExternalLink href={EXTERNAL_LINKS.binanceFutures}>Binance</ExternalLink>
+      </div>
 
       {data && (data.open_interest_usd != null || data.funding_rate != null) && (
         <dl className="mb-4 space-y-1 border-b border-surface-border pb-3 text-sm">
@@ -72,6 +85,11 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
                 {EXCHANGE_LABEL[ex.exchange] ?? ex.exchange}
                 {ex.exchange === "bitbank" && (
                   <span className="ml-1 text-slate-500">現物</span>
+                )}
+                {EXCHANGE_LINKS[ex.exchange] && (
+                  <ExternalLink href={EXCHANGE_LINKS[ex.exchange]} className="ml-1 min-h-0 py-0">
+                    ↗
+                  </ExternalLink>
                 )}
               </span>
               {formatPrice(ex) && (

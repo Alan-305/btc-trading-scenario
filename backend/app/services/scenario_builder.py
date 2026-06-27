@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from app.integrations.alternative_me import AlternativeMeClient
+from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.ml.inference import ScenarioInference
 from app.llm.scenario_writer import ScenarioWriter
@@ -16,6 +17,7 @@ from app.schemas.scenario import (
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.scenario_context import reference_price_from_snapshot
+from app.services.technical_analysis import TechnicalAnalysisService
 
 
 class ScenarioBuilder:
@@ -27,6 +29,8 @@ class ScenarioBuilder:
         writer: ScenarioWriter,
         fear_greed: AlternativeMeClient,
         coinglass: DerivativesProvider,
+        klines: BinanceKlinesClient | None = None,
+        technical: TechnicalAnalysisService | None = None,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -34,6 +38,19 @@ class ScenarioBuilder:
         self.writer = writer
         self.fear_greed = fear_greed
         self.coinglass = coinglass
+        self.klines = klines
+        self.technical = technical or TechnicalAnalysisService()
+
+    async def _ta_trend(self):
+        if not self.klines:
+            return None, None
+        try:
+            candles = await self.klines.fetch(interval="4h", limit=250)
+            ta = self.technical.analyze(candles, interval="4h")
+            trend = "range" if ta.trend == "neutral" else ta.trend
+            return trend, ta.rsi_14
+        except Exception:
+            return None, None
 
     async def build(self) -> ScenarioResponse:
         snapshot = await self.aggregator.collect_all()
@@ -41,8 +58,9 @@ class ScenarioBuilder:
 
         fg = await self.fear_greed.fetch_fear_greed()
         cg = await self.coinglass.fetch_snapshot()
+        ta_trend, ta_rsi = await self._ta_trend()
 
-        signal = self.inference.predict(snapshot, fg, cg)
+        signal = self.inference.predict(snapshot, fg, cg, ta_trend=ta_trend)
         now = datetime.now(timezone.utc)
 
         forecast = [
@@ -55,6 +73,8 @@ class ScenarioBuilder:
             funding_rate=cg.funding_rate if cg else None,
             oi_change_24h_pct=None,
             divergence_max_pct=DivergenceService.max_divergence_pct(snapshot.divergence_pct),
+            ta_trend=ta_trend,
+            rsi_14=ta_rsi,
         )
 
         scenario_text = await self.writer.generate(
@@ -95,7 +115,8 @@ class ScenarioBuilder:
         snapshot = self.divergence.apply(snapshot)
         fg = await self.fear_greed.fetch_fear_greed()
         cg = await self.coinglass.fetch_snapshot()
-        signal = self.inference.predict(snapshot, fg, cg)
+        ta_trend, ta_rsi = await self._ta_trend()
+        signal = self.inference.predict(snapshot, fg, cg, ta_trend=ta_trend)
         now = datetime.now(timezone.utc)
         forecast = [
             ForecastPoint(ts=now + timedelta(hours=h), price=p)
@@ -105,6 +126,8 @@ class ScenarioBuilder:
             fear_greed=fg.value if fg else None,
             funding_rate=cg.funding_rate if cg else None,
             divergence_max_pct=DivergenceService.max_divergence_pct(snapshot.divergence_pct),
+            ta_trend=ta_trend,
+            rsi_14=ta_rsi,
         )
         scenario_text = await self.writer.generate(
             macro_trend=signal.macro_trend,

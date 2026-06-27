@@ -1,23 +1,36 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, setApiAuthTokenProvider } from "../api/client";
 import { AuthButton } from "../components/auth/AuthButton";
+import { LoginForm } from "../components/auth/LoginForm";
 import { LoginSetupHelp } from "../components/auth/LoginSetupHelp";
-import { PriceChart } from "../components/chart/PriceChart";
-import { TradeZones } from "../components/chart/TradeZones";
+import { CandlestickChart } from "../components/chart/CandlestickChart";
+import { ScenarioPriceChart } from "../components/chart/ScenarioPriceChart";
+import { AccuracyPanel } from "../components/dashboard/AccuracyPanel";
 import { CoinglassPanel } from "../components/dashboard/CoinglassPanel";
 import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
+import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
+import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
 import { ScenarioCard } from "../components/scenario/ScenarioCard";
+import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
+import { EXTERNAL_LINKS } from "../lib/external-links";
 import { getMissingFirebaseEnvKeys, isFirebaseConfigured } from "../lib/firebase";
 import {
   saveScenarioSnapshot,
   subscribeRecentSnapshots,
   type SavedSnapshotRecord,
 } from "../lib/firestore-snapshots";
+import type {
+  AccuracySummary,
+  CandlesResponse,
+  RiskZonesResponse,
+  SavedPredictionInput,
+  TechnicalAnalysis,
+} from "../types/market";
 import type { HeatmapCell, MarketSnapshot, ScenarioResponse, SentimentIndicators } from "../types/scenario";
 import type { MarketSessionsResponse } from "../types/sessions";
 
@@ -29,8 +42,9 @@ export function DashboardPage() {
     signingIn,
     authError,
     localDev,
-    devCredentialsReady,
-    signIn,
+    inviteOnly,
+    canAccessApp,
+    signInWithGoogle,
     logout,
   } = useAuth(firebaseReady);
   const [loading, setLoading] = useState(true);
@@ -42,26 +56,39 @@ export function DashboardPage() {
   const [sentiment, setSentiment] = useState<SentimentIndicators | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapCell[]>([]);
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
+  const [candles, setCandles] = useState<CandlesResponse | null>(null);
+  const [technical, setTechnical] = useState<TechnicalAnalysis | null>(null);
+  const [riskZones, setRiskZones] = useState<RiskZonesResponse | null>(null);
+  const [accuracy, setAccuracy] = useState<AccuracySummary | null>(null);
+  const [accuracyLoading, setAccuracyLoading] = useState(false);
   const [savedRecords, setSavedRecords] = useState<SavedSnapshotRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [openedAt, setOpenedAt] = useState<Date | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
     setError(null);
     try {
-      const [snap, scen, sent, hm, sess] = await Promise.all([
+      const [snap, scen, sent, hm, sess, candleData, ta, zones] = await Promise.all([
         api.getMarketSnapshot(refresh),
         api.getScenario(refresh),
         api.getSentiment(),
         api.getHeatmap().catch(() => ({ cells: [] as HeatmapCell[] })),
         api.getMarketSessions(),
+        api.getCandles("4h", 250).catch(() => null),
+        api.getTechnical("4h").catch(() => null),
+        api.getRiskZones().catch(() => null),
       ]);
       setSnapshot(snap);
       setScenario(scen);
       setSentiment(sent);
       setHeatmap(hm.cells);
       setSessions(sess);
+      setCandles(candleData);
+      setTechnical(ta);
+      setRiskZones(zones);
+      setOpenedAt((prev) => (refresh || !prev ? new Date() : prev));
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込みに失敗しました");
     } finally {
@@ -70,6 +97,31 @@ export function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!firebaseReady || !canAccessApp) {
+      setApiAuthTokenProvider(null);
+      return;
+    }
+
+    setApiAuthTokenProvider(async () => {
+      if (!user) return null;
+      return user.getIdToken();
+    });
+
+    return () => setApiAuthTokenProvider(null);
+  }, [firebaseReady, canAccessApp, user]);
+
+  useEffect(() => {
+    if (!canAccessApp) {
+      setLoading(false);
+      setScenario(null);
+      setSnapshot(null);
+      setSentiment(null);
+      setCandles(null);
+      setTechnical(null);
+      setRiskZones(null);
+      setError(null);
+      return;
+    }
     load();
     const id = setInterval(() => load(), 60_000);
     const clockId = setInterval(() => {
@@ -79,13 +131,14 @@ export function DashboardPage() {
       clearInterval(id);
       clearInterval(clockId);
     };
-  }, [load]);
+  }, [canAccessApp, load]);
 
   useEffect(() => {
     if (!user) {
       setSavedRecords([]);
       setHistoryLoading(false);
       setHistoryError(null);
+      setAccuracy(null);
       return;
     }
     setHistoryLoading(true);
@@ -103,6 +156,31 @@ export function DashboardPage() {
     );
     return unsub;
   }, [user]);
+
+  useEffect(() => {
+    if (!user || savedRecords.length === 0) {
+      setAccuracy(null);
+      return;
+    }
+    setAccuracyLoading(true);
+    const inputs: SavedPredictionInput[] = savedRecords.map((row) => ({
+      saved_at: row.saved_at?.toISOString() ?? null,
+      macro_trend: row.scenario.macro_trend,
+      reference_price: row.market_summary.whitebit_price
+        ? parseFloat(row.market_summary.whitebit_price)
+        : row.scenario.entry.zone_low,
+      entry_zone_low: row.scenario.entry.zone_low,
+      entry_zone_high: row.scenario.entry.zone_high,
+      take_profit: row.scenario.exit.take_profit,
+      stop_loss: row.scenario.exit.stop_loss,
+      side: row.scenario.entry.side,
+    }));
+    api
+      .evaluatePredictions(inputs)
+      .then(setAccuracy)
+      .catch(() => setAccuracy(null))
+      .finally(() => setAccuracyLoading(false));
+  }, [user, savedRecords]);
 
   const handleSave = async () => {
     if (!user || !scenario) return;
@@ -126,13 +204,49 @@ export function DashboardPage() {
     ?? snapshot?.tickers[0];
   const price = baselinePrice ? parseFloat(baselinePrice.last_price) : 0;
 
-  const history = baselinePrice
-    ? Array.from({ length: 12 }, (_, i) => ({
-        ts: `${12 - i}h`,
-        price: price * (1 + (Math.sin(i) * 0.005)),
+  const history = candles?.candles.length
+    ? candles.candles.slice(-11).map((c, i, arr) => ({
+        ts: `-${(arr.length - i) * 4}時間前`,
+        price: c.close,
         type: "history" as const,
       }))
-    : [];
+    : baselinePrice
+      ? Array.from({ length: 11 }, (_, i) => ({
+          ts: `-${(11 - i) * 4}時間前`,
+          price: price * (1 + Math.sin(i) * 0.005),
+          type: "history" as const,
+        }))
+      : [];
+
+  const showLoginGate = firebaseReady && inviteOnly && !canAccessApp;
+
+  if (showLoginGate) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-12">
+        <div className="mb-8 text-center">
+          <h1 className="font-english text-2xl font-semibold tracking-tight text-white">
+            BTC Trading Scenario
+          </h1>
+          <p className="mt-2 text-sm text-slate-400">招待されたアカウントでログインしてください</p>
+        </div>
+
+        {authLoading ? (
+          <p className="text-sm text-slate-400">確認中…</p>
+        ) : (
+          <>
+            {localDev ? <LoginSetupHelp localDev={localDev} /> : null}
+            <LoginForm signingIn={signingIn} onGoogleSignIn={signInWithGoogle} />
+          </>
+        )}
+
+        {authError && (
+          <div className="mt-4 max-w-md rounded-lg border border-accent-red/50 bg-accent-red/10 p-3 text-sm text-red-200">
+            {authError}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface px-4 py-8 sm:px-6 lg:px-8">
@@ -149,8 +263,7 @@ export function DashboardPage() {
               user={user}
               loading={authLoading}
               signingIn={signingIn}
-              localDev={localDev}
-              onSignIn={signIn}
+              onSignIn={signInWithGoogle}
               onSignOut={logout}
             />
           ) : null}
@@ -167,7 +280,7 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => load(true)}
-            disabled={loading}
+            disabled={loading || !canAccessApp}
             className="min-h-[44px] rounded-lg bg-accent-blue px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
           >
             {loading ? "分析中…" : "再分析"}
@@ -181,10 +294,6 @@ export function DashboardPage() {
           <code className="mx-1 text-xs">frontend/.env.local</code>
           を用意して Vite を再起動してください（不足: {getMissingFirebaseEnvKeys().join(", ")}）。
         </div>
-      )}
-
-      {firebaseReady && !user && (
-        <LoginSetupHelp localDev={localDev} devCredentialsReady={devCredentialsReady} />
       )}
 
       {(authError || historyError) && (
@@ -211,31 +320,54 @@ export function DashboardPage() {
         </div>
       )}
 
-      {loading && !scenario && (
+      {loading && !scenario && canAccessApp && (
         <div className="flex items-center justify-center py-24 text-slate-400">分析中…</div>
       )}
 
-      {scenario && (
+      {scenario && canAccessApp && (
         <div className="space-y-6">
           <ScenarioCard scenario={scenario} />
 
-          {user && <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />}
+          {openedAt && price > 0 && (
+            <ScenarioPriceChart
+              history={history}
+              currentPrice={price}
+              openedAt={openedAt}
+              forecast={scenario.forecast}
+              entry={scenario.entry}
+              exit={scenario.exit}
+            />
+          )}
+
+          {user && (
+            <>
+              <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />
+              <AccuracyPanel data={accuracy} loading={accuracyLoading} />
+            </>
+          )}
 
           {sessions && <MarketSessionsPanel data={sessions} />}
 
           <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-            <h2 className="mb-4 text-sm font-medium text-slate-400">価格チャート</h2>
-            <PriceChart
-              history={history}
-              forecast={scenario.forecast}
-              entryLow={scenario.entry.zone_low}
-              entryHigh={scenario.entry.zone_high}
-              takeProfit={scenario.exit.take_profit}
-              stopLoss={scenario.exit.stop_loss}
-            />
-            <div className="mt-4">
-              <TradeZones entry={scenario.entry} exit={scenario.exit} />
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium text-slate-400">4時間足ローソク足</h2>
+              <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
             </div>
+            <CandlestickChart
+              candles={candles?.candles ?? []}
+              overlays={technical?.overlay_series ?? []}
+              support={technical?.support}
+              resistance={technical?.resistance}
+              longLiqLow={riskZones?.long_liquidation?.zone_low}
+              longLiqHigh={riskZones?.long_liquidation?.zone_high}
+              shortSqLow={riskZones?.short_squeeze?.zone_low}
+              shortSqHigh={riskZones?.short_squeeze?.zone_high}
+            />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <TechnicalAnalysisPanel data={technical} />
+            <RiskZonesPanel data={riskZones} />
           </section>
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

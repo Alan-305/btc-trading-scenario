@@ -1,4 +1,6 @@
 import type { HeatmapCell } from "../../types/scenario";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { ExternalLink } from "../ui/ExternalLink";
 
 interface VolumeHeatmapProps {
   cells: HeatmapCell[];
@@ -18,7 +20,10 @@ export function VolumeHeatmap({ cells }: VolumeHeatmapProps) {
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h3 className="mb-3 text-sm font-medium text-slate-400">板厚みヒートマップ</h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-slate-400">板厚みヒートマップ</h3>
+        <ExternalLink href={EXTERNAL_LINKS.whitebit}>WhiteBIT</ExternalLink>
+      </div>
       <div className="grid grid-cols-6 gap-1 sm:grid-cols-8">
         {cells.slice(0, 24).map((cell, i) => {
           const intensity = (cell.bid_depth + cell.ask_depth) / maxDepth;

@@ -13,5 +13,5 @@ frontend/dist/
 .DS_Store
 .coverage
 htmlcov/
-frontend/tsconfig.tsbuildinfo
 frontend/.env.local
+frontend/tsconfig.tsbuildinfo

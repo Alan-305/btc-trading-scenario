@@ -15,11 +15,17 @@ structlog.configure(
 
 settings = get_settings()
 
+_cors_origins = (
+    ["*"]
+    if settings.app_env == "development"
+    else [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+)
+
 app = FastAPI(title="BTC Trading Scenario API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.app_env == "development" else [],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
