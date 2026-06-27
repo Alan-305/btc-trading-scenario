@@ -17,7 +17,8 @@ from app.schemas.sessions import (
 
 JST = ZoneInfo("Asia/Tokyo")
 UTC = ZoneInfo("UTC")
-EUROPE = ZoneInfo("Europe/Vilnius")  # WhiteBIT 本社付近
+EUROPE = ZoneInfo("Europe/Vilnius")
+US_EAST = ZoneInfo("America/New_York")
 
 WEEKDAY_JA = ["月", "火", "水", "木", "金", "土", "日"]
 
@@ -34,9 +35,9 @@ class SessionDef:
 
 # 暗号資産の流動性ピーク（UTC 時間帯・おおよそ）
 SESSIONS: tuple[SessionDef, ...] = (
-    SessionDef("asia", "アジア", "東京・香港", 0, 9, ("bitbank",)),
-    SessionDef("europe", "ヨーロッパ", "ロンドン・フランクフルト", 7, 16, ("whitebit",)),
-    SessionDef("us", "米国", "ニューヨーク", 13, 22, ()),
+    SessionDef("asia", "日本時間", "東京・香港", 0, 9, ("bitbank",)),
+    SessionDef("europe", "欧州時間", "ロンドン・フランクフルト", 7, 16, ("whitebit",)),
+    SessionDef("us", "米国時間", "ニューヨーク", 13, 22, ()),
 )
 
 
@@ -132,7 +133,7 @@ def _next_high_activity_jst(now: datetime, timeline: list[TimelineHour]) -> str 
 def _entry_hint(now: datetime, timeline: list[TimelineHour]) -> EntryTimingHint:
     now_jst = now.astimezone(JST)
     cell = timeline[now_jst.hour]
-    sessions_ja = {"asia": "アジア", "europe": "欧州", "us": "米国"}
+    sessions_ja = {"asia": "日本", "europe": "欧州", "us": "米国"}
 
     if cell.good_for_whitebit and cell.activity_level in ("high", "peak"):
         summary = "今は WhiteBIT でのエントリー検討に向いている時間帯です。"
@@ -175,8 +176,8 @@ class MarketSessionsService:
 
         clocks = [
             _format_clock(now, JST, "日本時間", "Asia/Tokyo"),
-            _format_clock(now, UTC, "UTC（世界標準）", "UTC"),
-            _format_clock(now, EUROPE, "欧州時間（WhiteBIT）", "Europe/Vilnius"),
+            _format_clock(now, EUROPE, "欧州時間", "Europe/Vilnius"),
+            _format_clock(now, US_EAST, "米国時間", "America/New_York"),
         ]
 
         sessions: list[MarketSessionBlock] = []

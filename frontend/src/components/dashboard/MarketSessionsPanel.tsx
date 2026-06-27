@@ -4,11 +4,12 @@ import type {
   MarketSessionBlock,
 } from "../../types/sessions";
 
+/** 青=静か / オレンジ=やや活発 / 赤=活発 */
 const ACTIVITY_BG: Record<ActivityLevel, string> = {
-  low: "bg-slate-700/40",
-  medium: "bg-blue-600/50",
-  high: "bg-amber-500/60",
-  peak: "bg-emerald-500/70",
+  low: "bg-blue-600/45",
+  medium: "bg-orange-500/55",
+  high: "bg-red-500/65",
+  peak: "bg-red-600/80",
 };
 
 const SESSION_STATUS_LABEL = {
@@ -76,7 +77,7 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
 
 export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
   const orderedSessions = SESSION_ORDER.map(
-    (id) => data.sessions.find((s) => s.id === id)!
+    (id) => data.sessions.find((s) => s.id === id)!,
   ).filter(Boolean);
 
   return (
@@ -106,16 +107,27 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         ))}
       </div>
 
-      <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
         <span>24時間タイムライン（日本時間）</span>
-        <span>
-          <span className="mr-2 inline-block h-2 w-2 rounded-sm bg-emerald-500/70" />
-          活発
-          <span className="mx-2 inline-block h-2 w-2 rounded-sm bg-slate-700/40" />
-          静か
+        <span className="flex flex-wrap items-center gap-3">
+          <span>
+            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-red-600/80" />
+            活発
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-orange-500/55" />
+            やや活発
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-blue-600/45" />
+            静か
+          </span>
         </span>
       </div>
-      <div className="mb-1 grid grid-cols-24 gap-px" style={{ gridTemplateColumns: "repeat(24, minmax(0, 1fr))" }}>
+      <div
+        className="mb-1 grid grid-cols-24 gap-px"
+        style={{ gridTemplateColumns: "repeat(24, minmax(0, 1fr))" }}
+      >
         {data.timeline_jst.map((h) => (
           <div
             key={h.jst_hour}
@@ -125,10 +137,10 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
             title={`${h.jst_label} ${h.active_sessions.join("/") || "off"}`}
           >
             {h.good_for_whitebit && (
-              <span className="absolute -top-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-blue-400" />
+              <span className="absolute -top-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-blue-200" />
             )}
             {h.good_for_bitbank && (
-              <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />
+              <span className="absolute -bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-200" />
             )}
           </div>
         ))}

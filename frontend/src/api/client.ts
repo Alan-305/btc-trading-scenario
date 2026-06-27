@@ -67,4 +67,6 @@ export const api = {
   getRiskZones: () => fetchJson<RiskZonesResponse>("/api/v1/market/risk-zones"),
   evaluatePredictions: (predictions: SavedPredictionInput[]) =>
     postJson<AccuracySummary>("/api/v1/scenario/evaluate", predictions),
+  sendInvite: (email: string) =>
+    postJson<{ email: string; message: string }>("/api/v1/invites", { email }),
 };

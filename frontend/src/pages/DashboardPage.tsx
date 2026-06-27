@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setApiAuthTokenProvider } from "../api/client";
 import { AuthButton } from "../components/auth/AuthButton";
+import { InvitePanel } from "../components/auth/InvitePanel";
 import { LoginForm } from "../components/auth/LoginForm";
 import { LoginSetupHelp } from "../components/auth/LoginSetupHelp";
 import { CandlestickChart } from "../components/chart/CandlestickChart";
@@ -205,7 +206,7 @@ export function DashboardPage() {
   const price = baselinePrice ? parseFloat(baselinePrice.last_price) : 0;
 
   const history = candles?.candles.length
-    ? candles.candles.slice(-11).map((c, i, arr) => ({
+    ? candles.candles.slice(-5).map((c, i, arr) => ({
         ts: `-${(arr.length - i) * 4}時間前`,
         price: c.close,
         type: "history" as const,
@@ -326,6 +327,7 @@ export function DashboardPage() {
 
       {scenario && canAccessApp && (
         <div className="space-y-6">
+          <InvitePanel userEmail={user?.email} />
           <ScenarioCard scenario={scenario} />
 
           {openedAt && price > 0 && (

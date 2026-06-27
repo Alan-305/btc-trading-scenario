@@ -15,7 +15,6 @@ import type { EntryZone, ExitStrategy, ForecastPoint, TradeSide } from "../../ty
 interface PricePoint {
   ts: string;
   price: number;
-  type: "history" | "now" | "forecast";
 }
 
 const SIDE_LABEL: Record<TradeSide, string> = {
@@ -31,6 +30,13 @@ const STATUS_BADGE: Record<string, string> = {
   passed: "bg-slate-700 text-slate-300",
   neutral: "bg-slate-700 text-slate-400",
 };
+
+interface ChartRow {
+  ts: string;
+  kind: "past" | "now" | "future";
+  pastPrice: number | null;
+  futurePrice: number | null;
+}
 
 interface ScenarioPriceChartProps {
   history: PricePoint[];
@@ -48,6 +54,35 @@ function formatOpenedAt(d: Date): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function buildChartRows(
+  history: PricePoint[],
+  currentPrice: number,
+  forecast: ForecastPoint[],
+): ChartRow[] {
+  const past = history.slice(-5).map((h) => ({
+    ts: h.ts,
+    kind: "past" as const,
+    pastPrice: h.price,
+    futurePrice: null,
+  }));
+
+  const nowRow: ChartRow = {
+    ts: "いま",
+    kind: "now",
+    pastPrice: currentPrice,
+    futurePrice: currentPrice,
+  };
+
+  const future = forecast.map((f, i) => ({
+    ts: `+${i + 1}時間`,
+    kind: "future" as const,
+    pastPrice: null,
+    futurePrice: f.price,
+  }));
+
+  return [...past, nowRow, ...future];
 }
 
 export function ScenarioPriceChart({
@@ -69,28 +104,7 @@ export function ScenarioPriceChart({
     exit.take_profit,
   );
 
-  const pastPoints = history.slice(0, -1).map((h) => ({
-    ...h,
-    type: "history" as const,
-  }));
-
-  const nowPoint: PricePoint = { ts: "いま", price: currentPrice, type: "now" };
-
-  const forecastPoints: PricePoint[] = forecast.map((f, i) => ({
-    ts: `+${i + 1}時間`,
-    price: f.price,
-    type: "forecast" as const,
-  }));
-
-  const chartData: PricePoint[] = [...pastPoints, nowPoint, ...forecastPoints];
-
-  const historyData = chartData.filter((d) => d.type === "history" || d.type === "now");
-  const bridge = [
-    ...(pastPoints.length > 0 ? [pastPoints[pastPoints.length - 1]] : []),
-    nowPoint,
-    ...forecastPoints,
-  ].map((p) => ({ ...p, type: "forecast" as const }));
-
+  const chartData = buildChartRows(history, currentPrice, forecast);
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
 
   return (
@@ -99,7 +113,7 @@ export function ScenarioPriceChart({
         <div>
           <h2 className="text-sm font-medium text-slate-400">エントリー判断と価格の流れ</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {formatOpenedAt(openedAt)} 時点の価格から、6時間先までの目安
+            {formatOpenedAt(openedAt)} 時点 — 左が過去、右が6時間先の目安
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -127,7 +141,15 @@ export function ScenarioPriceChart({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-            <XAxis dataKey="ts" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+            <XAxis
+              dataKey="ts"
+              stroke="#94a3b8"
+              tick={{ fontSize: 11 }}
+              interval={0}
+              angle={chartData.length > 10 ? -25 : 0}
+              textAnchor={chartData.length > 10 ? "end" : "middle"}
+              height={chartData.length > 10 ? 50 : 30}
+            />
             <YAxis
               stroke="#94a3b8"
               tick={{ fontSize: 11 }}
@@ -136,7 +158,11 @@ export function ScenarioPriceChart({
             />
             <Tooltip
               contentStyle={{ background: "#1e293b", border: "1px solid #334155" }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, "価格"]}
+              formatter={(value, name) => {
+                if (value == null || typeof value !== "number") return [null, null];
+                const label = name === "pastPrice" ? "過去" : "予測";
+                return [`$${value.toLocaleString()}`, label];
+              }}
               labelFormatter={(label) => (label === "いま" ? "いま（アプリを開いた時点）" : label)}
             />
             <ReferenceArea
@@ -150,7 +176,6 @@ export function ScenarioPriceChart({
               x="いま"
               stroke="#ffffff"
               strokeWidth={2}
-              strokeDasharray="4 2"
               label={{ value: "いま", fill: "#e2e8f0", fontSize: 10, position: "top" }}
             />
             {exit.take_profit.map((tp, i) => (
@@ -169,36 +194,41 @@ export function ScenarioPriceChart({
               label={{ value: "SL", fill: "#fca5a5", fontSize: 10 }}
             />
             <Line
-              data={historyData}
               type="monotone"
-              dataKey="price"
+              dataKey="pastPrice"
               stroke="#60a5fa"
               strokeWidth={2}
-              dot={false}
+              dot={{ r: 3, fill: "#60a5fa" }}
+              connectNulls={false}
               name="過去"
             />
             <Line
-              data={bridge}
               type="monotone"
-              dataKey="price"
+              dataKey="futurePrice"
               stroke="#a78bfa"
               strokeWidth={2}
               strokeDasharray="6 4"
               dot={(props) => {
-                const { cx, cy, payload } = props as { cx: number; cy: number; payload: PricePoint };
-                if (payload?.ts !== "いま") return <circle key="dot" r={0} />;
+                const { cx, cy, payload } = props as {
+                  cx: number;
+                  cy: number;
+                  payload: ChartRow;
+                };
+                if (payload?.kind !== "now" && payload?.kind !== "future") return <g key="empty" />;
+                const isNow = payload.kind === "now";
                 return (
                   <circle
-                    key="now-dot"
+                    key={payload.ts}
                     cx={cx}
                     cy={cy}
-                    r={5}
-                    fill="#fff"
-                    stroke="#a78bfa"
-                    strokeWidth={2}
+                    r={isNow ? 6 : 4}
+                    fill={isNow ? "#fff" : "#a78bfa"}
+                    stroke={isNow ? "#a78bfa" : "none"}
+                    strokeWidth={isNow ? 2 : 0}
                   />
                 );
               }}
+              connectNulls={false}
               name="予測"
             />
           </ComposedChart>
@@ -229,7 +259,7 @@ export function ScenarioPriceChart({
       </dl>
 
       <p className="mt-3 text-xs text-slate-500">
-        青い帯＝エントリー候補の価格帯　白い縦線＝いま　紫の点線＝6時間先の目安
+        青い実線＝過去の推移　紫の点線＝いまから6時間先の目安（白丸＝いま）　青い帯＝エントリー候補
       </p>
     </section>
   );

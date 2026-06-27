@@ -1,4 +1,3 @@
-from fastapi import Depends, Header, HTTPException, Request
 from functools import lru_cache
 
 import structlog
@@ -104,9 +103,7 @@ async def verify_internal_token(
         raise HTTPException(status_code=401, detail="Invalid internal token")
 
 
-@lru_cache
-def _allowed_email_set(allowed_emails: str) -> frozenset[str]:
-    return frozenset(e.strip().lower() for e in allowed_emails.split(",") if e.strip())
+from app.services.invite_service import is_email_invited
 
 
 async def require_invited_user(
@@ -115,10 +112,6 @@ async def require_invited_user(
 ) -> str | None:
     if not settings.invite_only:
         return None
-
-    allowed = _allowed_email_set(settings.allowed_emails)
-    if not allowed:
-        raise HTTPException(status_code=503, detail="Invite access is not configured")
 
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -134,7 +127,7 @@ async def require_invited_user(
         raise HTTPException(status_code=401, detail="Invalid authentication token") from exc
 
     email = (decoded.get("email") or "").strip().lower()
-    if not email or email not in allowed:
+    if not email or not is_email_invited(email, settings):
         raise HTTPException(status_code=403, detail="Not invited")
 
     return email
