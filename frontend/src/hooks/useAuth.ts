@@ -3,12 +3,9 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
 } from "firebase/auth";
 import { useCallback, useEffect, useState } from "react";
-import { consumeRedirectResult } from "../lib/auth-redirect";
-import { isLocalDevHost } from "../lib/auth-strategy";
 import { getFirebaseAuth } from "../lib/firebase";
 import { isEmailInvited, requiresAuthentication } from "../lib/invite-access";
 
@@ -52,7 +49,6 @@ export function useAuth(enabled: boolean) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isInvited, setIsInvited] = useState(!inviteOnly);
   const [inviteChecking, setInviteChecking] = useState(false);
-  const localDev = isLocalDevHost();
 
   const rejectIfNotInvited = useCallback(
     async (next: User | null) => {
@@ -96,41 +92,24 @@ export function useAuth(enabled: boolean) {
     }
 
     let cancelled = false;
-    let unsub = () => {};
-    setLoading(true);
-
-    const boot = async () => {
-      if (!localDev) {
-        try {
-          await consumeRedirectResult(getFirebaseAuth());
-        } catch (error) {
-          if (!cancelled) setAuthError(authErrorMessage(error));
-        }
-      }
-
-      if (cancelled) return;
-
-      unsub = onAuthStateChanged(
-        getFirebaseAuth(),
-        (next) => {
-          if (cancelled) return;
-          void rejectIfNotInvited(next).finally(() => {
-            if (!cancelled) {
-              setLoading(false);
-              setSigningIn(false);
-            }
-          });
-        },
-        (error) => {
-          if (cancelled) return;
-          setAuthError(authErrorMessage(error));
-          setLoading(false);
-          setSigningIn(false);
-        },
-      );
-    };
-
-    void boot();
+    const unsub = onAuthStateChanged(
+      getFirebaseAuth(),
+      (next) => {
+        if (cancelled) return;
+        void rejectIfNotInvited(next).finally(() => {
+          if (!cancelled) {
+            setLoading(false);
+            setSigningIn(false);
+          }
+        });
+      },
+      (error) => {
+        if (cancelled) return;
+        setAuthError(authErrorMessage(error));
+        setLoading(false);
+        setSigningIn(false);
+      },
+    );
 
     const timeout = window.setTimeout(() => {
       if (!cancelled) setLoading(false);
@@ -141,7 +120,7 @@ export function useAuth(enabled: boolean) {
       window.clearTimeout(timeout);
       unsub();
     };
-  }, [enabled, localDev, rejectIfNotInvited]);
+  }, [enabled, rejectIfNotInvited]);
 
   const signInWithGoogle = useCallback(async () => {
     if (!enabled) return;
@@ -151,21 +130,14 @@ export function useAuth(enabled: boolean) {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-
-      if (localDev) {
-        const cred = await signInWithPopup(getFirebaseAuth(), provider);
-        const ok = await rejectIfNotInvited(cred.user);
-        if (!ok) setSigningIn(false);
-        return;
-      }
-
-      // Production: redirect + same-origin auth handler (Chrome 115+ compatible)
-      await signInWithRedirect(getFirebaseAuth(), provider);
+      const cred = await signInWithPopup(getFirebaseAuth(), provider);
+      const ok = await rejectIfNotInvited(cred.user);
+      if (!ok) setSigningIn(false);
     } catch (error) {
       setAuthError(authErrorMessage(error));
       setSigningIn(false);
     }
-  }, [enabled, localDev, rejectIfNotInvited]);
+  }, [enabled, rejectIfNotInvited]);
 
   const logout = useCallback(async () => {
     if (!enabled) return;
@@ -186,7 +158,7 @@ export function useAuth(enabled: boolean) {
     loading: loading || inviteChecking,
     signingIn,
     authError,
-    localDev,
+    localDev: false,
     inviteOnly,
     isInvited,
     canAccessApp,

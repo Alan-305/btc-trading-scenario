@@ -3,7 +3,6 @@ substitutions:
   _REPOSITORY: btc-trading
   _API_SERVICE: btc-trading-api
   _FRONTEND_SERVICE: btc-trading-frontend
-  _FRONTEND_HOST: btc-trading-frontend-ajjblismxa-an.a.run.app
   _FIREBASE_AUTH_UPSTREAM: nexus-btc-trading.firebaseapp.com
   _ALLOWED_EMAILS: matsuo@nexus-learning.com
 
@@ -79,7 +78,7 @@ steps:
         lines = [
             "VITE_API_BASE_URL=",
             f"VITE_FIREBASE_API_KEY={cfg['apiKey']}",
-            f"VITE_FIREBASE_AUTH_DOMAIN=${_FRONTEND_HOST}",
+            f"VITE_FIREBASE_AUTH_DOMAIN={cfg['authDomain']}",
             f"VITE_FIREBASE_PROJECT_ID={cfg['projectId']}",
             f"VITE_FIREBASE_STORAGE_BUCKET={cfg['storageBucket']}",
             f"VITE_FIREBASE_MESSAGING_SENDER_ID={cfg['messagingSenderId']}",

@@ -2,15 +2,29 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "hosting": {
+    "public": "frontend/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "btc-trading-api",
+          "region": "asia-northeast1"
+        }
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "auth": {
     "providers": {
       "emailPassword": true,
       "googleSignIn": {
         "oAuthBrandDisplayName": "BTC Trading Scenario",
-        "supportEmail": "chokuju1224@gmail.com",
-        "authorizedRedirectUris": [
-          "https://btc-trading-frontend-ajjblismxa-an.a.run.app/__/auth/handler"
-        ]
+        "supportEmail": "chokuju1224@gmail.com"
       }
     }
   }
