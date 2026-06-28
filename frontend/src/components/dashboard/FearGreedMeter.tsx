@@ -1,32 +1,159 @@
 import { EXTERNAL_LINKS } from "../../lib/external-links";
+import {
+  fearGreedColor,
+  fearGreedLabelJa,
+  formatFearGreedUpdated,
+  type FearGreedHistoryPoint,
+} from "../../lib/fear-greed";
 import { ExternalLink } from "../ui/ExternalLink";
 
 interface FearGreedMeterProps {
   value: number | null;
   classification?: string;
+  updatedAt?: string;
+  history?: FearGreedHistoryPoint[];
 }
 
-export function FearGreedMeter({ value, classification }: FearGreedMeterProps) {
-  const v = value ?? 50;
-  const color =
-    v >= 75 ? "text-accent-red" : v >= 55 ? "text-accent-amber" : v >= 45 ? "text-slate-300" : v >= 25 ? "text-accent-blue" : "text-accent-green";
+function FearGreedGauge({ value }: { value: number }) {
+  const cx = 120;
+  const cy = 108;
+  const r = 78;
+  const angle = Math.PI - (value / 100) * Math.PI;
+  const needleLen = 58;
+  const nx = cx + needleLen * Math.cos(angle);
+  const ny = cy - needleLen * Math.sin(angle);
+  const color = fearGreedColor(value);
 
   return (
-    <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-400">Fear & Greed</h3>
-        <ExternalLink href={EXTERNAL_LINKS.fearGreed}>Alternative.me</ExternalLink>
+    <svg viewBox="0 0 240 132" className="mx-auto w-full max-w-[280px]" aria-hidden>
+      <defs>
+        <linearGradient id="fg-gauge-arc" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#c85d28" />
+          <stop offset="45%" stopColor="#e8913a" />
+          <stop offset="55%" stopColor="#f1d25c" />
+          <stop offset="100%" stopColor="#7ac55d" />
+        </linearGradient>
+      </defs>
+      <path
+        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+        fill="none"
+        stroke="url(#fg-gauge-arc)"
+        strokeWidth={16}
+        strokeLinecap="round"
+      />
+      <line
+        x1={cx}
+        y1={cy}
+        x2={nx}
+        y2={ny}
+        stroke="#94a3b8"
+        strokeWidth={3}
+        strokeLinecap="round"
+      />
+      <circle cx={nx} cy={ny} r={13} fill={color} />
+      <text
+        x={nx}
+        y={ny + 4}
+        textAnchor="middle"
+        fill="#fff"
+        fontSize={11}
+        fontWeight={700}
+        className="font-english"
+      >
+        {value}
+      </text>
+      <circle cx={cx} cy={cy} r={11} fill="#475569" stroke="#64748b" strokeWidth={2} />
+      <text x={cx} y={cy + 4} textAnchor="middle" fill="#f59e0b" fontSize={10} fontWeight={700}>
+        ₿
+      </text>
+      <text x={cx - r - 4} y={cy + 14} textAnchor="middle" fill="#94a3b8" fontSize={9}>
+        恐怖
+      </text>
+      <text x={cx + r + 4} y={cy + 14} textAnchor="middle" fill="#94a3b8" fontSize={9}>
+        強欲
+      </text>
+    </svg>
+  );
+}
+
+function HistoryRow({ label_ja, value, classification }: FearGreedHistoryPoint) {
+  const color = fearGreedColor(value);
+  return (
+    <li className="flex items-center justify-between gap-3 border-b border-surface-border/60 py-3 last:border-b-0">
+      <div className="min-w-0">
+        <p className="font-japanese text-sm text-slate-300">{label_ja}</p>
+        <p className="font-japanese text-xs" style={{ color }}>
+          {fearGreedLabelJa(classification)}
+        </p>
       </div>
-      <div className="flex items-end gap-3">
-        <span className={`font-english text-4xl font-semibold ${color}`}>{v}</span>
-        <span className="mb-1 text-sm text-slate-500">{classification ?? "—"}</span>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-700">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-accent-green via-accent-amber to-accent-red"
-          style={{ width: `${v}%` }}
-        />
-      </div>
+      <span
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-english text-sm font-semibold text-white"
+        style={{ backgroundColor: color }}
+      >
+        {value}
+      </span>
+    </li>
+  );
+}
+
+export function FearGreedMeter({
+  value,
+  classification,
+  updatedAt,
+  history = [],
+}: FearGreedMeterProps) {
+  const v = value ?? 50;
+  const label = fearGreedLabelJa(classification ?? "Neutral");
+  const accent = fearGreedColor(v);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ゲージカード */}
+      <article className="rounded-xl border border-surface-border bg-surface-card p-5">
+        <header className="mb-4 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 text-lg text-amber-500" aria-hidden>
+              ₿
+            </span>
+            <div>
+              <h3 className="font-english text-sm font-semibold text-slate-100">Fear & Greed Index</h3>
+              <p className="mt-0.5 font-japanese text-[11px] leading-relaxed text-slate-500">
+                暗号資産市場のセンチメント（複合指標）
+              </p>
+            </div>
+          </div>
+          <ExternalLink href={EXTERNAL_LINKS.fearGreed} className="shrink-0 text-xs">
+            alternative.me
+          </ExternalLink>
+        </header>
+
+        <p className="mb-2 text-center font-japanese text-sm text-slate-400">
+          現在:{" "}
+          <span className="font-semibold" style={{ color: accent }}>
+            {label}
+          </span>
+        </p>
+
+        <FearGreedGauge value={v} />
+
+        <footer className="mt-3 flex items-center justify-between text-[10px] text-slate-500">
+          <span className="font-english">alternative.me</span>
+          <span>更新: {formatFearGreedUpdated(updatedAt)}</span>
+        </footer>
+      </article>
+
+      {/* 履歴カード */}
+      {history.length > 0 && (
+        <article className="rounded-xl border border-surface-border bg-surface-card p-5">
+          <h4 className="mb-1 font-english text-sm font-semibold text-slate-200">Historical Values</h4>
+          <p className="mb-3 font-japanese text-[11px] text-slate-500">過去の指数</p>
+          <ul>
+            {history.map((row) => (
+              <HistoryRow key={row.period} {...row} />
+            ))}
+          </ul>
+        </article>
+      )}
     </div>
   );
 }

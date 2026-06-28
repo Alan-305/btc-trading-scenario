@@ -47,6 +47,18 @@ class FearGreedIndex(BaseModel):
     timestamp: datetime
 
 
+class FearGreedHistoryPoint(BaseModel):
+    period: Literal["now", "yesterday", "last_week", "last_month"]
+    label_ja: str
+    value: int
+    classification: str
+
+
+class FearGreedIndicators(BaseModel):
+    current: FearGreedIndex
+    history: list[FearGreedHistoryPoint] = Field(default_factory=list)
+
+
 class ExchangeDerivatives(BaseModel):
     exchange: str
     symbol: str
@@ -81,5 +93,6 @@ class OrderbookHeatmapCell(BaseModel):
 
 class SentimentIndicators(BaseModel):
     fear_greed: FearGreedIndex | None = None
+    fear_greed_history: list[FearGreedHistoryPoint] = Field(default_factory=list)
     coinglass: CoinglassSnapshot | None = None
     x_sentiment_score: float | None = None

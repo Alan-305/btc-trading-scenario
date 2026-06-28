@@ -15,12 +15,17 @@ async def sentiment(
     coinglass_client: DerivativesProvider = Depends(get_coinglass),
     cache: AppCache = Depends(get_redis_cache),
 ):
-    fg = await fear_greed_client.fetch_fear_greed()
+    fg_data = await fear_greed_client.fetch_fear_greed_indicators()
     cg = await coinglass_client.fetch_snapshot()
 
-    if fg:
-        await cache.set_json(AppCache.FEAR_GREED_KEY, fg.model_dump(mode="json"))
+    if fg_data:
+        await cache.set_json(AppCache.FEAR_GREED_KEY, fg_data.current.model_dump(mode="json"))
     if cg:
         await cache.set_json(AppCache.COINGLASS_KEY, cg.model_dump(mode="json"))
 
-    return SentimentIndicators(fear_greed=fg, coinglass=cg, x_sentiment_score=None)
+    return SentimentIndicators(
+        fear_greed=fg_data.current if fg_data else None,
+        fear_greed_history=fg_data.history if fg_data else [],
+        coinglass=cg,
+        x_sentiment_score=None,
+    )

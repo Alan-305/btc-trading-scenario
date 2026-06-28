@@ -500,11 +500,17 @@ export function DashboardPage() {
             <RiskZonesPanel data={riskZones} />
           </section>
 
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <FearGreedMeter
               value={sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null}
               classification={sentiment?.fear_greed?.classification}
+              updatedAt={sentiment?.fear_greed?.timestamp}
+              history={sentiment?.fear_greed_history}
             />
+            <VolumeHeatmap cells={heatmap} referencePrice={price > 0 ? price : undefined} />
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {snapshot && (
               <ExchangeDivergence
                 tickers={snapshot.tickers}
@@ -512,7 +518,6 @@ export function DashboardPage() {
               />
             )}
             <CoinglassPanel data={sentiment?.coinglass ?? null} />
-            <VolumeHeatmap cells={heatmap} />
           </section>
 
           {/* 5. エントリー判断と価格の流れ */}

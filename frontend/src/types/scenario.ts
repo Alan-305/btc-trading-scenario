@@ -82,6 +82,13 @@ export interface MarketSnapshot {
   collected_at: string;
 }
 
+export interface FearGreedHistoryPoint {
+  period: "now" | "yesterday" | "last_week" | "last_month";
+  label_ja: string;
+  value: number;
+  classification: string;
+}
+
 export interface FearGreedIndex {
   value: number;
   classification: string;
@@ -110,6 +117,7 @@ export interface CoinglassSnapshot {
 
 export interface SentimentIndicators {
   fear_greed: FearGreedIndex | null;
+  fear_greed_history: FearGreedHistoryPoint[];
   coinglass: CoinglassSnapshot | null;
   x_sentiment_score: number | null;
 }
