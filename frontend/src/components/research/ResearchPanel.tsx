@@ -27,6 +27,7 @@ interface ResearchPanelProps {
 }
 
 export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
+  const [expanded, setExpanded] = useState(false);
   const [preferences, setPreferences] = useState<ResearchPreferences>(loadResearchPreferences);
   const [query, setQuery] = useState<ResearchListQuery>(DEFAULT_RESEARCH_LIST_QUERY);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -149,38 +150,76 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
     setShowSettings(false);
   };
 
+  const openExpanded = () => setExpanded(true);
+
+  const openAddForm = () => {
+    setShowForm(true);
+    setEditing(null);
+    openExpanded();
+  };
+
+  const openEdit = (item: ResearchItem) => {
+    setEditing(item);
+    setShowForm(false);
+    openExpanded();
+  };
+
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-japanese text-sm font-medium text-slate-300">シナリオ分析データ</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            記事・URL・YouTube などを要約（箇条書き可）で管理。分析に使うデータだけを ON にしてください。
-          </p>
-          <p className="mt-1 text-xs text-accent-blue">
-            分析対象: {analysisCount} 件 / 全 {items.length} 件
-          </p>
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="min-h-[44px] flex-1 rounded-lg text-left hover:bg-slate-800/40"
+          aria-expanded={expanded}
+        >
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-0.5 text-slate-500 transition-transform"
+              aria-hidden
+              style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
+            >
+              ▶
+            </span>
+            <div>
+              <h2 className="font-japanese text-sm font-medium text-slate-300">シナリオ分析データ</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                記事・URL・YouTube などを要約（箇条書き可）で管理
+              </p>
+              <p className="mt-1 text-xs text-accent-blue">
+                分析対象: {analysisCount} 件 / 全 {items.length} 件
+                {!expanded && items.length > 0 && " — クリックで開く"}
+              </p>
+            </div>
+          </div>
+        </button>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setShowSettings((v) => !v)}
-            className="min-h-[44px] rounded-lg border border-surface-border px-4 py-2 text-sm text-slate-400"
-          >
-            設定
-          </button>
           {!showForm && !editing && (
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={openAddForm}
               className="min-h-[44px] rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white"
             >
               データを追加
             </button>
           )}
+          {expanded && (
+            <button
+              type="button"
+              onClick={() => {
+                openExpanded();
+                setShowSettings((v) => !v);
+              }}
+              className="min-h-[44px] rounded-lg border border-surface-border px-4 py-2 text-sm text-slate-400"
+            >
+              設定
+            </button>
+          )}
         </div>
       </div>
 
+      {expanded && (
+        <>
       {showSettings && (
         <div className="mb-4 rounded-lg border border-surface-border/60 bg-slate-900/30 p-4 text-sm">
           <h3 className="mb-3 text-xs font-medium text-slate-400">取捨選択の設定</h3>
@@ -428,10 +467,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                     ))}
                     <button
                       type="button"
-                      onClick={() => {
-                        setEditing(item);
-                        setShowForm(false);
-                      }}
+                      onClick={() => openEdit(item)}
                       className="min-h-[36px] text-accent-blue hover:underline"
                     >
                       編集
@@ -449,6 +485,8 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
             </li>
           ))}
         </ul>
+      )}
+        </>
       )}
     </section>
   );

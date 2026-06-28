@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, setApiAuthTokenProvider } from "../api/client";
 import { AuthButton } from "../components/auth/AuthButton";
 import { InvitePanel } from "../components/auth/InvitePanel";
@@ -94,7 +94,7 @@ export function DashboardPage() {
     setChartLoading(true);
     try {
       const [candleData, ta] = await Promise.all([
-        api.getCandles(interval, 250).catch(() => null),
+        api.getCandles(interval, 80).catch(() => null),
         api.getTechnical(interval).catch(() => null),
       ]);
       setCandles(candleData);
@@ -103,6 +103,8 @@ export function DashboardPage() {
       setChartLoading(false);
     }
   }, []);
+
+  const skipIntervalChartLoad = useRef(true);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -148,6 +150,7 @@ export function DashboardPage() {
   useEffect(() => {
     if (!canAccessApp) {
       setLoading(false);
+      setChartLoading(false);
       setScenario(null);
       setSnapshot(null);
       setSentiment(null);
@@ -155,9 +158,11 @@ export function DashboardPage() {
       setTechnical(null);
       setRiskZones(null);
       setError(null);
+      skipIntervalChartLoad.current = true;
       return;
     }
-    load();
+    skipIntervalChartLoad.current = true;
+    void Promise.all([load(), loadChart(candleInterval)]);
     const id = setInterval(() => load(), 60_000);
     const clockId = setInterval(() => {
       api.getMarketSessions().then(setSessions).catch(() => {});
@@ -166,10 +171,14 @@ export function DashboardPage() {
       clearInterval(id);
       clearInterval(clockId);
     };
-  }, [canAccessApp, load]);
+  }, [canAccessApp, load, loadChart]);
 
   useEffect(() => {
     if (!canAccessApp) return;
+    if (skipIntervalChartLoad.current) {
+      skipIntervalChartLoad.current = false;
+      return;
+    }
     void loadChart(candleInterval);
   }, [canAccessApp, candleInterval, loadChart]);
 
@@ -416,10 +425,12 @@ export function DashboardPage() {
       )}
 
       {loading && !scenario && canAccessApp && (
-        <div className="flex items-center justify-center py-24 text-slate-400">分析中…</div>
+        <div className="mb-6 rounded-xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-slate-400">
+          シナリオを分析中… チャートなど他のデータは先に表示されます。
+        </div>
       )}
 
-      {scenario && canAccessApp && (
+      {canAccessApp && (
         <div className="space-y-6">
           {/* 1. シナリオ分析データ */}
           {user && (
@@ -427,11 +438,13 @@ export function DashboardPage() {
           )}
 
           {/* 2. シナリオ（期間切替） */}
-          <ScenarioCard
-            scenario={scenario}
-            activeHorizonId={activeHorizonId}
-            onHorizonChange={setActiveHorizonId}
-          />
+          {scenario ? (
+            <ScenarioCard
+              scenario={scenario}
+              activeHorizonId={activeHorizonId}
+              onHorizonChange={setActiveHorizonId}
+            />
+          ) : null}
 
           {/* 3. 世界市場の時間帯 */}
           {sessions && <MarketSessionsPanel data={sessions} />}
@@ -462,17 +475,23 @@ export function DashboardPage() {
               </div>
               <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
             </div>
-            <CandlestickChart
-              candles={candles?.candles ?? []}
-              interval={candleInterval}
-              overlays={technical?.overlay_series ?? []}
-              support={technical?.support}
-              resistance={technical?.resistance}
-              longLiqLow={riskZones?.long_liquidation?.zone_low}
-              longLiqHigh={riskZones?.long_liquidation?.zone_high}
-              shortSqLow={riskZones?.short_squeeze?.zone_low}
-              shortSqHigh={riskZones?.short_squeeze?.zone_high}
-            />
+            {chartLoading && !candles?.candles?.length ? (
+              <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
+                チャート読み込み中…
+              </div>
+            ) : (
+              <CandlestickChart
+                candles={candles?.candles ?? []}
+                interval={candleInterval}
+                overlays={technical?.overlay_series ?? []}
+                support={technical?.support}
+                resistance={technical?.resistance}
+                longLiqLow={riskZones?.long_liquidation?.zone_low}
+                longLiqHigh={riskZones?.long_liquidation?.zone_high}
+                shortSqLow={riskZones?.short_squeeze?.zone_low}
+                shortSqHigh={riskZones?.short_squeeze?.zone_high}
+              />
+            )}
           </section>
 
           {/* 4. テクニカル・清算・スクイズ・センチメントなど */}
@@ -483,7 +502,7 @@ export function DashboardPage() {
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <FearGreedMeter
-              value={sentiment?.fear_greed?.value ?? scenario.indicators.fear_greed}
+              value={sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null}
               classification={sentiment?.fear_greed?.classification}
             />
             {snapshot && (
@@ -497,7 +516,7 @@ export function DashboardPage() {
           </section>
 
           {/* 5. エントリー判断と価格の流れ */}
-          {openedAt && price > 0 && activeHorizon && (
+          {openedAt && price > 0 && activeHorizon && scenario && (
             <ScenarioPriceChart
               history={history}
               currentPrice={price}
