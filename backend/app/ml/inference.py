@@ -191,8 +191,9 @@ class ScenarioInference:
             research_note = f"登録調査メモ {len(context.research)} 件も方向判断に反映。"
 
         entry_rationale = (
-            f"基準価格 {price:,.0f} 付近。スプレッド {spread_pct:.3f}%・板・テクニカル・"
-            f"リスクゾーン・セッション時間帯を総合したエントリー帯です。{research_note}"
+            f"基準価格 {price:,.0f} 付近（{feat.reference_exchange}）。"
+            f"スプレッド {spread_pct:.3f}%、{feat.orderbook_imbalance_detail}・"
+            f"テクニカル・リスクゾーン・セッション時間帯を総合したエントリー帯です。{research_note}"
         )
         exit_rationale = (
             "想定抵抗/支持・清算帯推定・リスク許容幅から利確・損切り水準を設定しています。"

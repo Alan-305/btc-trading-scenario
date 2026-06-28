@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     bitget_futures_symbol: str = "BTCUSDT"
     okx_futures_symbol: str = "BTC-USDT-SWAP"
     coinbase_symbol: str = "BTC-USD"
-    baseline_exchange: str = "whitebit"
+    baseline_exchange: str = "whitebit"  # reference price / TP-SL anchor (orderbook signal uses multi-exchange composite)
 
     coinglass_api_key: str = ""
     coinglass_base_url: str = "https://open-api-v4.coinglass.com"
