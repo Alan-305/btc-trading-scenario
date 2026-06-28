@@ -17,6 +17,8 @@ from app.services.price_sanity import is_plausible_usd_price
 class HeatmapSummary:
     strongest_bid_support_usd: float | None = None
     strongest_ask_resistance_usd: float | None = None
+    bid_support_levels: list[float] = field(default_factory=list)
+    ask_resistance_levels: list[float] = field(default_factory=list)
     bid_heavy_below_price: bool = False
     ask_heavy_above_price: bool = False
 
@@ -121,6 +123,8 @@ class ScenarioMarketContext:
             facts["orderbook_heatmap"] = {
                 "strongest_bid_support_usd": self.heatmap.strongest_bid_support_usd,
                 "strongest_ask_resistance_usd": self.heatmap.strongest_ask_resistance_usd,
+                "bid_support_levels_usd": self.heatmap.bid_support_levels,
+                "ask_resistance_levels_usd": self.heatmap.ask_resistance_levels,
                 "bid_heavy_below_price": self.heatmap.bid_heavy_below_price,
                 "ask_heavy_above_price": self.heatmap.ask_heavy_above_price,
             }
@@ -172,6 +176,8 @@ class ScenarioMarketContext:
 def summarize_heatmap(
     cells: list[OrderbookHeatmapCell],
     reference_price: float,
+    *,
+    max_clusters: int = 3,
 ) -> HeatmapSummary | None:
     if not cells or reference_price <= 0:
         return None
@@ -179,8 +185,24 @@ def summarize_heatmap(
     below = [c for c in cells if c.price_bin < reference_price]
     above = [c for c in cells if c.price_bin > reference_price]
 
-    max_bid_below = max(below, key=lambda c: c.bid_depth, default=None) if below else None
-    max_ask_above = max(above, key=lambda c: c.ask_depth, default=None) if above else None
+    bid_below = [
+        c
+        for c in below
+        if c.bid_depth > 0
+        and is_plausible_usd_price(c.price_bin, reference_price, min_ratio=0.85, max_ratio=1.0)
+    ]
+    ask_above = [
+        c
+        for c in above
+        if c.ask_depth > 0
+        and is_plausible_usd_price(c.price_bin, reference_price, min_ratio=1.0, max_ratio=1.15)
+    ]
+
+    bid_clusters = _top_price_clusters(bid_below, depth_attr="bid_depth", max_clusters=max_clusters)
+    ask_clusters = _top_price_clusters(ask_above, depth_attr="ask_depth", max_clusters=max_clusters)
+
+    max_bid_below = max(bid_below, key=lambda c: c.bid_depth, default=None) if bid_below else None
+    max_ask_above = max(ask_above, key=lambda c: c.ask_depth, default=None) if ask_above else None
 
     bid_heavy_below = any(
         c.bid_depth > c.ask_depth * 1.3 for c in below if c.price_bin >= reference_price * 0.97
@@ -189,19 +211,42 @@ def summarize_heatmap(
         c.ask_depth > c.bid_depth * 1.3 for c in above if c.price_bin <= reference_price * 1.03
     )
 
+    strongest_bid = bid_clusters[0] if bid_clusters else (
+        max_bid_below.price_bin
+        if max_bid_below
+        and is_plausible_usd_price(max_bid_below.price_bin, reference_price, min_ratio=0.85, max_ratio=1.0)
+        else None
+    )
+    strongest_ask = ask_clusters[0] if ask_clusters else (
+        max_ask_above.price_bin
+        if max_ask_above
+        and is_plausible_usd_price(max_ask_above.price_bin, reference_price, min_ratio=1.0, max_ratio=1.15)
+        else None
+    )
+
     return HeatmapSummary(
-        strongest_bid_support_usd=(
-            max_bid_below.price_bin
-            if max_bid_below
-            and is_plausible_usd_price(max_bid_below.price_bin, reference_price, min_ratio=0.85, max_ratio=1.0)
-            else None
-        ),
-        strongest_ask_resistance_usd=(
-            max_ask_above.price_bin
-            if max_ask_above
-            and is_plausible_usd_price(max_ask_above.price_bin, reference_price, min_ratio=1.0, max_ratio=1.15)
-            else None
-        ),
+        strongest_bid_support_usd=strongest_bid,
+        strongest_ask_resistance_usd=strongest_ask,
+        bid_support_levels=bid_clusters,
+        ask_resistance_levels=ask_clusters,
         bid_heavy_below_price=bid_heavy_below,
         ask_heavy_above_price=ask_heavy_above,
     )
+
+
+def _top_price_clusters(
+    cells: list[OrderbookHeatmapCell],
+    *,
+    depth_attr: str,
+    max_clusters: int,
+) -> list[float]:
+    ranked = sorted(cells, key=lambda c: getattr(c, depth_attr), reverse=True)
+    levels: list[float] = []
+    for cell in ranked:
+        price = round(cell.price_bin, 2)
+        if any(abs(price - existing) / existing < 0.002 for existing in levels):
+            continue
+        levels.append(price)
+        if len(levels) >= max_clusters:
+            break
+    return sorted(levels, reverse=(depth_attr == "bid_depth"))

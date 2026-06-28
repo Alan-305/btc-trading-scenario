@@ -56,6 +56,7 @@ class TechnicalAnalysisResponse(BaseModel):
     macd: MacdValues | None = None
     support: float | None = None
     resistance: float | None = None
+    atr_14: float | None = None
     trend: Literal["bullish", "bearish", "neutral"] = "neutral"
     summary_ja: str = ""
     overlay_series: list[OverlaySeriesPoint] = Field(default_factory=list)

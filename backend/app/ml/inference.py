@@ -6,7 +6,8 @@ from app.ml.features import FeatureEngine
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot
 from app.schemas.scenario import MacroTrend, TradeSide
 from app.services.scenario_market_context import ScenarioMarketContext
-from app.services.price_sanity import clamp_exit_levels, is_plausible_usd_price
+from app.services.price_sanity import clamp_exit_levels
+from app.services.trade_levels import compute_entry_zone, compute_exit_levels, resolve_atr_pct
 
 
 @dataclass
@@ -168,9 +169,13 @@ class ScenarioInference:
         if "控えめ" in session_summary and side != "neutral":
             confidence = round(confidence * 0.88, 2)
 
-        entry_low, entry_high = self._entry_zone(price, side, ta, context)
-        take_profit, stop_loss = self._exit_levels(price, side, ta, context)
+        entry_low, entry_high = compute_entry_zone(
+            price, side, ta, context.heatmap, confidence=confidence
+        )
+        take_profit, stop_loss = compute_exit_levels(price, side, ta, context)
         take_profit, stop_loss = clamp_exit_levels(price, side, take_profit, stop_loss)
+
+        atr_pct = resolve_atr_pct(price, ta)
 
         forecast_prices = [
             round(
@@ -196,7 +201,8 @@ class ScenarioInference:
             f"テクニカル・リスクゾーン・セッション時間帯を総合したエントリー帯です。{research_note}"
         )
         exit_rationale = (
-            "想定抵抗/支持・清算帯推定・リスク許容幅から利確・損切り水準を設定しています。"
+            f"ATR(14) {atr_pct * 100:.1f}% 相当のボラティリティ・板クラスター・"
+            "想定抵抗/支持・清算帯推定から利確・損切り水準を設定しています。"
         )
         if context.risk_zones and (context.risk_zones.long_liquidation or context.risk_zones.short_squeeze):
             exit_rationale += "清算帯推定も参考にしています。"
@@ -217,60 +223,3 @@ class ScenarioInference:
             entry_rationale=entry_rationale,
             exit_rationale=exit_rationale,
         )
-
-    def _entry_zone(self, price: float, side: TradeSide, ta, context: ScenarioMarketContext) -> tuple[float, float]:
-        if side == "long":
-            entry_low = round(price * 0.995, 2)
-            entry_high = round(price * 1.005, 2)
-            if ta and ta.support:
-                entry_low = round(min(entry_low, ta.support * 1.001), 2)
-                entry_high = round(max(entry_high, min(ta.support * 1.008, price * 1.01)), 2)
-            if context.heatmap and context.heatmap.strongest_bid_support_usd:
-                support = context.heatmap.strongest_bid_support_usd
-                if support < price and is_plausible_usd_price(support, price, min_ratio=0.85, max_ratio=1.0):
-                    entry_low = round(min(entry_low, support * 1.002), 2)
-        elif side == "short":
-            entry_low = round(price * 0.995, 2)
-            entry_high = round(price * 1.005, 2)
-            if ta and ta.resistance:
-                entry_high = round(min(entry_high, max(ta.resistance * 1.002, price * 1.005)), 2)
-                entry_low = round(max(entry_low, ta.resistance * 0.992), 2)
-            if context.heatmap and context.heatmap.strongest_ask_resistance_usd:
-                resist = context.heatmap.strongest_ask_resistance_usd
-                if resist > price and is_plausible_usd_price(resist, price, min_ratio=1.0, max_ratio=1.15):
-                    entry_high = round(min(entry_high, resist * 1.002), 2)
-        else:
-            band = 0.005
-            if ta and ta.support and ta.resistance:
-                entry_low = round(ta.support, 2)
-                entry_high = round(ta.resistance, 2)
-            else:
-                entry_low = round(price * (1 - band), 2)
-                entry_high = round(price * (1 + band), 2)
-
-        return entry_low, entry_high
-
-    def _exit_levels(self, price: float, side: TradeSide, ta, context: ScenarioMarketContext) -> tuple[list[float], float]:
-        if side == "long":
-            take_profit = [round(price * 1.02, 2), round(price * 1.04, 2)]
-            stop_loss = round(price * 0.97, 2)
-            if ta and ta.resistance:
-                take_profit[0] = round(min(take_profit[0], ta.resistance * 0.998), 2)
-            if context.risk_zones and context.risk_zones.long_liquidation:
-                liq_low = context.risk_zones.long_liquidation.zone_low
-                if is_plausible_usd_price(liq_low, price, min_ratio=0.85, max_ratio=1.0):
-                    stop_loss = round(min(stop_loss, liq_low * 0.995), 2)
-        elif side == "short":
-            take_profit = [round(price * 0.98, 2), round(price * 0.96, 2)]
-            stop_loss = round(price * 1.03, 2)
-            if ta and ta.support:
-                take_profit[0] = round(max(take_profit[0], ta.support * 1.002), 2)
-            if context.risk_zones and context.risk_zones.short_squeeze:
-                sq_high = context.risk_zones.short_squeeze.zone_high
-                if is_plausible_usd_price(sq_high, price, min_ratio=1.0, max_ratio=1.15):
-                    stop_loss = round(max(stop_loss, sq_high * 1.005), 2)
-        else:
-            take_profit = [round(price * 1.01, 2)]
-            stop_loss = round(price * 0.99, 2)
-
-        return take_profit, stop_loss

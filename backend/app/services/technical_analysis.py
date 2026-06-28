@@ -77,6 +77,23 @@ def _swing_levels(candles: list[Candle], lookback: int = 20) -> tuple[float | No
     return min(c.low for c in recent), max(c.high for c in recent)
 
 
+def _atr(candles: list[Candle], period: int = 14) -> float | None:
+    if len(candles) < period + 1:
+        return None
+    trs: list[float] = []
+    for i in range(1, len(candles)):
+        high = candles[i].high
+        low = candles[i].low
+        prev_close = candles[i - 1].close
+        trs.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
+    if len(trs) < period:
+        return None
+    atr = sum(trs[:period]) / period
+    for tr in trs[period:]:
+        atr = (atr * (period - 1) + tr) / period
+    return round(float(atr), 2)
+
+
 def _build_overlay_series(candles: list[Candle]) -> list[OverlaySeriesPoint]:
     if not candles:
         return []
@@ -128,6 +145,7 @@ class TechnicalAnalysisService:
                 lower=round(float(bb_lower[-1]), 2),
             )
         support, resistance = _swing_levels(candles)
+        atr_14 = _atr(candles)
         price = float(closes[-1])
         overlay_series = _build_overlay_series(candles)
 
@@ -188,6 +206,8 @@ class TechnicalAnalysisService:
             parts.append(f"MACD {macd_label}")
         if support and resistance:
             parts.append(f"サポ ${support:,.0f} / レジ ${resistance:,.0f}")
+        if atr_14 is not None:
+            parts.append(f"ATR(14) ${atr_14:,.0f}")
 
         summary = "・".join(parts) if parts else f"現在価格 ${price:,.0f} 付近を分析中です。"
 
@@ -202,6 +222,7 @@ class TechnicalAnalysisService:
             macd=macd,
             support=round(support, 2) if support else None,
             resistance=round(resistance, 2) if resistance else None,
+            atr_14=atr_14,
             trend=trend,
             summary_ja=summary,
             overlay_series=overlay_series,
