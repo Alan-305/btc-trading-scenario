@@ -72,7 +72,8 @@ async def orderbook_heatmap(
     service: OrderbookHeatmapService = Depends(get_heatmap_service),
 ):
     snapshot = await aggregator.collect_all(include_orderbooks=True)
-    cells = service.compute(snapshot.orderbooks)
+    price = reference_price_from_snapshot(snapshot)
+    cells = service.compute(snapshot.orderbooks, reference_price=price)
     return {"cells": cells}
 
 
@@ -129,6 +130,6 @@ async def market_risk_zones(
 ):
     snapshot = await aggregator.collect_all(include_orderbooks=True)
     cg = await coinglass.fetch_snapshot()
-    cells = heatmap_service.compute(snapshot.orderbooks)
     price = reference_price_from_snapshot(snapshot)
+    cells = heatmap_service.compute(snapshot.orderbooks, reference_price=price)
     return estimator.estimate(price, cg, cells)

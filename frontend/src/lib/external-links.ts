@@ -4,7 +4,8 @@ export const EXTERNAL_LINKS = {
   bybitFutures: "https://www.bybit.com/trade/usdt/BTCUSDT",
   okxFutures: "https://www.okx.com/trade-swap/btc-usdt-swap",
   whitebit: "https://whitebit.com/trade/BTC_USDT",
-  bitbank: "https://bitbank.cc/app/trade/BTC_JPY",
+  bybit: "https://www.bybit.com/trade/spot/BTC/USDT",
+  bitget: "https://www.bitget.com/spot/BTCUSDT",
   coinbase: "https://www.coinbase.com/advanced-trade/BTC-USD",
   tradingView: "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT",
 } as const;
@@ -12,6 +13,7 @@ export const EXTERNAL_LINKS = {
 export const EXCHANGE_URLS: Record<string, string> = {
   whitebit: EXTERNAL_LINKS.whitebit,
   binance: EXTERNAL_LINKS.binanceFutures,
-  bitbank: EXTERNAL_LINKS.bitbank,
+  bybit: EXTERNAL_LINKS.bybit,
+  bitget: EXTERNAL_LINKS.bitget,
   coinbase: EXTERNAL_LINKS.coinbase,
 };

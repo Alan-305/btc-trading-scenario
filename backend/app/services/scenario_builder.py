@@ -71,7 +71,7 @@ class ScenarioBuilder:
             except Exception:
                 technical = None
 
-        heatmap_cells = self.heatmap.compute(snapshot.orderbooks)
+        heatmap_cells = self.heatmap.compute(snapshot.orderbooks, reference_price=ref_price)
         heatmap_summary = summarize_heatmap(heatmap_cells, ref_price)
         risk = self.risk_zones.estimate(ref_price, cg, heatmap_cells)
         session_data = self.sessions.build()

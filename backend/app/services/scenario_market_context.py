@@ -6,6 +6,7 @@ from app.schemas.candles import RiskZonesResponse, TechnicalAnalysisResponse
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot, OrderbookHeatmapCell
 from app.schemas.scenario_context import ResearchContextItem
 from app.schemas.sessions import MarketSessionsResponse
+from app.services.price_sanity import is_plausible_usd_price
 
 
 @dataclass
@@ -153,8 +154,18 @@ def summarize_heatmap(
     )
 
     return HeatmapSummary(
-        strongest_bid_support_usd=max_bid_below.price_bin if max_bid_below else None,
-        strongest_ask_resistance_usd=max_ask_above.price_bin if max_ask_above else None,
+        strongest_bid_support_usd=(
+            max_bid_below.price_bin
+            if max_bid_below
+            and is_plausible_usd_price(max_bid_below.price_bin, reference_price, min_ratio=0.85, max_ratio=1.0)
+            else None
+        ),
+        strongest_ask_resistance_usd=(
+            max_ask_above.price_bin
+            if max_ask_above
+            and is_plausible_usd_price(max_ask_above.price_bin, reference_price, min_ratio=1.0, max_ratio=1.15)
+            else None
+        ),
         bid_heavy_below_price=bid_heavy_below,
         ask_heavy_above_price=ask_heavy_above,
     )

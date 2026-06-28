@@ -20,7 +20,8 @@ def test_market_sessions_build():
     assert "whitebit" in europe.linked_exchanges
 
     asia = next(s for s in resp.sessions if s.id == "asia")
-    assert "bitbank" in asia.linked_exchanges
+    assert "bybit" in asia.linked_exchanges
+    assert "bitget" in asia.linked_exchanges
 
 
 def test_timeline_marks_now_hour():

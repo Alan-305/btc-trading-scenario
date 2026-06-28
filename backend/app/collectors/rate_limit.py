@@ -24,7 +24,7 @@ EXCHANGE_RATE_LIMITS: dict[str, float] = {
     "bybit": 5.0,
     "okx": 5.0,
     "binance": 10.0,
-    "bitbank": 5.0,
+    "bitget": 5.0,
     "coinbase": 5.0,
     "coinglass": 2.0,
     "alternative_me": 1.0,

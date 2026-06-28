@@ -30,10 +30,6 @@ class DivergenceService:
                 divergence[ticker.exchange] = 0.0
                 continue
             price = float(ticker.last_price)
-            # bitbank is JPY — skip cross-currency naive comparison in divergence map
-            if ticker.exchange == "bitbank":
-                divergence[ticker.exchange] = 0.0
-                continue
             pct = ((price - baseline_price) / baseline_price) * 100.0
             divergence[ticker.exchange] = round(pct, 4)
 

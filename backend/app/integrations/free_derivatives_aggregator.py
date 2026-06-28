@@ -7,8 +7,8 @@ import structlog
 
 from app.collectors.http_client import CollectorHttpClient
 from app.config import get_settings
-from app.integrations.bitbank_market import BitbankMarketClient
 from app.integrations.binance_futures import BinanceFuturesClient
+from app.integrations.bitget_futures import BitgetFuturesClient
 from app.integrations.bybit_futures import BybitFuturesClient
 from app.integrations.futures_base import BaseFuturesClient, ExchangeDerivativesRow
 from app.integrations.okx_futures import OkxFuturesClient
@@ -22,7 +22,7 @@ CLIENT_REGISTRY: dict[str, type[BaseFuturesClient]] = {
     "bybit": BybitFuturesClient,
     "okx": OkxFuturesClient,
     "whitebit": WhitebitFuturesClient,
-    "bitbank": BitbankMarketClient,
+    "bitget": BitgetFuturesClient,
 }
 
 
@@ -65,12 +65,8 @@ class FreeDerivativesAggregator:
             for r in rows
         ]
 
-        # OI total: USD venues only (exclude bitbank JPY notional)
-        oi_total = sum(
-            e.open_interest_usd
-            for e in exchanges
-            if e.open_interest_usd and e.exchange != "bitbank"
-        )
+        # OI total across USD-margined venues
+        oi_total = sum(e.open_interest_usd for e in exchanges if e.open_interest_usd)
         funding_vals = [e.funding_rate for e in exchanges if e.funding_rate is not None]
         ls_vals = [e.long_short_ratio for e in exchanges if e.long_short_ratio is not None]
 

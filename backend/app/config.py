@@ -25,8 +25,10 @@ class Settings(BaseSettings):
     whitebit_futures_symbol: str = "BTC_PERP"
     binance_symbol: str = "BTCUSDT"
     bybit_futures_symbol: str = "BTCUSDT"
+    bybit_spot_symbol: str = "BTCUSDT"
+    bitget_symbol: str = "BTCUSDT"
+    bitget_futures_symbol: str = "BTCUSDT"
     okx_futures_symbol: str = "BTC-USDT-SWAP"
-    bitbank_symbol: str = "btc_jpy"
     coinbase_symbol: str = "BTC-USD"
     baseline_exchange: str = "whitebit"
 
@@ -35,7 +37,7 @@ class Settings(BaseSettings):
     # free = multi-exchange public APIs | coinglass = paid | auto = key があれば coinglass
     derivatives_provider: str = "free"
     # Comma-separated: binance,bybit,okx,whitebit
-    derivatives_exchanges: str = "binance,bybit,okx,whitebit,bitbank"
+    derivatives_exchanges: str = "binance,bybit,okx,whitebit,bitget"
 
     llm_provider: str = "gemini"
     gemini_api_key: str = ""

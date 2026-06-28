@@ -6,6 +6,7 @@ from app.ml.features import FeatureEngine
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot
 from app.schemas.scenario import MacroTrend, TradeSide
 from app.services.scenario_market_context import ScenarioMarketContext
+from app.services.price_sanity import clamp_exit_levels, is_plausible_usd_price
 
 
 @dataclass
@@ -141,6 +142,7 @@ class ScenarioInference:
 
         entry_low, entry_high = self._entry_zone(price, side, ta, context)
         take_profit, stop_loss = self._exit_levels(price, side, ta, context)
+        take_profit, stop_loss = clamp_exit_levels(price, side, take_profit, stop_loss)
 
         forecast_prices = [
             round(
@@ -192,7 +194,7 @@ class ScenarioInference:
                 entry_high = round(max(entry_high, min(ta.support * 1.008, price * 1.01)), 2)
             if context.heatmap and context.heatmap.strongest_bid_support_usd:
                 support = context.heatmap.strongest_bid_support_usd
-                if support < price:
+                if support < price and is_plausible_usd_price(support, price, min_ratio=0.85, max_ratio=1.0):
                     entry_low = round(min(entry_low, support * 1.002), 2)
         elif side == "short":
             entry_low = round(price * 0.995, 2)
@@ -202,7 +204,7 @@ class ScenarioInference:
                 entry_low = round(max(entry_low, ta.resistance * 0.992), 2)
             if context.heatmap and context.heatmap.strongest_ask_resistance_usd:
                 resist = context.heatmap.strongest_ask_resistance_usd
-                if resist > price:
+                if resist > price and is_plausible_usd_price(resist, price, min_ratio=1.0, max_ratio=1.15):
                     entry_high = round(min(entry_high, resist * 1.002), 2)
         else:
             band = 0.005
@@ -223,7 +225,8 @@ class ScenarioInference:
                 take_profit[0] = round(min(take_profit[0], ta.resistance * 0.998), 2)
             if context.risk_zones and context.risk_zones.long_liquidation:
                 liq_low = context.risk_zones.long_liquidation.zone_low
-                stop_loss = round(min(stop_loss, liq_low * 0.995), 2)
+                if is_plausible_usd_price(liq_low, price, min_ratio=0.85, max_ratio=1.0):
+                    stop_loss = round(min(stop_loss, liq_low * 0.995), 2)
         elif side == "short":
             take_profit = [round(price * 0.98, 2), round(price * 0.96, 2)]
             stop_loss = round(price * 1.03, 2)
@@ -231,7 +234,8 @@ class ScenarioInference:
                 take_profit[0] = round(max(take_profit[0], ta.support * 1.002), 2)
             if context.risk_zones and context.risk_zones.short_squeeze:
                 sq_high = context.risk_zones.short_squeeze.zone_high
-                stop_loss = round(max(stop_loss, sq_high * 1.005), 2)
+                if is_plausible_usd_price(sq_high, price, min_ratio=1.0, max_ratio=1.15):
+                    stop_loss = round(max(stop_loss, sq_high * 1.005), 2)
         else:
             take_profit = [round(price * 1.01, 2)]
             stop_loss = round(price * 0.99, 2)

@@ -48,7 +48,7 @@ class SessionDef:
 
 # 暗号資産の流動性ピーク（UTC 時間帯・おおよそ）
 SESSIONS: tuple[SessionDef, ...] = (
-    SessionDef("asia", "日本時間", "東京・香港", 0, 9, ("bitbank",)),
+    SessionDef("asia", "日本時間", "東京・香港", 0, 9, ("bybit", "bitget")),
     SessionDef("europe", "欧州時間", "ロンドン・フランクフルト", 7, 16, ("whitebit",)),
     SessionDef("us", "米国時間", "ニューヨーク", 13, 22, ()),
 )
@@ -141,7 +141,7 @@ def _build_timeline(now: datetime) -> list[TimelineHour]:
             and ("europe" in crypto_active or "us" in crypto_active)
             and level in ("medium", "high", "peak")
         )
-        good_bb = (
+        good_asia = (
             stock_statuses.get("japan") == MarketStatus.OPEN
             or ("asia" in crypto_active and jst_hour in range(9, 18))
         )
@@ -163,7 +163,7 @@ def _build_timeline(now: datetime) -> list[TimelineHour]:
                 active_sessions=crypto_active,
                 is_now=jst_hour == current_jst_hour,
                 good_for_whitebit=good_wb,
-                good_for_bitbank=good_bb,
+                good_for_asia=good_asia,
                 markets=market_states,
                 open_market_count=open_count,
                 closure_summary_ja=closure_summary_ja(stock_statuses),
@@ -194,11 +194,11 @@ def _entry_hint(now: datetime, timeline: list[TimelineHour]) -> EntryTimingHint:
             f"欧州・米国セッションが重なり流動性が高いです（{now_jst.strftime('%H:%M')} JST）。"
             f"スイングの新規エントリーは、この時間帯の指値・板の厚みを確認してからがおすすめです。"
         )
-    elif cell.good_for_bitbank:
-        summary = "bitbank（円建て）の参考価格が信頼しやすい時間帯です。"
+    elif cell.good_for_asia:
+        summary = "アジア時間帯は Bybit・Bitget などドル建て取引所の価格が参考になりやすいです。"
         detail = (
             f"アジア時間帯（{now_jst.strftime('%H:%M')} JST）です。"
-            f"WhiteBIT でのエントリー判断には bitbank の円建て乖離も参考にしてください。"
+            f"Bybit・Bitget のドル建て価格と板の厚みを確認してからエントリーを検討してください。"
         )
     elif cell.activity_level == "low" and cell.closure_summary_ja:
         nxt = _next_high_activity_jst(now, timeline)
@@ -219,7 +219,7 @@ def _entry_hint(now: datetime, timeline: list[TimelineHour]) -> EntryTimingHint:
         summary = "どちらかのセッションが動いています。急がずシナリオと板を確認してください。"
         detail = (
             f"現在 {active_names} 時間帯（{now_jst.strftime('%H:%M')} JST）。"
-            f"WhiteBIT は欧州以降、bitbank は日中がそれぞれ参考になりやすいです。"
+            f"WhiteBIT は欧州以降、Bybit・Bitget は日中がそれぞれ参考になりやすいです。"
         )
 
     return EntryTimingHint(
@@ -281,10 +281,16 @@ class MarketSessionsService:
                 note_ja="欧州〜米国時間帯（JST 夕方〜深夜）に流動性・価格発見が活発になりやすい。",
             ),
             ExchangeSessionRole(
-                exchange="bitbank",
-                name_ja="bitbank",
+                exchange="bybit",
+                name_ja="Bybit",
                 primary_session_id="asia",
-                note_ja="日本の日中（JST 9:00〜17:00 付近）に円建ての参考価格として有効。",
+                note_ja="アジア時間帯（JST 9:00〜17:00 付近）にドル建ての参考価格として有効。",
+            ),
+            ExchangeSessionRole(
+                exchange="bitget",
+                name_ja="Bitget",
+                primary_session_id="asia",
+                note_ja="アジア時間帯のドル建て現物・先物データとして参考にできます。",
             ),
         ]
 

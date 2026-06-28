@@ -10,7 +10,8 @@ interface ExchangeDivergenceProps {
 const EXCHANGE_LABEL: Record<string, string> = {
   whitebit: "WhiteBIT",
   binance: "Binance",
-  bitbank: "bitbank",
+  bybit: "Bybit",
+  bitget: "Bitget",
   coinbase: "Coinbase",
 };
 

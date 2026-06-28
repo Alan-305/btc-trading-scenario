@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import structlog
 
@@ -77,6 +78,7 @@ class ScenarioWriter:
             prompt = self._build_prompt(facts)
             result = await client.generate_text(prompt)
             cleaned = _clean_scenario_text(result.text)
+            cleaned = _enforce_usd_prices(cleaned, facts)
             if not cleaned or result.truncated or _is_incomplete_scenario(cleaned, facts):
                 logger.warning(
                     "scenario_writer_gemini_incomplete",
@@ -106,13 +108,16 @@ class ScenarioWriter:
 日本語で3〜5文の短いシナリオを書いてください。
 
 【厳守】
-- JSONにない価格・数値・方向を作らない（entry/take_profit/stop_loss は必ずJSONの値を使う）
+- すべての価格は米ドル（USD）建てで書く（円・JPYは使わない）
+- JSONの entry_zone_low_usd / entry_zone_high_usd / take_profit_usd / stop_loss_usd / reference_price_usd の数値だけを価格として使う
+- risk_zones や technical_analysis の数値は補足説明にのみ使い、損切り・利確の数値として流用しない
+- JSONにない価格・数値・方向を作らない
 - user_research_summaries があれば要点に触れる（箇条書きの捏造禁止）
 - 投資助言ではなく参考情報として書く
 - 高校生にもわかるやさしい日本語
 - 箇条書き・見出し・Markdownは使わない
 - 「不合格」などの否定的な評価語は使わない
-- 必ずエントリー帯・利確・損切りの数値を文中に含める
+- 必ずエントリー帯・利確・損切りの数値を文中に含める（各価格の直後に「ドル」と書く）
 - 3〜5文で完結させ、途中で切らない
 
 【入力データ】
@@ -141,7 +146,7 @@ class ScenarioWriter:
         if funding_rate is not None:
             fr_text = f"ファンディングレートは {funding_rate:.4f} です。"
 
-        tp_text = "、".join(f"{p:,.0f}" for p in take_profit)
+        tp_text = "、".join(f"{p:,.2f}ドル" for p in take_profit)
         research_text = (
             f"登録した調査メモ {research_count} 件も方向判断に反映しています。"
             if research_count
@@ -153,11 +158,52 @@ class ScenarioWriter:
         return (
             f"本日のBTCは、マクロでは{trend_ja}寄りの環境です。{fg_text}{fr_text}{ta_text}"
             f"{research_text}"
-            f"エントリーは {entry_low:,.0f}〜{entry_high:,.0f} 付近を目安にしてください。"
-            f"利確は {tp_text}、損切りは {stop_loss:,.0f} を想定しています。"
+            f"エントリーは {entry_low:,.2f}ドル〜{entry_high:,.2f}ドル付近を目安にしてください。"
+            f"利確は {tp_text}、損切りは {stop_loss:,.2f}ドル を想定しています。"
             f"{session_text}"
             f"急な値動きには注意し、必ず自分のルールで判断してください。"
         )
+
+
+def _format_usd(value: float) -> str:
+    return f"{float(value):,.2f}ドル"
+
+
+def _enforce_usd_prices(text: str, facts: dict) -> str:
+    """Replace implausible price mentions with canonical USD levels from facts."""
+    ref = float(facts.get("reference_price_usd") or 0)
+    if ref <= 0:
+        return text
+
+    canonical = {
+        "entry_low": float(facts["entry_zone_low_usd"]),
+        "entry_high": float(facts["entry_zone_high_usd"]),
+        "stop_loss": float(facts["stop_loss_usd"]),
+        "take_profit": [float(v) for v in facts["take_profit_usd"]],
+    }
+
+    def plausible(price: float) -> bool:
+        return 0.5 * ref <= price <= 1.5 * ref
+
+    def repl(match: re.Match[str]) -> str:
+        raw = match.group(1).replace(",", "")
+        try:
+            value = float(raw)
+        except ValueError:
+            return match.group(0)
+        if plausible(value):
+            return match.group(0)
+        # Map outlier to nearest canonical level by magnitude vs ref
+        candidates = [
+            canonical["entry_low"],
+            canonical["entry_high"],
+            canonical["stop_loss"],
+            *canonical["take_profit"],
+        ]
+        nearest = min(candidates, key=lambda c: abs(c - value))
+        return _format_usd(nearest)
+
+    return re.sub(r"(\d[\d,]*(?:\.\d+)?)\s*ドル", repl, text)
 
 
 def _clean_scenario_text(text: str) -> str:

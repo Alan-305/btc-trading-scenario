@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from app.schemas.market import NormalizedOrderBook, OrderbookHeatmapCell, VolumeProfileBin
+from app.services.price_sanity import filter_usd_orderbooks
 
 
 class VolumeProfileService:
@@ -54,8 +55,12 @@ class OrderbookHeatmapService:
     """Aggregate bid/ask depth into price bins for heatmap display."""
 
     def compute(
-        self, orderbooks: list[NormalizedOrderBook], num_bins: int = 24
+        self,
+        orderbooks: list[NormalizedOrderBook],
+        num_bins: int = 24,
+        reference_price: float | None = None,
     ) -> list[OrderbookHeatmapCell]:
+        orderbooks = filter_usd_orderbooks(orderbooks, reference_price)
         if not orderbooks:
             return []
 

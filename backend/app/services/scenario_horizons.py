@@ -95,7 +95,7 @@ def _horizon_text(
 ) -> str:
     trend = TREND_JA[macro_trend]
     side_ja = SIDE_JA[side]
-    tp_text = "、".join(f"{p:,.0f}" for p in take_profit)
+    tp_text = "、".join(f"{p:,.2f}ドル" for p in take_profit)
 
     if horizon_id == "today":
         lead = f"本日（{period_hint}）のBTCは{trend}寄り。"
@@ -107,9 +107,9 @@ def _horizon_text(
         lead = f"次の半減期（{period_hint}）までの大局的視点では{trend}寄り。"
 
     if side == "neutral":
-        zone = f"大きな方向性が出るまでは {entry_low:,.0f}〜{entry_high:,.0f} 付近の様子見が中心です。"
+        zone = f"大きな方向性が出るまでは {entry_low:,.2f}ドル〜{entry_high:,.2f}ドル付近の様子見が中心です。"
     else:
-        zone = f"{side_ja}想定のエントリー帯は {entry_low:,.0f}〜{entry_high:,.0f} 付近です。"
+        zone = f"{side_ja}想定のエントリー帯は {entry_low:,.2f}ドル〜{entry_high:,.2f}ドル付近です。"
 
     extra = ""
     if research_count:
@@ -119,7 +119,7 @@ def _horizon_text(
 
     return (
         f"{lead}{zone}"
-        f"利確目安 {tp_text}、損切り {stop_loss:,.0f} を想定しています。"
+        f"利確目安 {tp_text}、損切り {stop_loss:,.2f}ドル を想定しています。"
         f"{extra}"
         f"時間軸が長いほど目安の幅は広くなります。必ず自分のルールで判断してください。"
     )

@@ -57,7 +57,7 @@ class TimelineHour(BaseModel):
     active_sessions: list[str]
     is_now: bool
     good_for_whitebit: bool
-    good_for_bitbank: bool
+    good_for_asia: bool
     markets: list[MarketHourState] = Field(default_factory=list)
     open_market_count: int = 0
     closure_summary_ja: str | None = None

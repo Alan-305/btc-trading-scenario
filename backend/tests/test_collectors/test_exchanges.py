@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from app.collectors.exchanges.binance import BinanceCollector, BASE as BN_BASE
-from app.collectors.exchanges.bitbank import BitbankCollector, BASE as BB_BASE
+from app.collectors.exchanges.bybit import BybitCollector, BASE as BY_BASE
 from app.collectors.exchanges.coinbase import CoinbaseCollector, BASE as CB_BASE
 from app.collectors.http_client import CollectorHttpClient
 from app.schemas.market import NormalizedTicker
@@ -39,17 +39,31 @@ async def test_binance_fetch_ticker():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_bitbank_fetch_ticker():
-    respx.get(f"{BB_BASE}/btc_jpy/ticker").mock(
+async def test_bybit_fetch_ticker():
+    respx.get(f"{BY_BASE}/tickers").mock(
         return_value=httpx.Response(
             200,
-            json={"success": 1, "data": {"last": "15000000", "buy": "14990000", "sell": "15010000", "vol": "100"}},
+            json={
+                "result": {
+                    "list": [
+                        {
+                            "symbol": "BTCUSDT",
+                            "lastPrice": "97600.00",
+                            "bid1Price": "97590.00",
+                            "ask1Price": "97610.00",
+                            "volume24h": "1000.5",
+                            "turnover24h": "97600000",
+                        }
+                    ]
+                }
+            },
         )
     )
     http = CollectorHttpClient()
-    ticker = await BitbankCollector(http).fetch_ticker("btc_jpy")
+    ticker = await BybitCollector(http).fetch_ticker("BTCUSDT")
     await http.aclose()
-    assert ticker.exchange == "bitbank"
+    assert ticker.exchange == "bybit"
+    assert float(ticker.last_price) == 97600.0
 
 
 @pytest.mark.asyncio

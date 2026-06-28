@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.schemas.candles import RiskZone, RiskZonesResponse
 from app.schemas.market import CoinglassSnapshot, OrderbookHeatmapCell
+from app.services.price_sanity import is_plausible_usd_price
 
 
 class RiskZoneEstimator:
@@ -73,7 +74,7 @@ class RiskZoneEstimator:
             bid_heavy = [c for c in heatmap_cells if c.bid_depth > c.ask_depth * 1.3]
             if bid_heavy:
                 support_bin = min(c.price_bin for c in bid_heavy)
-                if support_bin < reference_price:
+                if is_plausible_usd_price(support_bin, reference_price, min_ratio=0.85, max_ratio=1.0):
                     long_liq = long_liq.model_copy(
                         update={"zone_low": min(long_liq.zone_low, support_bin * 0.995)}
                     )
@@ -82,7 +83,7 @@ class RiskZoneEstimator:
             ask_heavy = [c for c in heatmap_cells if c.ask_depth > c.bid_depth * 1.3]
             if ask_heavy:
                 resist_bin = max(c.price_bin for c in ask_heavy)
-                if resist_bin > reference_price:
+                if is_plausible_usd_price(resist_bin, reference_price, min_ratio=1.0, max_ratio=1.15):
                     short_sq = short_sq.model_copy(
                         update={"zone_high": max(short_sq.zone_high, resist_bin * 1.005)}
                     )

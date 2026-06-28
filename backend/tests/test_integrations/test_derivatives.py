@@ -119,28 +119,34 @@ async def test_whitebit_futures_fetch():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_bitbank_market_fetch():
-    respx.get("https://public.bitbank.cc/btc_jpy/ticker").mock(
+async def test_bitget_futures_fetch():
+    respx.get("https://api.bitget.com/api/v2/mix/market/ticker").mock(
         return_value=httpx.Response(
             200,
             json={
-                "success": 1,
-                "data": {"last": "15000000", "vol": "100", "buy": "14990000", "sell": "15010000"},
+                "code": "00000",
+                "data": [
+                    {
+                        "symbol": "BTCUSDT",
+                        "markPrice": "100000",
+                        "holdingAmount": "200",
+                        "fundingRate": "0.0002",
+                    }
+                ],
             },
         )
     )
     from app.collectors.http_client import CollectorHttpClient
-    from app.integrations.bitbank_market import BitbankMarketClient
+    from app.integrations.bitget_futures import BitgetFuturesClient
 
     http = CollectorHttpClient()
-    row = await BitbankMarketClient(http).fetch()
+    row = await BitgetFuturesClient(http).fetch()
     await http.aclose()
 
     assert row is not None
-    assert row.exchange == "bitbank"
-    assert row.quote_currency == "JPY"
-    assert row.mark_price == pytest.approx(15_000_000)
-    assert row.funding_rate is None
+    assert row.exchange == "bitget"
+    assert row.mark_price == pytest.approx(100_000)
+    assert row.open_interest_usd == pytest.approx(20_000_000)
 
 
 @pytest.mark.asyncio

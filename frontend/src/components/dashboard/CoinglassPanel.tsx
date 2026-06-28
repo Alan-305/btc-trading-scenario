@@ -11,7 +11,7 @@ const EXCHANGE_LABEL: Record<string, string> = {
   bybit: "Bybit",
   okx: "OKX",
   whitebit: "WhiteBIT",
-  bitbank: "bitbank",
+  bitget: "Bitget",
 };
 
 const EXCHANGE_LINKS: Record<string, string> = {
@@ -19,22 +19,16 @@ const EXCHANGE_LINKS: Record<string, string> = {
   bybit: EXTERNAL_LINKS.bybitFutures,
   okx: EXTERNAL_LINKS.okxFutures,
   whitebit: EXTERNAL_LINKS.whitebit,
-  bitbank: EXTERNAL_LINKS.bitbank,
+  bitget: EXTERNAL_LINKS.bitget,
 };
 
 function formatOi(ex: ExchangeDerivatives): string {
   if (ex.open_interest_usd == null) return "—";
-  if (ex.exchange === "bitbank" || ex.quote_currency === "JPY") {
-    return `¥${(ex.open_interest_usd / 1e8).toFixed(1)}億`;
-  }
   return `$${(ex.open_interest_usd / 1e9).toFixed(2)}B`;
 }
 
 function formatPrice(ex: ExchangeDerivatives): string | null {
   if (ex.mark_price == null) return null;
-  if (ex.exchange === "bitbank" || ex.quote_currency === "JPY") {
-    return `¥${ex.mark_price.toLocaleString()}`;
-  }
   return `$${ex.mark_price.toLocaleString()}`;
 }
 
@@ -83,9 +77,6 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
             >
               <span className="font-english text-slate-300">
                 {EXCHANGE_LABEL[ex.exchange] ?? ex.exchange}
-                {ex.exchange === "bitbank" && (
-                  <span className="ml-1 text-slate-500">現物</span>
-                )}
                 {EXCHANGE_LINKS[ex.exchange] && (
                   <ExternalLink href={EXCHANGE_LINKS[ex.exchange]} className="ml-1 min-h-0 py-0">
                     ↗
@@ -101,8 +92,7 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
                   : "FR —"}
               </span>
               <span className="font-english text-slate-500">
-                {ex.exchange === "bitbank" ? "出来高 " : "OI "}
-                {formatOi(ex)}
+                OI {formatOi(ex)}
               </span>
             </li>
           ))}

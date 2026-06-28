@@ -85,9 +85,14 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
             WhiteBIT
           </span>
         )}
-        {session.linked_exchanges.includes("bitbank") && (
+        {session.linked_exchanges.includes("bybit") && (
           <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">
-            bitbank
+            Bybit
+          </span>
+        )}
+        {session.linked_exchanges.includes("bitget") && (
+          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">
+            Bitget
           </span>
         )}
       </div>
@@ -195,7 +200,7 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
                 <span className="mx-auto mb-auto h-1 w-1 rounded-full bg-blue-200" />
               )}
               <MarketDots markets={h.markets} />
-              {h.good_for_bitbank && (
+              {h.good_for_asia && (
                 <span className="mx-auto mt-auto h-1 w-1 rounded-full bg-amber-200" />
               )}
             </div>
@@ -222,7 +227,7 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         <span className="mx-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" />
         祝日
         <br />
-        上の点=WhiteBIT向き / 下の点=bitbank向き　白枠=現在時刻
+        上の点=WhiteBIT向き / 下の点=アジア取引所向き　白枠=現在時刻
       </p>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">

@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-ExchangeId = Literal["whitebit", "binance", "bitbank", "coinbase"]
+ExchangeId = Literal["whitebit", "binance", "coinbase", "bybit", "bitget"]
 
 
 class OrderBookLevel(BaseModel):

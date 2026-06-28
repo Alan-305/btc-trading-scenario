@@ -42,7 +42,7 @@ export interface TimelineHour {
   active_sessions: string[];
   is_now: boolean;
   good_for_whitebit: boolean;
-  good_for_bitbank: boolean;
+  good_for_asia: boolean;
   markets: MarketHourState[];
   open_market_count: number;
   closure_summary_ja: string | null;
