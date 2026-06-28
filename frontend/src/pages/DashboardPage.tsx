@@ -476,7 +476,7 @@ export function DashboardPage() {
               <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
             </div>
             {chartLoading && !candles?.candles?.length ? (
-              <div className="flex h-[360px] items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
+              <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
                 チャート読み込み中…
               </div>
             ) : (

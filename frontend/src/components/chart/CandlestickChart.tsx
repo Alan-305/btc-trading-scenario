@@ -162,8 +162,14 @@ export function CandlestickChart({
         </div>
       )}
 
-      <div className="h-96 w-full overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-full min-w-full" preserveAspectRatio="xMidYMid meet">
+      <div className="h-80 w-full">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height="100%"
+          preserveAspectRatio="none"
+          className="block"
+        >
           {yTicks.map((tick) => (
             <g key={tick}>
               <line
