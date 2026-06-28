@@ -17,6 +17,12 @@ export interface EntryGuide {
   direction: "up" | "down" | null;
 }
 
+export interface MacroHints {
+  etfTrend?: string | null;
+  putCallRatio?: number | null;
+  onchainActivity?: string | null;
+}
+
 export function buildEntryGuide(
   currentPrice: number,
   entryLow: number,
@@ -24,16 +30,19 @@ export function buildEntryGuide(
   side: TradeSide,
   _stopLoss: number,
   _takeProfit: number[],
+  macro?: MacroHints,
 ): EntryGuide {
   const low = Math.min(entryLow, entryHigh);
   const high = Math.max(entryLow, entryHigh);
+
+  const macroNote = formatMacroNote(macro);
 
   if (side === "neutral" || currentPrice <= 0) {
     return {
       status: "neutral",
       headline: "いまは様子見",
       detail: "明確なエントリー方向がありません。",
-      action: "4時間足とエントリー帯が近づくまで待ちましょう。",
+      action: `4時間足とエントリー帯が近づくまで待ちましょう。${macroNote}`,
       distanceUsd: null,
       distancePct: null,
       direction: null,
@@ -48,9 +57,9 @@ export function buildEntryGuide(
       headline: "いまがエントリー候補の価格帯です",
       detail: `$${low.toLocaleString()} 〜 $${high.toLocaleString()} の範囲に入っています。`,
       action:
-        side === "long"
+        (side === "long"
           ? "ロングを検討するなら、この帯でエントリー。SL・TPは下の目安を参照してください。"
-          : "ショートを検討するなら、この帯でエントリー。SL・TPは下の目安を参照してください。",
+          : "ショートを検討するなら、この帯でエントリー。SL・TPは下の目安を参照してください。") + macroNote,
       distanceUsd: 0,
       distancePct: 0,
       direction: null,
@@ -123,4 +132,20 @@ export function roadmapBounds(
   const max = Math.max(...prices);
   const pad = (max - min) * 0.08 || currentPrice * 0.02;
   return { min: min - pad, max: max + pad };
+}
+
+function formatMacroNote(macro?: MacroHints): string {
+  if (!macro) return "";
+  const parts: string[] = [];
+  if (macro.etfTrend === "inflow") parts.push("ETFは流入傾向");
+  if (macro.etfTrend === "outflow") parts.push("ETFは流出傾向");
+  if (macro.putCallRatio != null && macro.putCallRatio >= 1.15) {
+    parts.push("Put/Call比はやや高め");
+  } else if (macro.putCallRatio != null && macro.putCallRatio <= 0.75) {
+    parts.push("Put/Call比はやや低め");
+  }
+  if (macro.onchainActivity === "rising") parts.push("オンチェーン活動は活発");
+  if (macro.onchainActivity === "falling") parts.push("オンチェーン活動は減速");
+  if (!parts.length) return "";
+  return `（${parts.join("・")}）`;
 }

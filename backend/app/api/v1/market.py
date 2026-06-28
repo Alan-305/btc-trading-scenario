@@ -68,13 +68,17 @@ async def volume_profile(
 
 @router.get("/orderbook-heatmap")
 async def orderbook_heatmap(
+    exchange: str | None = Query(default=None, description="whitebit|binance|bybit|bitget|coinbase"),
     aggregator: MarketAggregator = Depends(get_market_aggregator),
     service: OrderbookHeatmapService = Depends(get_heatmap_service),
 ):
     snapshot = await aggregator.collect_all(include_orderbooks=True)
     price = reference_price_from_snapshot(snapshot)
-    cells = service.compute(snapshot.orderbooks, reference_price=price)
-    return {"cells": cells}
+    orderbooks = snapshot.orderbooks
+    if exchange:
+        orderbooks = [ob for ob in orderbooks if ob.exchange == exchange.lower()]
+    cells = service.compute(orderbooks, reference_price=price)
+    return {"cells": cells, "exchange": exchange or "all"}
 
 
 @router.get("/candles", response_model=CandlesResponse)

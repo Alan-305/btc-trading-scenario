@@ -79,6 +79,9 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
           {scenario.data_sources.includes_sessions ? "・セッション" : ""}
           {scenario.data_sources.includes_heatmap ? "・板" : ""}
           {scenario.data_sources.includes_derivatives ? "・デリバティブ" : ""}
+          {scenario.data_sources.includes_options ? "・オプション" : ""}
+          {scenario.data_sources.includes_etf_flows ? "・ETF" : ""}
+          {scenario.data_sources.includes_onchain ? "・オンチェーン" : ""}
           {scenario.data_sources.research_items_used > 0
             ? `・調査メモ ${scenario.data_sources.research_items_used} 件`
             : ""}

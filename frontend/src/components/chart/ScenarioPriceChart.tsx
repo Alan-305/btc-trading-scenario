@@ -15,6 +15,7 @@ import type {
   ExitStrategy,
   ForecastPoint,
   ScenarioHorizonId,
+  ScenarioIndicators,
   TradeSide,
 } from "../../types/scenario";
 
@@ -53,6 +54,7 @@ interface ScenarioPriceChartProps {
   exit: ExitStrategy;
   horizonId?: ScenarioHorizonId;
   periodHint?: string;
+  indicators?: ScenarioIndicators;
 }
 
 function formatOpenedAt(d: Date): string {
@@ -152,6 +154,7 @@ export function ScenarioPriceChart({
   exit,
   horizonId = "today",
   periodHint = "約6時間",
+  indicators,
 }: ScenarioPriceChartProps) {
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
   const entryHigh = Math.max(entry.zone_low, entry.zone_high);
@@ -162,6 +165,11 @@ export function ScenarioPriceChart({
     entry.side,
     exit.stop_loss,
     exit.take_profit,
+    {
+      etfTrend: indicators?.etf_trend,
+      putCallRatio: indicators?.put_call_ratio,
+      onchainActivity: indicators?.onchain_activity_trend,
+    },
   );
 
   const chartData = buildChartRows(history, currentPrice, forecast, horizonId);

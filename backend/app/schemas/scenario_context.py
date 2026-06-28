@@ -22,4 +22,7 @@ class ScenarioDataSources(BaseModel):
     includes_sessions: bool = False
     includes_heatmap: bool = False
     includes_derivatives: bool = False
+    includes_options: bool = False
+    includes_etf_flows: bool = False
+    includes_onchain: bool = False
     personalized: bool = False

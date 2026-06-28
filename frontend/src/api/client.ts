@@ -8,6 +8,8 @@ import type {
 import type { ResearchContextItem, ResearchSummarizeRequest, ResearchSummarizeResponse } from "../types/research";
 import type {
   HeatmapCell,
+  HeatmapExchange,
+  MacroContextSnapshot,
   MarketSnapshot,
   ScenarioResponse,
   SentimentIndicators,
@@ -70,8 +72,16 @@ export const api = {
   buildScenario: (research: ResearchContextItem[] = []) =>
     postJson<ScenarioResponse>("/api/v1/scenario", { research }),
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
-  getHeatmap: () =>
-    fetchJson<{ cells: HeatmapCell[] }>("/api/v1/market/orderbook-heatmap"),
+  getMacroContext: () => fetchJson<MacroContextSnapshot>("/api/v1/indicators/macro"),
+  getHeatmap: (exchange: HeatmapExchange = "all") => {
+    const q =
+      exchange && exchange !== "all"
+        ? `?exchange=${encodeURIComponent(exchange)}`
+        : "";
+    return fetchJson<{ cells: HeatmapCell[]; exchange: string }>(
+      `/api/v1/market/orderbook-heatmap${q}`,
+    );
+  },
   getMarketSessions: () =>
     fetchJson<import("../types/sessions").MarketSessionsResponse>("/api/v1/market/sessions"),
   getCandles: (interval = "4h", limit = 250) =>

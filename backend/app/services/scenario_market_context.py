@@ -5,7 +5,11 @@ from dataclasses import dataclass, field
 from app.schemas.candles import RiskZonesResponse, TechnicalAnalysisResponse
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot, OrderbookHeatmapCell
 from app.schemas.scenario_context import ResearchContextItem
-from app.schemas.sessions import MarketSessionsResponse
+from app.schemas.extended_market import (
+    BtcEtfFlowSnapshot,
+    BtcOptionsSnapshot,
+    OnChainSnapshot,
+)
 from app.services.price_sanity import is_plausible_usd_price
 
 
@@ -28,6 +32,9 @@ class ScenarioMarketContext:
     sessions: MarketSessionsResponse | None
     heatmap: HeatmapSummary | None
     divergence_pct: dict[str, float]
+    options: BtcOptionsSnapshot | None = None
+    etf_flows: BtcEtfFlowSnapshot | None = None
+    onchain: OnChainSnapshot | None = None
     research: list[ResearchContextItem] = field(default_factory=list)
 
     def to_writer_facts(
@@ -129,6 +136,35 @@ class ScenarioMarketContext:
                 }
                 for item in self.research[:20]
             ]
+
+        if self.options:
+            facts["btc_options"] = {
+                "put_open_interest": self.options.put_open_interest,
+                "call_open_interest": self.options.call_open_interest,
+                "put_call_ratio": self.options.put_call_ratio,
+                "dvol_index": self.options.dvol_index,
+                "source": self.options.source,
+            }
+
+        if self.etf_flows:
+            facts["btc_etf_flows"] = {
+                "net_flow_1d_usd": self.etf_flows.net_flow_1d_usd,
+                "net_flow_3d_usd": self.etf_flows.net_flow_3d_usd,
+                "trend": self.etf_flows.trend,
+                "tickers_tracked": self.etf_flows.tickers_tracked,
+                "source": self.etf_flows.source,
+            }
+
+        if self.onchain:
+            facts["onchain_metrics"] = {
+                "hash_rate_th_s": self.onchain.hash_rate_th_s,
+                "hash_rate_change_7d_pct": self.onchain.hash_rate_change_7d_pct,
+                "tx_count_24h": self.onchain.tx_count_24h,
+                "trade_volume_usd": self.onchain.trade_volume_usd,
+                "mempool_fast_fee_sat": self.onchain.mempool_fast_fee_sat,
+                "activity_trend": self.onchain.activity_trend,
+                "source": self.onchain.source,
+            }
 
         return facts
 

@@ -38,6 +38,11 @@ class ScenarioIndicators(BaseModel):
     divergence_max_pct: float | None = None
     ta_trend: MacroTrend | None = None
     rsi_14: float | None = None
+    put_call_ratio: float | None = None
+    dvol_index: float | None = None
+    etf_flow_3d_usd: float | None = None
+    etf_trend: str | None = None
+    onchain_activity_trend: str | None = None
 
 
 class ScenarioHorizonBundle(BaseModel):

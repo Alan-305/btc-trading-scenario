@@ -12,6 +12,7 @@ import { AccuracyPanel } from "../components/dashboard/AccuracyPanel";
 import { CoinglassPanel } from "../components/dashboard/CoinglassPanel";
 import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
+import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
@@ -47,7 +48,14 @@ import type {
   SavedPredictionInput,
   TechnicalAnalysis,
 } from "../types/market";
-import type { HeatmapCell, MarketSnapshot, ScenarioResponse, SentimentIndicators } from "../types/scenario";
+import type {
+  HeatmapCell,
+  HeatmapExchange,
+  MacroContextSnapshot,
+  MarketSnapshot,
+  ScenarioResponse,
+  SentimentIndicators,
+} from "../types/scenario";
 import type { MarketSessionsResponse } from "../types/sessions";
 
 export function DashboardPage() {
@@ -72,6 +80,10 @@ export function DashboardPage() {
   const [scenario, setScenario] = useState<ScenarioResponse | null>(null);
   const [sentiment, setSentiment] = useState<SentimentIndicators | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapCell[]>([]);
+  const [heatmapExchange, setHeatmapExchange] = useState<HeatmapExchange>("all");
+  const [heatmapLoading, setHeatmapLoading] = useState(false);
+  const [macroContext, setMacroContext] = useState<MacroContextSnapshot | null>(null);
+  const [macroLoading, setMacroLoading] = useState(false);
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
   const [candles, setCandles] = useState<CandlesResponse | null>(null);
   const [technical, setTechnical] = useState<TechnicalAnalysis | null>(null);
@@ -106,32 +118,55 @@ export function DashboardPage() {
 
   const skipIntervalChartLoad = useRef(true);
 
+  const loadHeatmap = useCallback(async (exchange: HeatmapExchange) => {
+    setHeatmapLoading(true);
+    try {
+      const hm = await api.getHeatmap(exchange);
+      setHeatmap(hm.cells);
+    } catch {
+      setHeatmap([]);
+    } finally {
+      setHeatmapLoading(false);
+    }
+  }, []);
+
+  const loadMacro = useCallback(async () => {
+    setMacroLoading(true);
+    try {
+      const macro = await api.getMacroContext();
+      setMacroContext(macro);
+    } catch {
+      setMacroContext(null);
+    } finally {
+      setMacroLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
     setError(null);
     try {
       const researchContext = buildResearchContext(researchItems);
-      const [snap, scen, sent, hm, sess, zones] = await Promise.all([
+      const [snap, scen, sent, sess, zones] = await Promise.all([
         api.getMarketSnapshot(refresh),
         api.buildScenario(researchContext),
         api.getSentiment(),
-        api.getHeatmap().catch(() => ({ cells: [] as HeatmapCell[] })),
         api.getMarketSessions(),
         api.getRiskZones().catch(() => null),
       ]);
       setSnapshot(snap);
       setScenario(scen);
       setSentiment(sent);
-      setHeatmap(hm.cells);
       setSessions(sess);
       setRiskZones(zones);
       setOpenedAt((prev) => (refresh || !prev ? new Date() : prev));
+      void loadMacro();
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込みに失敗しました");
     } finally {
       setLoading(false);
     }
-  }, [researchItems]);
+  }, [researchItems, loadMacro]);
 
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {
@@ -181,6 +216,11 @@ export function DashboardPage() {
     }
     void loadChart(candleInterval);
   }, [canAccessApp, candleInterval, loadChart]);
+
+  useEffect(() => {
+    if (!canAccessApp) return;
+    void loadHeatmap(heatmapExchange);
+  }, [canAccessApp, heatmapExchange, loadHeatmap]);
 
   useEffect(() => {
     if (!user) {
@@ -383,6 +423,7 @@ export function DashboardPage() {
             onClick={() => {
               void load(true);
               void loadChart(candleInterval);
+              void loadHeatmap(heatmapExchange);
             }}
             disabled={loading || !canAccessApp}
             className="min-h-[44px] rounded-lg bg-accent-blue px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
@@ -507,8 +548,16 @@ export function DashboardPage() {
               updatedAt={sentiment?.fear_greed?.timestamp}
               history={sentiment?.fear_greed_history}
             />
-            <VolumeHeatmap cells={heatmap} referencePrice={price > 0 ? price : undefined} />
+            <VolumeHeatmap
+              cells={heatmap}
+              referencePrice={price > 0 ? price : undefined}
+              exchange={heatmapExchange}
+              onExchangeChange={setHeatmapExchange}
+              loading={heatmapLoading}
+            />
           </section>
+
+          <MacroContextPanel data={macroContext} loading={macroLoading} />
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {snapshot && (
@@ -531,6 +580,7 @@ export function DashboardPage() {
               exit={activeHorizon.exit}
               horizonId={activeHorizon.id}
               periodHint={activeHorizon.period_hint}
+              indicators={scenario.indicators}
             />
           )}
 

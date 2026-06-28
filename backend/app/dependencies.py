@@ -10,7 +10,10 @@ from app.collectors.registry import build_collectors
 from app.config import Settings, get_settings
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.binance_klines import BinanceKlinesClient
+from app.integrations.btc_etf_flows import BtcEtfFlowClient
+from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.derivatives_provider import DerivativesProvider
+from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.llm.scenario_writer import ScenarioWriter
 from app.ml.inference import ScenarioInference
 from app.services.divergence import DivergenceService
@@ -70,6 +73,9 @@ def get_scenario_builder(
         heatmap=OrderbookHeatmapService(),
         risk_zones=RiskZoneEstimator(),
         sessions=MarketSessionsService(),
+        deribit_options=DeribitOptionsClient(http),
+        etf_flows=BtcEtfFlowClient(http),
+        onchain=OnChainMetricsClient(http),
     )
 
 

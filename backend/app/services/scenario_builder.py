@@ -4,7 +4,10 @@ from datetime import datetime, timedelta, timezone
 
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.binance_klines import BinanceKlinesClient
+from app.integrations.btc_etf_flows import BtcEtfFlowClient
+from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.derivatives_provider import DerivativesProvider
+from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.llm.scenario_writer import ScenarioWriter
 from app.ml.inference import InferenceSignal, ScenarioInference
 from app.schemas.market import MarketSnapshot
@@ -41,6 +44,9 @@ class ScenarioBuilder:
         heatmap: OrderbookHeatmapService | None = None,
         risk_zones: RiskZoneEstimator | None = None,
         sessions: MarketSessionsService | None = None,
+        deribit_options: DeribitOptionsClient | None = None,
+        etf_flows: BtcEtfFlowClient | None = None,
+        onchain: OnChainMetricsClient | None = None,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -53,6 +59,9 @@ class ScenarioBuilder:
         self.heatmap = heatmap or OrderbookHeatmapService()
         self.risk_zones = risk_zones or RiskZoneEstimator()
         self.sessions = sessions or MarketSessionsService()
+        self.deribit_options = deribit_options
+        self.etf_flows = etf_flows
+        self.onchain = onchain
 
     async def _collect_market_context(
         self,
@@ -76,6 +85,10 @@ class ScenarioBuilder:
         risk = self.risk_zones.estimate(ref_price, cg, heatmap_cells)
         session_data = self.sessions.build()
 
+        options = await self.deribit_options.fetch_snapshot() if self.deribit_options else None
+        etf = await self.etf_flows.fetch_snapshot() if self.etf_flows else None
+        onchain = await self.onchain.fetch_snapshot() if self.onchain else None
+
         return ScenarioMarketContext(
             snapshot=snapshot,
             reference_price=ref_price,
@@ -86,6 +99,9 @@ class ScenarioBuilder:
             sessions=session_data,
             heatmap=heatmap_summary,
             divergence_pct=dict(snapshot.divergence_pct),
+            options=options,
+            etf_flows=etf,
+            onchain=onchain,
             research=research or [],
         )
 
@@ -155,6 +171,11 @@ class ScenarioBuilder:
             divergence_max_pct=DivergenceService.max_divergence_pct(context.divergence_pct),
             ta_trend=ta_trend,  # type: ignore[arg-type]
             rsi_14=context.technical.rsi_14 if context.technical else None,
+            put_call_ratio=context.options.put_call_ratio if context.options else None,
+            dvol_index=context.options.dvol_index if context.options else None,
+            etf_flow_3d_usd=context.etf_flows.net_flow_3d_usd if context.etf_flows else None,
+            etf_trend=context.etf_flows.trend if context.etf_flows else None,
+            onchain_activity_trend=context.onchain.activity_trend if context.onchain else None,
         )
 
         data_sources = ScenarioDataSources(
@@ -164,6 +185,9 @@ class ScenarioBuilder:
             includes_sessions=context.sessions is not None,
             includes_heatmap=context.heatmap is not None,
             includes_derivatives=context.derivatives is not None,
+            includes_options=context.options is not None,
+            includes_etf_flows=context.etf_flows is not None,
+            includes_onchain=context.onchain is not None,
             personalized=len(context.research) > 0,
         )
 

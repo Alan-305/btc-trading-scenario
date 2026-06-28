@@ -1,11 +1,23 @@
 import { useMemo } from "react";
-import type { HeatmapCell } from "../../types/scenario";
-import { EXTERNAL_LINKS } from "../../lib/external-links";
+import type { HeatmapCell, HeatmapExchange } from "../../types/scenario";
+import { EXCHANGE_URLS } from "../../lib/external-links";
 import { ExternalLink } from "../ui/ExternalLink";
+
+const HEATMAP_EXCHANGES: { value: HeatmapExchange; label: string }[] = [
+  { value: "all", label: "全取引所" },
+  { value: "whitebit", label: "WhiteBIT" },
+  { value: "binance", label: "Binance" },
+  { value: "bybit", label: "Bybit" },
+  { value: "bitget", label: "Bitget" },
+  { value: "coinbase", label: "Coinbase" },
+];
 
 interface VolumeHeatmapProps {
   cells: HeatmapCell[];
   referencePrice?: number;
+  exchange?: HeatmapExchange;
+  onExchangeChange?: (exchange: HeatmapExchange) => void;
+  loading?: boolean;
 }
 
 function formatUsdPrice(price: number): string {
@@ -51,7 +63,13 @@ function SummaryBar({ bidPct, askPct }: { bidPct: number; askPct: number }) {
   );
 }
 
-export function VolumeHeatmap({ cells, referencePrice = 0 }: VolumeHeatmapProps) {
+export function VolumeHeatmap({
+  cells,
+  referencePrice = 0,
+  exchange = "all",
+  onExchangeChange,
+  loading = false,
+}: VolumeHeatmapProps) {
   const { rows, bidPct, askPct, priceLow, priceHigh } = useMemo(() => {
     if (!cells.length) {
       return { rows: [], bidPct: 50, askPct: 50, priceLow: 0, priceHigh: 0 };
@@ -86,24 +104,58 @@ export function VolumeHeatmap({ cells, referencePrice = 0 }: VolumeHeatmapProps)
   if (!cells.length) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="mb-3 font-japanese text-sm font-medium text-slate-400">板厚みヒートマップ</h3>
-        <p className="text-sm text-slate-500">データなし</p>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-japanese text-sm font-medium text-slate-400">板厚みヒートマップ</h3>
+          {onExchangeChange && (
+            <select
+              value={exchange}
+              onChange={(e) => onExchangeChange(e.target.value as HeatmapExchange)}
+              className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 font-japanese text-xs text-slate-200"
+              aria-label="取引所を選択"
+            >
+              {HEATMAP_EXCHANGES.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <p className="text-sm text-slate-500">{loading ? "読み込み中…" : "データなし"}</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex items-start justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-japanese text-sm font-medium text-slate-300">板厚みヒートマップ</h3>
           <p className="mt-1 font-japanese text-[11px] text-slate-500">
             価格帯ごとの買い（B）・売り（S）の厚み（USD建て取引所）
           </p>
         </div>
-        <ExternalLink href={EXTERNAL_LINKS.whitebit} className="shrink-0 text-xs">
-          WhiteBIT
-        </ExternalLink>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {onExchangeChange && (
+            <select
+              value={exchange}
+              onChange={(e) => onExchangeChange(e.target.value as HeatmapExchange)}
+              className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 font-japanese text-xs text-slate-200"
+              aria-label="取引所を選択"
+            >
+              {HEATMAP_EXCHANGES.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          )}
+          {exchange !== "all" && EXCHANGE_URLS[exchange] && (
+            <ExternalLink href={EXCHANGE_URLS[exchange]} className="text-xs">
+              {HEATMAP_EXCHANGES.find((e) => e.value === exchange)?.label}
+            </ExternalLink>
+          )}
+        </div>
       </div>
 
       <SummaryBar bidPct={bidPct} askPct={askPct} />

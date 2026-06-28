@@ -118,6 +118,34 @@ class ScenarioInference:
             elif ctx == "range":
                 pass
 
+        if context.etf_flows:
+            trend = context.etf_flows.trend
+            if trend == "inflow":
+                bullish_score += 2
+            elif trend == "outflow":
+                bearish_score += 2
+
+        if context.options:
+            pc = context.options.put_call_ratio
+            if pc >= 1.15:
+                bearish_score += 1
+            elif pc <= 0.75:
+                bullish_score += 1
+            if context.options.dvol_index is not None and context.options.dvol_index >= 55:
+                bearish_score += 1
+
+        if context.onchain:
+            if context.onchain.activity_trend == "rising":
+                bullish_score += 1
+            elif context.onchain.activity_trend == "falling":
+                bearish_score += 1
+            hr_chg = context.onchain.hash_rate_change_7d_pct
+            if hr_chg is not None:
+                if hr_chg > 3:
+                    bullish_score += 1
+                elif hr_chg < -3:
+                    bearish_score += 1
+
         if bullish_score > bearish_score:
             macro_trend: MacroTrend = "bullish"
             side: TradeSide = "long"
@@ -171,6 +199,10 @@ class ScenarioInference:
         )
         if context.risk_zones and (context.risk_zones.long_liquidation or context.risk_zones.short_squeeze):
             exit_rationale += "清算帯推定も参考にしています。"
+        if context.etf_flows and context.etf_flows.trend != "neutral":
+            exit_rationale += f"米国BTC ETFは{context.etf_flows.trend}傾向です。"
+        if context.options:
+            exit_rationale += f" Deribit Put/Call比は {context.options.put_call_ratio:.2f} です。"
 
         return InferenceSignal(
             macro_trend=macro_trend,

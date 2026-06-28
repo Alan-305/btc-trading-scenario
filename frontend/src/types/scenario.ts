@@ -26,6 +26,11 @@ export interface ScenarioIndicators {
   divergence_max_pct: number | null;
   ta_trend?: MacroTrend | null;
   rsi_14?: number | null;
+  put_call_ratio?: number | null;
+  dvol_index?: number | null;
+  etf_flow_3d_usd?: number | null;
+  etf_trend?: string | null;
+  onchain_activity_trend?: string | null;
 }
 
 export interface ScenarioDataSources {
@@ -35,6 +40,9 @@ export interface ScenarioDataSources {
   includes_sessions: boolean;
   includes_heatmap: boolean;
   includes_derivatives: boolean;
+  includes_options?: boolean;
+  includes_etf_flows?: boolean;
+  includes_onchain?: boolean;
   personalized: boolean;
 }
 
@@ -126,4 +134,42 @@ export interface HeatmapCell {
   price_bin: number;
   bid_depth: number;
   ask_depth: number;
+}
+
+export type HeatmapExchange = "all" | "whitebit" | "binance" | "bybit" | "bitget" | "coinbase";
+
+export interface BtcOptionsSnapshot {
+  put_open_interest: number;
+  call_open_interest: number;
+  put_call_ratio: number;
+  dvol_index: number | null;
+  instrument_count: number;
+  source: string;
+  timestamp: string | null;
+}
+
+export interface BtcEtfFlowSnapshot {
+  net_flow_1d_usd: number | null;
+  net_flow_3d_usd: number | null;
+  trend: "inflow" | "outflow" | "neutral";
+  tickers_tracked: string[];
+  source: string;
+  timestamp: string | null;
+}
+
+export interface OnChainSnapshot {
+  hash_rate_th_s: number | null;
+  hash_rate_change_7d_pct: number | null;
+  tx_count_24h: number | null;
+  trade_volume_usd: number | null;
+  mempool_fast_fee_sat: number | null;
+  activity_trend: "rising" | "falling" | "stable";
+  source: string;
+  timestamp: string | null;
+}
+
+export interface MacroContextSnapshot {
+  options: BtcOptionsSnapshot | null;
+  etf_flows: BtcEtfFlowSnapshot | null;
+  onchain: OnChainSnapshot | null;
 }
