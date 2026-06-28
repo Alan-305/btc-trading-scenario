@@ -15,8 +15,8 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
   if (loading && !data) {
     return (
       <div id="macro-environment" className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="font-japanese text-sm font-medium text-slate-400">マクロ環境（ETF・オプション・オンチェーン）</h3>
-        <p className="mt-3 text-sm text-slate-500">グラフを読み込み中…</p>
+        <h3 className="font-japanese text-sm font-medium text-content-secondary">マクロ環境（ETF・オプション・オンチェーン）</h3>
+        <p className="mt-3 text-sm text-content-muted">グラフを読み込み中…</p>
       </div>
     );
   }
@@ -33,8 +33,8 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
   if (!data || (!data.options && !data.etf_flows && !data.onchain)) {
     return (
       <div id="macro-environment" className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="font-japanese text-sm font-medium text-slate-400">マクロ環境（ETF・オプション・オンチェーン）</h3>
-        <p className="mt-3 text-sm text-slate-500">データを取得できませんでした。「再分析」をお試しください。</p>
+        <h3 className="font-japanese text-sm font-medium text-content-secondary">マクロ環境（ETF・オプション・オンチェーン）</h3>
+        <p className="mt-3 text-sm text-content-muted">データを取得できませんでした。「再分析」をお試しください。</p>
       </div>
     );
   }
@@ -47,7 +47,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 className="font-japanese text-base font-medium text-slate-200">マクロ環境</h3>
-            <p className="mt-1 font-japanese text-[11px] text-slate-500">
+            <p className="mt-1 font-japanese text-[11px] text-content-muted">
               ETF資金・Deribitオプション・オンチェーン（シナリオ分析に反映）
             </p>
           </div>
@@ -65,7 +65,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="font-japanese text-sm font-medium text-slate-200">米国BTC ETF フロー</h4>
-                <p className="mt-0.5 font-japanese text-[10px] text-slate-500">
+                <p className="mt-0.5 font-japanese text-[10px] text-content-muted">
                   {etf_flows.source === "coinglass" ? "Coinglass" : "Yahoo出来高×価格変動"}の推定
                 </p>
               </div>
@@ -85,7 +85,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="font-english text-sm font-semibold text-slate-200">Deribit Options</h4>
-                <p className="mt-0.5 font-japanese text-[10px] text-slate-500">
+                <p className="mt-0.5 font-japanese text-[10px] text-content-muted">
                   Put/Call OI・DVOL（ボラティリティ指数）
                 </p>
               </div>
@@ -113,7 +113,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
             <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h4 className="font-japanese text-sm font-medium text-slate-200">オンチェーン</h4>
-                <p className="mt-0.5 font-japanese text-[10px] text-slate-500">
+                <p className="mt-0.5 font-japanese text-[10px] text-content-muted">
                   blockchain.info + mempool.space
                 </p>
               </div>
@@ -130,7 +130,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
               hashRateChange7d={onchain.hash_rate_change_7d_pct}
               activityTrend={onchain.activity_trend}
             />
-            <p className="mt-2 font-japanese text-[10px] text-slate-600">
+            <p className="mt-2 font-japanese text-[10px] text-content-muted">
               手数料（速い） {onchain.mempool_fast_fee_sat ?? "—"} sat/vB
             </p>
             <MacroSummaryText summary={onchain.summary_ja ?? ""} />
@@ -138,7 +138,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
         )}
       </div>
 
-      <p className="px-1 font-japanese text-[10px] leading-relaxed text-slate-600">
+      <p className="px-1 font-japanese text-[10px] leading-relaxed text-content-muted">
         参考情報であり投資助言ではありません。ETFフローは推定値です。
       </p>
     </section>

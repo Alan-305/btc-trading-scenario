@@ -28,10 +28,10 @@ export function formatCompactNumber(n: number): string {
 }
 
 export const MACRO_CHART = {
-  grid: "#334155",
-  axis: "#64748b",
-  tooltipBg: "#1e293b",
-  tooltipBorder: "#475569",
+  grid: "#2a2a2a",
+  axis: "#9a9aa4",
+  tooltipBg: "#141414",
+  tooltipBorder: "#2a2a2a",
   green: "#10b981",
   red: "#ef4444",
   blue: "#3b82f6",

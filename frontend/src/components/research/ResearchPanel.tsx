@@ -170,12 +170,12 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="min-h-[44px] flex-1 rounded-lg text-left hover:bg-slate-800/40"
+          className="min-h-[44px] flex-1 rounded-lg text-left hover:bg-surface-hover/40"
           aria-expanded={expanded}
         >
           <div className="flex items-start gap-2">
             <span
-              className="mt-0.5 text-slate-500 transition-transform"
+              className="mt-0.5 text-content-muted transition-transform"
               aria-hidden
               style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
             >
@@ -183,7 +183,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
             </span>
             <div>
               <h2 className="font-japanese text-sm font-medium text-slate-300">シナリオ分析データ</h2>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-content-muted">
                 記事・URL・YouTube などを要約（箇条書き可）で管理
               </p>
               <p className="mt-1 text-xs text-accent-blue">
@@ -210,7 +210,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                 openExpanded();
                 setShowSettings((v) => !v);
               }}
-              className="min-h-[44px] rounded-lg border border-surface-border px-4 py-2 text-sm text-slate-400"
+              className="min-h-[44px] rounded-lg border border-surface-border px-4 py-2 text-sm text-content-secondary"
             >
               設定
             </button>
@@ -221,9 +221,9 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
       {expanded && (
         <>
       {showSettings && (
-        <div className="mb-4 rounded-lg border border-surface-border/60 bg-slate-900/30 p-4 text-sm">
-          <h3 className="mb-3 text-xs font-medium text-slate-400">取捨選択の設定</h3>
-          <label className="mb-3 flex min-h-[44px] items-center gap-2 text-slate-400">
+        <div className="mb-4 rounded-lg border border-surface-border/60 bg-surface-elevated/30 p-4 text-sm">
+          <h3 className="mb-3 text-xs font-medium text-content-secondary">取捨選択の設定</h3>
+          <label className="mb-3 flex min-h-[44px] items-center gap-2 text-content-secondary">
             <input
               type="checkbox"
               checked={preferences.defaultIncludeInAnalysis}
@@ -233,7 +233,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
             />
             新規データはデフォルトで「分析に使う」
           </label>
-          <label className="mb-1 block text-xs text-slate-500">
+          <label className="mb-1 block text-xs text-content-muted">
             古いデータの目安（日数）— この期間より前を「整理候補」として表示
           </label>
           <select
@@ -269,7 +269,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                 type="button"
                 disabled={saving}
                 onClick={() => void runBulk("archive")}
-                className="text-xs text-slate-400 hover:underline"
+                className="text-xs text-content-secondary hover:underline"
               >
                 選択をアーカイブ
               </button>
@@ -385,14 +385,14 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
         </select>
         {selected.size > 0 && (
           <>
-            <span className="text-slate-500">{selected.size} 件選択</span>
+            <span className="text-content-muted">{selected.size} 件選択</span>
             <button type="button" onClick={() => void runBulk("include")} className="text-accent-green hover:underline">
               分析 ON
             </button>
-            <button type="button" onClick={() => void runBulk("exclude")} className="text-slate-400 hover:underline">
+            <button type="button" onClick={() => void runBulk("exclude")} className="text-content-secondary hover:underline">
               分析 OFF
             </button>
-            <button type="button" onClick={() => void runBulk("archive")} className="text-slate-400 hover:underline">
+            <button type="button" onClick={() => void runBulk("archive")} className="text-content-secondary hover:underline">
               アーカイブ
             </button>
             <button type="button" onClick={() => void runBulk("delete")} className="text-red-300 hover:underline">
@@ -403,12 +403,12 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
       </div>
 
       {loading ? (
-        <p className="text-sm text-slate-500">読み込み中…</p>
+        <p className="text-sm text-content-muted">読み込み中…</p>
       ) : filtered.length === 0 ? (
-        <p className="text-sm text-slate-500">該当するデータがありません。</p>
+        <p className="text-sm text-content-muted">該当するデータがありません。</p>
       ) : (
         <ul className="space-y-2">
-          <li className="flex items-center gap-2 px-2 text-[10px] text-slate-600">
+          <li className="flex items-center gap-2 px-2 text-[10px] text-content-muted">
             <input
               type="checkbox"
               checked={selected.size === filtered.length && filtered.length > 0}
@@ -437,19 +437,19 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-2">
                     <span className="font-japanese text-xs font-medium text-slate-200">{item.title}</span>
-                    <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                    <span className="rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-content-secondary">
                       {RESEARCH_SOURCE_LABEL[item.sourceType]}
                     </span>
                     {item.status === "archived" && (
-                      <span className="text-[10px] text-slate-500">アーカイブ</span>
+                      <span className="text-[10px] text-content-muted">アーカイブ</span>
                     )}
-                    <span className="text-[10px] text-slate-600">{formatResearchWhen(item.createdAt)}</span>
+                    <span className="text-[10px] text-content-muted">{formatResearchWhen(item.createdAt)}</span>
                   </div>
                   <p className="whitespace-pre-wrap font-japanese text-sm leading-relaxed text-slate-300">
                     {item.summaryLine}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <label className="flex min-h-[36px] cursor-pointer items-center gap-1 text-slate-400">
+                    <label className="flex min-h-[36px] cursor-pointer items-center gap-1 text-content-secondary">
                       <input
                         type="checkbox"
                         checked={item.includeInAnalysis}
@@ -461,7 +461,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                       <ExternalLink href={item.sourceUrl}>元リンク</ExternalLink>
                     )}
                     {item.tags.map((tag) => (
-                      <span key={tag} className="text-slate-600">
+                      <span key={tag} className="text-content-muted">
                         #{tag}
                       </span>
                     ))}
@@ -475,7 +475,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                     <button
                       type="button"
                       onClick={() => void deleteResearchItem(userId, item.id)}
-                      className="text-slate-600 hover:text-red-300"
+                      className="text-content-muted hover:text-red-300"
                     >
                       削除
                     </button>

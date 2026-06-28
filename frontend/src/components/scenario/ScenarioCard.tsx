@@ -39,7 +39,7 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-medium text-slate-100">{active.label}</h2>
-          <p className="mt-1 text-xs text-slate-500">{active.period_hint}</p>
+          <p className="mt-1 text-xs text-content-muted">{active.period_hint}</p>
         </div>
         <span className={`text-sm font-medium ${trend.color}`}>{trend.text}</span>
       </header>
@@ -55,7 +55,7 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
             className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-medium transition ${
               h.id === active.id
                 ? "bg-accent-blue text-white"
-                : "border border-surface-border text-slate-400 hover:border-slate-500"
+                : "border border-surface-border text-content-secondary hover:border-content-muted"
             }`}
           >
             {h.id === "today"
@@ -74,7 +74,7 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
       </p>
 
       {scenario.data_sources && (
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-content-muted">
           統合データ: テクニカル
           {scenario.data_sources.includes_risk_zones ? "・リスクゾーン" : ""}
           {scenario.data_sources.includes_sessions ? "・セッション" : ""}
@@ -88,7 +88,7 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
             : ""}
         </p>
       )}
-      <footer className="mt-4 flex items-center justify-between text-xs text-slate-500">
+      <footer className="mt-4 flex items-center justify-between text-xs text-content-muted">
         <span>信頼度: {(scenario.confidence * 100).toFixed(0)}%</span>
         <span>{scenario.disclaimer}</span>
       </footer>

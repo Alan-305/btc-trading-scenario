@@ -17,12 +17,12 @@ export function IndicatorSignalHeader({ signal, compact = false }: IndicatorSign
     );
   }
   return (
-    <div className="mb-3 space-y-2 rounded-lg border border-surface-border/50 bg-surface/30 px-3 py-2.5">
+    <div className="mb-3 space-y-2 rounded-lg border border-surface-border/50 bg-surface-elevated px-3 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-japanese text-xs font-medium text-slate-400">総合</span>
+        <span className="font-japanese text-xs font-medium text-content-secondary">総合</span>
         <MacroSignalBadge signalJa={signal.signalJa} stance={signal.stance} />
       </div>
-      <p className="font-japanese text-xs leading-relaxed text-slate-500">{signal.summaryJa}</p>
+      <p className="font-japanese text-xs leading-relaxed text-content-muted">{signal.summaryJa}</p>
     </div>
   );
 }

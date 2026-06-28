@@ -181,10 +181,10 @@ export function JournalEntryForm({
   const showReview = reviewFieldsVisible(type, status);
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-surface-border bg-slate-900/40 p-4">
+    <form onSubmit={handleSubmit} className="rounded-lg border border-surface-border bg-surface-elevated/40 p-4">
       {!initial && (
         <div className="mb-4">
-          <label htmlFor="journal-template" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="journal-template" className="mb-1 block text-xs text-content-muted">
             テンプレート（任意）
           </label>
           <select
@@ -205,7 +205,7 @@ export function JournalEntryForm({
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="journal-type" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="journal-type" className="mb-1 block text-xs text-content-muted">
             種類
           </label>
           <select
@@ -222,7 +222,7 @@ export function JournalEntryForm({
           </select>
         </div>
         <div>
-          <label htmlFor="journal-side" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="journal-side" className="mb-1 block text-xs text-content-muted">
             方向
           </label>
           <select
@@ -243,7 +243,7 @@ export function JournalEntryForm({
       {tradeFieldsRequired(type) && (
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="journal-status" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-status" className="mb-1 block text-xs text-content-muted">
               ポジション状態
             </label>
             <select
@@ -261,7 +261,7 @@ export function JournalEntryForm({
           </div>
           {type === "exit" && openEntries.length > 0 && (
             <div>
-              <label htmlFor="journal-parent" className="mb-1 block text-xs text-slate-500">
+              <label htmlFor="journal-parent" className="mb-1 block text-xs text-content-muted">
                 紐づくエントリー
               </label>
               <select
@@ -284,9 +284,9 @@ export function JournalEntryForm({
 
       {showTradeFields && (
         <fieldset className="mb-4 grid grid-cols-1 gap-3 rounded-lg border border-surface-border/60 p-3 sm:grid-cols-2">
-          <legend className="px-1 text-xs text-slate-500">約定・計画</legend>
+          <legend className="px-1 text-xs text-content-muted">約定・計画</legend>
           <div>
-            <label htmlFor="journal-entry-price" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-entry-price" className="mb-1 block text-xs text-content-muted">
               エントリー価格 (USD)
             </label>
             <input
@@ -303,7 +303,7 @@ export function JournalEntryForm({
             />
           </div>
           <div>
-            <label htmlFor="journal-exit-price" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-exit-price" className="mb-1 block text-xs text-content-muted">
               決済価格 (USD)
             </label>
             <input
@@ -320,7 +320,7 @@ export function JournalEntryForm({
             />
           </div>
           <div>
-            <label htmlFor="journal-sl" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-sl" className="mb-1 block text-xs text-content-muted">
               計画 SL (USD)
             </label>
             <input
@@ -336,7 +336,7 @@ export function JournalEntryForm({
             />
           </div>
           <div>
-            <label htmlFor="journal-tp" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-tp" className="mb-1 block text-xs text-content-muted">
               計画 TP (USD)
             </label>
             <input
@@ -352,7 +352,7 @@ export function JournalEntryForm({
             />
           </div>
           <div>
-            <label htmlFor="journal-size" className="mb-1 block text-xs text-slate-500">
+            <label htmlFor="journal-size" className="mb-1 block text-xs text-content-muted">
               サイズ (BTC)
             </label>
             <input
@@ -372,7 +372,7 @@ export function JournalEntryForm({
       )}
 
       <div className="mb-3">
-        <label htmlFor="journal-title" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="journal-title" className="mb-1 block text-xs text-content-muted">
           タイトル
         </label>
         <input
@@ -389,7 +389,7 @@ export function JournalEntryForm({
       </div>
 
       <div className="mb-3">
-        <label htmlFor="journal-note" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="journal-note" className="mb-1 block text-xs text-content-muted">
           メモ
         </label>
         <textarea
@@ -404,8 +404,8 @@ export function JournalEntryForm({
 
       {showReview && (
         <fieldset className="mb-4 rounded-lg border border-surface-border/60 p-3">
-          <legend className="px-1 text-xs text-slate-500">振り返り</legend>
-          <p className="mb-3 text-[10px] text-slate-600">判断の質を 1〜5 で評価し、次に活かす教訓を1行で残します。</p>
+          <legend className="px-1 text-xs text-content-muted">振り返り</legend>
+          <p className="mb-3 text-[10px] text-content-muted">判断の質を 1〜5 で評価し、次に活かす教訓を1行で残します。</p>
           <div className="mb-3 flex flex-wrap gap-2">
             {[1, 2, 3, 4, 5].map((score) => (
               <button
@@ -415,7 +415,7 @@ export function JournalEntryForm({
                 className={`min-h-[44px] min-w-[44px] rounded-lg border px-3 text-sm ${
                   reviewScore === score
                     ? "border-accent-blue bg-accent-blue/20 text-accent-blue"
-                    : "border-surface-border text-slate-400 hover:border-slate-500"
+                    : "border-surface-border text-content-secondary hover:border-content-muted"
                 }`}
                 title={REVIEW_SCORE_LABEL[score]}
               >
@@ -423,10 +423,10 @@ export function JournalEntryForm({
               </button>
             ))}
             {reviewScore != null && (
-              <span className="self-center text-xs text-slate-500">{REVIEW_SCORE_LABEL[reviewScore]}</span>
+              <span className="self-center text-xs text-content-muted">{REVIEW_SCORE_LABEL[reviewScore]}</span>
             )}
           </div>
-          <label htmlFor="journal-lesson" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="journal-lesson" className="mb-1 block text-xs text-content-muted">
             教訓（1行）
           </label>
           <input
@@ -457,7 +457,7 @@ export function JournalEntryForm({
       />
 
       <div className="mb-3">
-        <label htmlFor="journal-tags" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="journal-tags" className="mb-1 block text-xs text-content-muted">
           タグ（カンマ区切り）
         </label>
         <input
@@ -474,7 +474,7 @@ export function JournalEntryForm({
       </div>
 
       <fieldset className="mb-4 space-y-2">
-        <legend className="mb-2 text-xs text-slate-500">参考リンク</legend>
+        <legend className="mb-2 text-xs text-content-muted">参考リンク</legend>
         {links.map((link, index) => (
           <div
             key={index}
@@ -516,7 +516,7 @@ export function JournalEntryForm({
               <button
                 type="button"
                 onClick={() => setLinks((prev) => prev.filter((_, i) => i !== index))}
-                className="min-h-[40px] text-xs text-slate-500 hover:text-red-300 sm:col-span-1"
+                className="min-h-[40px] text-xs text-content-muted hover:text-red-300 sm:col-span-1"
               >
                 削除
               </button>
@@ -547,7 +547,7 @@ export function JournalEntryForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[44px] rounded-lg border border-surface-border px-5 py-2 text-sm text-slate-400 hover:bg-slate-800"
+          className="min-h-[44px] rounded-lg border border-surface-border px-5 py-2 text-sm text-content-secondary hover:bg-surface-hover"
         >
           キャンセル
         </button>

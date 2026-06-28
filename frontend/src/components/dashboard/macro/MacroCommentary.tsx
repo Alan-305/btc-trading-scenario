@@ -16,8 +16,8 @@ export const MACRO_STANCE_STYLE: Record<
   },
   neutral: {
     text: "様子見",
-    color: "text-slate-300",
-    bg: "bg-slate-700/30 border-surface-border",
+    color: "text-content-secondary",
+    bg: "bg-surface-elevated border-surface-border",
   },
   reversal: {
     text: "トレンド転換の兆候",
@@ -50,6 +50,6 @@ export function MacroSignalBadge({ signalJa, stance = "neutral" }: MacroSignalBa
 export function MacroSummaryText({ summary }: { summary: string }) {
   if (!summary) return null;
   return (
-    <p className="mt-3 font-japanese text-xs leading-relaxed text-slate-500">{summary}</p>
+    <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">{summary}</p>
   );
 }

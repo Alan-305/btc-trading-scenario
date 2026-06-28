@@ -4,8 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply font-japanese antialiased;
+@layer base {
+  body {
+    @apply bg-black font-japanese text-content-primary antialiased;
+  }
 }
 
 .font-english {

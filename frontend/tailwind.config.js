@@ -5,9 +5,17 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#0f172a",
-          card: "#1e293b",
-          border: "#334155",
+          DEFAULT: "#000000",
+          card: "#0a0a0a",
+          border: "#2a2a2a",
+          elevated: "#141414",
+          hover: "#1a1a1a",
+        },
+        content: {
+          primary: "#e4e4e7",
+          secondary: "#c4c4cc",
+          muted: "#9a9aa4",
+          faint: "#75757f",
         },
         accent: {
           green: "#22c55e",

@@ -22,7 +22,7 @@ export function DvolChart({ history, current }: DvolChartProps) {
   }));
 
   if (!data.length) {
-    return <p className="text-sm text-slate-500">DVOL履歴なし</p>;
+    return <p className="text-sm text-content-muted">DVOL履歴なし</p>;
   }
 
   const v = current ?? data[data.length - 1]?.dvol ?? 50;
@@ -34,7 +34,7 @@ export function DvolChart({ history, current }: DvolChartProps) {
         <p className="font-english text-2xl font-semibold" style={{ color }}>
           {v.toFixed(1)}
         </p>
-        <p className="font-japanese text-xs text-slate-500">DVOL（ボラティリティ指数）</p>
+        <p className="font-japanese text-xs text-content-muted">DVOL（ボラティリティ指数）</p>
       </div>
       <ResponsiveContainer width="100%" height={160}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -143,7 +143,7 @@ export function PutCallOiChart({ putOi, callOi, ratio }: PutCallOiBarProps) {
   return (
     <div className="space-y-4">
       <PutCallGauge ratio={ratio} />
-      <p className="text-center font-japanese text-xs text-slate-400">
+      <p className="text-center font-japanese text-xs text-content-secondary">
         Put/Call OI比{" "}
         <span className="font-english font-semibold text-slate-200">{ratio.toFixed(2)}</span>
       </p>
@@ -153,7 +153,7 @@ export function PutCallOiChart({ putOi, callOi, ratio }: PutCallOiBarProps) {
           <span className="font-japanese text-emerald-400">Call OI</span>
           <span className="font-english text-slate-300">{callOi.toLocaleString()} ({callPct}%)</span>
         </div>
-        <div className="flex h-6 overflow-hidden rounded-md bg-slate-800">
+        <div className="flex h-6 overflow-hidden rounded-md bg-surface-hover">
           <div
             className="bg-emerald-600/80 transition-all"
             style={{ width: `${callPct}%` }}

@@ -25,7 +25,7 @@ export function EtfFlowChart({ dailyFlows, trend, netFlow3d }: EtfFlowChartProps
   }));
 
   if (!data.length) {
-    return <p className="text-sm text-slate-500">フロー履歴なし</p>;
+    return <p className="text-sm text-content-muted">フロー履歴なし</p>;
   }
 
   const trendLabel =
@@ -35,7 +35,7 @@ export function EtfFlowChart({ dailyFlows, trend, netFlow3d }: EtfFlowChartProps
     <div>
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <p className="font-japanese text-sm font-medium text-slate-200">{trendLabel}</p>
-        <p className="font-english text-xs text-slate-400">
+        <p className="font-english text-xs text-content-secondary">
           3日合計 {netFlow3d != null ? formatCompactUsd(netFlow3d) : "—"}
         </p>
       </div>
@@ -78,7 +78,7 @@ export function EtfFlowChart({ dailyFlows, trend, netFlow3d }: EtfFlowChartProps
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <p className="mt-2 font-japanese text-[10px] text-slate-500">
+      <p className="mt-2 font-japanese text-[10px] text-content-muted">
         緑=流入推定 / 赤=流出推定（日次・USD）
       </p>
     </div>

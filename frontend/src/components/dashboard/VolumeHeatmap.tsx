@@ -27,13 +27,13 @@ function formatUsdPrice(price: number): string {
 
 function DepthBar({ bidPct, askPct }: { bidPct: number; askPct: number }) {
   return (
-    <div className="flex h-5 flex-1 items-stretch overflow-hidden rounded-md bg-slate-800/80">
+    <div className="flex h-5 flex-1 items-stretch overflow-hidden rounded-md bg-surface-hover/80">
       <div
         className="bg-emerald-600/75 transition-all"
         style={{ width: `${bidPct}%` }}
         title={`買い ${bidPct}%`}
       />
-      <div className="w-1 shrink-0 bg-slate-950" aria-hidden />
+      <div className="w-1 shrink-0 bg-black" aria-hidden />
       <div
         className="bg-red-600/75 transition-all"
         style={{ width: `${askPct}%` }}
@@ -105,7 +105,7 @@ export function VolumeHeatmap({
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-japanese text-sm font-medium text-slate-400">板厚みヒートマップ</h3>
+          <h3 className="font-japanese text-sm font-medium text-content-secondary">板厚みヒートマップ</h3>
           {onExchangeChange && (
             <select
               value={exchange}
@@ -121,7 +121,7 @@ export function VolumeHeatmap({
             </select>
           )}
         </div>
-        <p className="text-sm text-slate-500">{loading ? "読み込み中…" : "データなし"}</p>
+        <p className="text-sm text-content-muted">{loading ? "読み込み中…" : "データなし"}</p>
       </div>
     );
   }
@@ -131,7 +131,7 @@ export function VolumeHeatmap({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-japanese text-sm font-medium text-slate-300">板厚みヒートマップ</h3>
-          <p className="mt-1 font-japanese text-[11px] text-slate-500">
+          <p className="mt-1 font-japanese text-[11px] text-content-muted">
             価格帯ごとの買い（B）・売り（S）の厚み（USD建て取引所）
           </p>
         </div>
@@ -160,7 +160,7 @@ export function VolumeHeatmap({
 
       <SummaryBar bidPct={bidPct} askPct={askPct} />
 
-      <div className="mb-2 flex items-center justify-between font-japanese text-[10px] text-slate-500">
+      <div className="mb-2 flex items-center justify-between font-japanese text-[10px] text-content-muted">
         <span>高値 ${formatUsdPrice(priceHigh)}</span>
         {referencePrice > 0 && (
           <span className="text-accent-blue">現値 ${formatUsdPrice(referencePrice)}</span>
@@ -186,7 +186,7 @@ export function VolumeHeatmap({
             >
               <span
                 className={`text-right font-english text-xs ${
-                  nearRef ? "font-semibold text-white" : "text-slate-400"
+                  nearRef ? "font-semibold text-white" : "text-content-secondary"
                 }`}
               >
                 ${formatUsdPrice(cell.price_bin)}
@@ -197,7 +197,7 @@ export function VolumeHeatmap({
         })}
       </div>
 
-      <p className="mt-3 font-japanese text-[10px] leading-relaxed text-slate-500">
+      <p className="mt-3 font-japanese text-[10px] leading-relaxed text-content-muted">
         上ほど高い価格帯。緑=買い板 / 赤=売り板。青枠は現値付近です。
       </p>
     </div>

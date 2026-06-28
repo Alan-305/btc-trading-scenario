@@ -45,13 +45,13 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
       ? "text-accent-green"
       : session.status === "upcoming"
         ? "text-accent-amber"
-        : "text-slate-500";
+        : "text-content-muted";
 
   return (
     <div
       className={`rounded-lg border p-4 ${
         session.status === "active"
-          ? "border-accent-blue/40 bg-slate-800/80"
+          ? "border-accent-blue/40 bg-surface-hover/80"
           : "border-surface-border bg-surface-card"
       }`}
     >
@@ -59,13 +59,13 @@ function SessionCard({ session }: { session: MarketSessionBlock }) {
         <h4 className="font-japanese text-sm font-medium text-slate-200">{session.name_ja}</h4>
         <span className={`text-xs ${statusColor}`}>{SESSION_STATUS_LABEL[session.status]}</span>
       </div>
-      <p className="mb-2 text-xs text-slate-500">{session.centers_ja}</p>
+      <p className="mb-2 text-xs text-content-muted">{session.centers_ja}</p>
       {session.stock_market_note_ja && (
-        <p className="mb-2 rounded bg-slate-800/80 px-2 py-1 text-[10px] text-amber-200">
+        <p className="mb-2 rounded bg-surface-hover/80 px-2 py-1 text-[10px] text-amber-200">
           株式: {session.stock_market_note_ja}
         </p>
       )}
-      <dl className="space-y-1 text-xs text-slate-400">
+      <dl className="space-y-1 text-xs text-content-secondary">
         <div className="flex justify-between font-english">
           <dt>JST</dt>
           <dd>
@@ -140,18 +140,18 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
       <h2 className="mb-1 font-japanese text-sm font-medium text-slate-300">
         世界市場の時間帯
       </h2>
-      <p className="mb-4 text-xs leading-relaxed text-slate-500">{data.timeline_caption_ja}</p>
+      <p className="mb-4 text-xs leading-relaxed text-content-muted">{data.timeline_caption_ja}</p>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {data.clocks.map((c) => (
           <div
             key={c.timezone}
-            className="rounded-lg border border-surface-border bg-slate-900/50 px-3 py-2 text-center"
+            className="rounded-lg border border-surface-border bg-surface-elevated/50 px-3 py-2 text-center"
           >
-            <p className="text-xs text-slate-500">{c.label_ja}</p>
+            <p className="text-xs text-content-muted">{c.label_ja}</p>
             <p className="font-english text-xl font-semibold text-white">
               {c.time_hm}
-              <span className="ml-1 text-sm font-normal text-slate-400">({c.weekday_ja})</span>
+              <span className="ml-1 text-sm font-normal text-content-secondary">({c.weekday_ja})</span>
             </p>
             {c.market_note_ja && (
               <p className="mt-1 text-[10px] text-amber-200">{c.market_note_ja}</p>
@@ -166,7 +166,7 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         ))}
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-content-muted">
         <span>24時間タイムライン（日本時間・株式市場ベース）</span>
         <span className="flex flex-wrap items-center gap-3">
           <span>
@@ -191,7 +191,7 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
           <div
             key={h.jst_hour}
             className={`relative rounded-sm ${ACTIVITY_BG[h.activity_level]} ${
-              h.is_now ? "ring-2 ring-white ring-offset-1 ring-offset-slate-900" : ""
+              h.is_now ? "ring-2 ring-white ring-offset-1 ring-offset-black" : ""
             } ${h.closure_summary_ja ? "opacity-90" : ""}`}
             title={timelineTooltip(h)}
           >
@@ -207,14 +207,14 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
           </div>
         ))}
       </div>
-      <div className="mb-4 flex justify-between font-english text-[10px] text-slate-600">
+      <div className="mb-4 flex justify-between font-english text-[10px] text-content-muted">
         <span>0時</span>
         <span>6時</span>
         <span>12時</span>
         <span>18時</span>
         <span>24時</span>
       </div>
-      <p className="mb-4 text-[10px] leading-relaxed text-slate-500">
+      <p className="mb-4 text-[10px] leading-relaxed text-content-muted">
         棒の色＝日・欧・米の株式市場が同時に開いている数（東証・ロンドン・NYSE の営業時間・土日・祝日を反映）
         <br />
         下の点（左から日・欧・米）:
@@ -232,9 +232,9 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
         {data.exchanges.map((ex) => (
-          <div key={ex.exchange} className="rounded-lg bg-slate-800/50 p-3 text-xs">
+          <div key={ex.exchange} className="rounded-lg bg-surface-hover/50 p-3 text-xs">
             <p className="font-english font-medium text-slate-300">{ex.name_ja}</p>
-            <p className="mt-1 font-japanese leading-relaxed text-slate-400">{ex.note_ja}</p>
+            <p className="mt-1 font-japanese leading-relaxed text-content-secondary">{ex.note_ja}</p>
           </div>
         ))}
       </div>
@@ -244,11 +244,11 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         <p className="font-japanese text-sm leading-relaxed text-slate-200">
           {data.entry_hint.summary_ja}
         </p>
-        <p className="mt-2 font-japanese text-xs leading-relaxed text-slate-400">
+        <p className="mt-2 font-japanese text-xs leading-relaxed text-content-secondary">
           {data.entry_hint.detail_ja}
         </p>
         {data.entry_hint.next_high_activity_jst && (
-          <p className="mt-2 font-japanese text-xs text-slate-500">
+          <p className="mt-2 font-japanese text-xs text-content-muted">
             次の活発な時間帯: {data.entry_hint.next_high_activity_jst}
           </p>
         )}

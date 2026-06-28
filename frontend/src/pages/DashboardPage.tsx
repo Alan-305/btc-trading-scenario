@@ -443,7 +443,7 @@ export function DashboardPage() {
       ) : null}
       {firebaseReady && user && scenario && (
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-slate-400">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-content-secondary">
             <input
               type="checkbox"
               checked={saveAlsoJournal}
@@ -477,10 +477,10 @@ export function DashboardPage() {
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-sm font-medium text-slate-400">
+          <h2 className="text-sm font-medium text-content-secondary">
             {candleIntervalLabel(candleInterval)}ローソク足
           </h2>
-          <label className="flex items-center gap-2 text-xs text-slate-500">
+          <label className="flex items-center gap-2 text-xs text-content-muted">
             <span>足</span>
             <select
               value={candleInterval}
@@ -495,12 +495,12 @@ export function DashboardPage() {
               ))}
             </select>
           </label>
-          {chartLoading && <span className="text-xs text-slate-500">読み込み中…</span>}
+          {chartLoading && <span className="text-xs text-content-muted">読み込み中…</span>}
         </div>
         <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
       </div>
       {chartLoading && !candles?.candles?.length ? (
-        <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
+        <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-content-muted">
           チャート読み込み中…
         </div>
       ) : (
@@ -661,12 +661,12 @@ export function DashboardPage() {
           <h1 className="font-english text-2xl font-semibold tracking-tight text-white">
             BTC Trading Scenario
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-content-secondary">
             Google アカウントまたは招待メールのリンクでログインしてください
           </p>
         </div>
         {authLoading ? (
-          <p className="text-sm text-slate-400">確認中…</p>
+          <p className="text-sm text-content-secondary">確認中…</p>
         ) : (
           <>
             {localDev ? <LoginSetupHelp localDev={localDev} /> : null}
@@ -723,14 +723,14 @@ export function DashboardPage() {
       )}
 
       {loading && !scenario && canAccessApp && (
-        <div className="mb-6 rounded-xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-slate-400">
+        <div className="mb-6 rounded-xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-content-secondary">
           シナリオを分析中…
         </div>
       )}
 
       {canAccessApp && renderSection()}
 
-      <p className="mt-8 text-center font-japanese text-xs text-slate-600">
+      <p className="mt-8 text-center font-japanese text-xs text-content-muted">
         本アプリは参考情報であり、投資助言ではありません。
       </p>
     </DashboardShell>

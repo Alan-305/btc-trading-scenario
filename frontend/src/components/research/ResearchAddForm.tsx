@@ -97,15 +97,15 @@ export function ResearchAddForm({
   };
 
   return (
-    <form onSubmit={handleSave} className="rounded-lg border border-surface-border bg-slate-900/40 p-4">
+    <form onSubmit={handleSave} className="rounded-lg border border-surface-border bg-surface-elevated/40 p-4">
       {initial && (
-        <p className="mb-3 text-xs text-slate-500">
+        <p className="mb-3 text-xs text-content-muted">
           登録済みデータの編集 — 内容を直して「AI要約を生成」を押せます
         </p>
       )}
       <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label htmlFor="research-source-type" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="research-source-type" className="mb-1 block text-xs text-content-muted">
             種類
           </label>
           <select
@@ -122,7 +122,7 @@ export function ResearchAddForm({
           </select>
         </div>
         <div>
-          <label htmlFor="research-market-context" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="research-market-context" className="mb-1 block text-xs text-content-muted">
             想定トレンド（任意）
           </label>
           <select
@@ -141,7 +141,7 @@ export function ResearchAddForm({
       </div>
 
       <div className="mb-3">
-        <label htmlFor="research-title" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="research-title" className="mb-1 block text-xs text-content-muted">
           タイトル
         </label>
         <input
@@ -158,7 +158,7 @@ export function ResearchAddForm({
 
       {sourceType !== "text" && (
         <div className="mb-3">
-          <label htmlFor="research-url" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="research-url" className="mb-1 block text-xs text-content-muted">
             URL
           </label>
           <input
@@ -176,7 +176,7 @@ export function ResearchAddForm({
       )}
 
       <div className="mb-3">
-        <label htmlFor="research-content" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="research-content" className="mb-1 block text-xs text-content-muted">
           {sourceType === "text" ? "本文" : "補足テキスト（任意・YouTube/PDF はここに貼り付け）"}
         </label>
         <textarea
@@ -198,14 +198,14 @@ export function ResearchAddForm({
           {summarizing ? "要約中…" : "AI要約を生成"}
         </button>
         {sourceType === "youtube" && !content.trim() && (
-          <p className="self-center text-xs text-slate-500">
+          <p className="self-center text-xs text-content-muted">
             字幕・要点を補足テキストに貼ると要約精度が上がります
           </p>
         )}
       </div>
 
       <div className="mb-3">
-        <label htmlFor="research-summary" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="research-summary" className="mb-1 block text-xs text-content-muted">
           要約（箇条書き2〜10項目・最大1200文字）— シナリオ分析に渡す要点
         </label>
         <textarea
@@ -218,13 +218,13 @@ export function ResearchAddForm({
           }
           className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm leading-relaxed text-slate-200"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-content-muted">
           {summaryLine.split("\n").filter((l) => l.trim()).length} 行 / 最大10項目 · {summaryLine.length}/1200 文字
         </p>
       </div>
 
       <div className="mb-3">
-        <label htmlFor="research-tags" className="mb-1 block text-xs text-slate-500">
+        <label htmlFor="research-tags" className="mb-1 block text-xs text-content-muted">
           タグ
         </label>
         <input
@@ -239,7 +239,7 @@ export function ResearchAddForm({
         />
       </div>
 
-      <label className="mb-4 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-slate-400">
+      <label className="mb-4 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-content-secondary">
         <input
           type="checkbox"
           checked={includeInAnalysis}
@@ -262,7 +262,7 @@ export function ResearchAddForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[44px] rounded-lg border border-surface-border px-5 py-2 text-sm text-slate-400"
+          className="min-h-[44px] rounded-lg border border-surface-border px-5 py-2 text-sm text-content-secondary"
         >
           キャンセル
         </button>

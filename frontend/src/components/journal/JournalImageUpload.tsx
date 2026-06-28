@@ -48,7 +48,7 @@ export function JournalImageUpload({
 
   return (
     <fieldset className="mb-4">
-      <legend className="mb-2 text-xs text-slate-500">
+      <legend className="mb-2 text-xs text-content-muted">
         チャート画像（最大 {JOURNAL_IMAGE_MAX_COUNT} 枚・各 2MB 以下）
       </legend>
       <div className="flex flex-wrap gap-3">
@@ -63,7 +63,7 @@ export function JournalImageUpload({
               type="button"
               disabled={disabled}
               onClick={() => onRemoveExisting(index)}
-              className="absolute -right-2 -top-2 min-h-[28px] min-w-[28px] rounded-full bg-slate-900 px-2 text-xs text-red-300 shadow"
+              className="absolute -right-2 -top-2 min-h-[28px] min-w-[28px] rounded-full bg-surface-elevated px-2 text-xs text-red-300 shadow"
               aria-label="画像を削除"
             >
               ×
@@ -81,7 +81,7 @@ export function JournalImageUpload({
               type="button"
               disabled={disabled}
               onClick={() => onRemovePending(index)}
-              className="absolute -right-2 -top-2 min-h-[28px] min-w-[28px] rounded-full bg-slate-900 px-2 text-xs text-red-300 shadow"
+              className="absolute -right-2 -top-2 min-h-[28px] min-w-[28px] rounded-full bg-surface-elevated px-2 text-xs text-red-300 shadow"
               aria-label="添付を取消"
             >
               ×
@@ -93,7 +93,7 @@ export function JournalImageUpload({
             type="button"
             disabled={disabled}
             onClick={() => inputRef.current?.click()}
-            className="flex h-24 w-24 min-h-[44px] items-center justify-center rounded-lg border border-dashed border-surface-border text-xs text-slate-500 hover:border-accent-blue hover:text-accent-blue"
+            className="flex h-24 w-24 min-h-[44px] items-center justify-center rounded-lg border border-dashed border-surface-border text-xs text-content-muted hover:border-accent-blue hover:text-accent-blue"
           >
             + 画像
           </button>

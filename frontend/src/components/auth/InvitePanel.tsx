@@ -36,13 +36,13 @@ export function InvitePanel({ userEmail }: InvitePanelProps) {
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
       <h2 className="mb-1 text-sm font-medium text-slate-300">招待</h2>
-      <p className="mb-4 text-xs text-slate-500">
+      <p className="mb-4 text-xs text-content-muted">
         任意のメールアドレス（Gmail 以外も可）に招待リンクを送ります。相手はメール内のリンクからログインできます。
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label htmlFor="invite-email" className="mb-1 block text-xs text-slate-500">
+          <label htmlFor="invite-email" className="mb-1 block text-xs text-content-muted">
             メールアドレス
           </label>
           <input

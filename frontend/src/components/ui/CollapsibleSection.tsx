@@ -37,12 +37,12 @@ export function CollapsibleSection({
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="min-h-[44px] flex-1 rounded-lg text-left hover:bg-slate-800/40"
+          className="min-h-[44px] flex-1 rounded-lg text-left hover:bg-surface-hover/40"
           aria-expanded={expanded}
         >
           <div className="flex items-start gap-2">
             <span
-              className="mt-0.5 text-slate-500 transition-transform"
+              className="mt-0.5 text-content-muted transition-transform"
               aria-hidden
               style={{ transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}
             >
@@ -50,7 +50,7 @@ export function CollapsibleSection({
             </span>
             <div>
               <h2 className="font-japanese text-sm font-medium text-slate-300">{title}</h2>
-              {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+              {subtitle && <p className="mt-1 text-xs text-content-muted">{subtitle}</p>}
               {summary && (
                 <p className="mt-1 text-xs text-accent-blue">
                   {summary}

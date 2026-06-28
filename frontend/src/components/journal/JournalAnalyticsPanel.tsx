@@ -19,7 +19,7 @@ interface JournalAnalyticsPanelProps {
 function MetricBlock({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-xs text-content-muted">{label}</p>
       <p className="font-english text-xl font-semibold text-slate-100">{value}</p>
     </div>
   );
@@ -37,17 +37,17 @@ function AccuracyBlock({
   if (!data || data.total === 0) {
     return (
       <div className="rounded-lg border border-surface-border/60 p-4">
-        <h3 className="text-xs font-medium text-slate-400">{title}</h3>
-        <p className="mt-2 text-xs text-slate-500">{subtitle}</p>
-        <p className="mt-2 text-sm text-slate-500">対象データがありません</p>
+        <h3 className="text-xs font-medium text-content-secondary">{title}</h3>
+        <p className="mt-2 text-xs text-content-muted">{subtitle}</p>
+        <p className="mt-2 text-sm text-content-muted">対象データがありません</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-lg border border-surface-border/60 p-4">
-      <h3 className="text-xs font-medium text-slate-400">{title}</h3>
-      <p className="mt-1 text-[10px] leading-relaxed text-slate-600">{subtitle}</p>
+      <h3 className="text-xs font-medium text-content-secondary">{title}</h3>
+      <p className="mt-1 text-[10px] leading-relaxed text-content-muted">{subtitle}</p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricBlock
           label="大トレンド的中率"
@@ -63,7 +63,7 @@ function AccuracyBlock({
         />
         <MetricBlock label="対象件数" value={String(data.total)} />
       </div>
-      <p className="mt-2 text-[10px] text-slate-600">
+      <p className="mt-2 text-[10px] text-content-muted">
         確定 {data.finalized_count} 件 / 集計中 {data.pending_count} 件
       </p>
     </div>
@@ -79,8 +79,8 @@ export function JournalAnalyticsPanel({
   if (loading) {
     return (
       <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h2 className="text-sm font-medium text-slate-400">実トレード分析（7日スイング）</h2>
-        <p className="mt-3 text-sm text-slate-500">集計中…</p>
+        <h2 className="text-sm font-medium text-content-secondary">実トレード分析（7日スイング）</h2>
+        <p className="mt-3 text-sm text-content-muted">集計中…</p>
       </section>
     );
   }
@@ -98,8 +98,8 @@ export function JournalAnalyticsPanel({
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h2 className="mb-1 text-sm font-medium text-slate-400">実トレード分析（7日スイング）</h2>
-      <p className="mb-4 text-xs text-slate-500">
+      <h2 className="mb-1 text-sm font-medium text-content-secondary">実トレード分析（7日スイング）</h2>
+      <p className="mb-4 text-xs text-content-muted">
         日誌で「エントリー」かつ AI 連携済みの記録だけを実トレードとして集計します。
       </p>
 
@@ -120,8 +120,8 @@ export function JournalAnalyticsPanel({
         <div className="space-y-4">
           {reviewAvg != null && (
             <div className="rounded-lg border border-surface-border/60 p-4">
-              <h3 className="text-xs font-medium text-slate-400">振り返りスコア平均</h3>
-              <p className="mt-1 text-[10px] text-slate-600">日誌に記録した自己評価（1〜5）の平均</p>
+              <h3 className="text-xs font-medium text-content-secondary">振り返りスコア平均</h3>
+              <p className="mt-1 text-[10px] text-content-muted">日誌に記録した自己評価（1〜5）の平均</p>
               <p className="mt-2 font-english text-2xl font-semibold text-slate-100">
                 {reviewAvg} / 5
               </p>
@@ -130,8 +130,8 @@ export function JournalAnalyticsPanel({
 
           {pnlStats.closedCount > 0 && (
             <div className="rounded-lg border border-surface-border/60 p-4">
-              <h3 className="text-xs font-medium text-slate-400">手入力の決済損益</h3>
-              <p className="mt-1 text-[10px] text-slate-600">
+              <h3 className="text-xs font-medium text-content-secondary">手入力の決済損益</h3>
+              <p className="mt-1 text-[10px] text-content-muted">
                 日誌に記録した Entry / Exit 価格から算出（決済済み {pnlStats.closedCount} 件）
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -153,11 +153,11 @@ export function JournalAnalyticsPanel({
 
           {tagStats.length > 0 && (
             <div className="rounded-lg border border-surface-border/60 p-4">
-              <h3 className="mb-3 text-xs font-medium text-slate-400">タグ別成績（実トレード）</h3>
+              <h3 className="mb-3 text-xs font-medium text-content-secondary">タグ別成績（実トレード）</h3>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[480px] text-left text-xs">
                   <thead>
-                    <tr className="border-b border-surface-border/60 text-slate-500">
+                    <tr className="border-b border-surface-border/60 text-content-muted">
                       <th className="pb-2 pr-3 font-normal">タグ</th>
                       <th className="pb-2 pr-3 font-normal">件数</th>
                       <th className="pb-2 pr-3 font-normal">トレンド的中</th>
@@ -168,10 +168,10 @@ export function JournalAnalyticsPanel({
                     {tagStats.map((row) => (
                       <tr key={row.tag} className="border-b border-surface-border/40">
                         <td className="py-2 pr-3 font-japanese text-slate-300">#{row.tag}</td>
-                        <td className="py-2 pr-3 font-english text-slate-400">
+                        <td className="py-2 pr-3 font-english text-content-secondary">
                           {row.tradeCount}
                           {row.finalizedCount < row.tradeCount && (
-                            <span className="text-slate-600"> ({row.finalizedCount}確定)</span>
+                            <span className="text-content-muted"> ({row.finalizedCount}確定)</span>
                           )}
                         </td>
                         <td className="py-2 pr-3 font-english text-slate-300">
@@ -191,7 +191,7 @@ export function JournalAnalyticsPanel({
       )}
 
       {tradeIds.size === 0 && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-content-muted">
           AI 連携の日誌を「エントリー」に変更するか、「実トレードとして記録」で集計対象にできます。
         </p>
       )}

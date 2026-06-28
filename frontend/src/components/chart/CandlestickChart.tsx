@@ -85,7 +85,7 @@ export function CandlestickChart({
 
   if (!candles.length) {
     return (
-      <div className="flex h-96 items-center justify-center text-sm text-slate-500">
+      <div className="flex h-96 items-center justify-center text-sm text-content-muted">
         ローソク足データなし
       </div>
     );
@@ -142,20 +142,20 @@ export function CandlestickChart({
   return (
     <div className="w-full">
       {hovered && (
-        <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-surface-border bg-slate-800/80 px-3 py-2 text-xs">
+        <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-surface-border bg-surface-hover/80 px-3 py-2 text-xs">
           <span className="text-slate-300">{formatDate(hovered.ts)}</span>
-          <span className="font-english text-slate-400">
+          <span className="font-english text-content-secondary">
             O ${hovered.open.toLocaleString()} / H ${hovered.high.toLocaleString()} / L{" "}
             {hovered.low.toLocaleString()} / C ${hovered.close.toLocaleString()}
           </span>
-          <span className="font-english text-slate-400">Vol {formatVolume(hovered.volume)}</span>
+          <span className="font-english text-content-secondary">Vol {formatVolume(hovered.volume)}</span>
           {hoveredOverlay?.ema_200 != null && (
             <span className="font-english text-violet-300">
               EMA200 ${hoveredOverlay.ema_200.toLocaleString()}
             </span>
           )}
           {hoveredOverlay?.bb_upper != null && hoveredOverlay.bb_lower != null && (
-            <span className="font-english text-slate-400">
+            <span className="font-english text-content-secondary">
               BB ${hoveredOverlay.bb_lower.toLocaleString()}–${hoveredOverlay.bb_upper.toLocaleString()}
             </span>
           )}
@@ -177,7 +177,7 @@ export function CandlestickChart({
                 y1={priceY(tick)}
                 x2={W - PAD.right}
                 y2={priceY(tick)}
-                stroke="#334155"
+                stroke="#2a2a2a"
                 strokeDasharray="3 3"
               />
               <text
@@ -362,7 +362,7 @@ export function CandlestickChart({
         </svg>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-500">
+      <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-content-muted">
         <span className="flex items-center gap-1">
           <span className="inline-block h-0.5 w-4 bg-violet-400" />
           EMA200（{intervalTag}）

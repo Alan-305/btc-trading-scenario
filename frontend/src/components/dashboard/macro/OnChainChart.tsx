@@ -44,7 +44,7 @@ export function OnChainChart({
   const label = metric === "hash_rate" ? "ハッシュレート" : "トランザクション数";
 
   if (!data.length) {
-    return <p className="text-sm text-slate-500">オンチェーン履歴なし</p>;
+    return <p className="text-sm text-content-muted">オンチェーン履歴なし</p>;
   }
 
   return (
@@ -53,7 +53,7 @@ export function OnChainChart({
         <p className="font-japanese text-sm font-medium text-slate-200">
           {ACTIVITY_LABEL[activityTrend] ?? activityTrend}
           {hashRateChange7d != null && metric === "hash_rate" && (
-            <span className="ml-2 font-english text-xs text-slate-400">
+            <span className="ml-2 font-english text-xs text-content-secondary">
               7日 {hashRateChange7d > 0 ? "+" : ""}
               {hashRateChange7d}%
             </span>
@@ -66,7 +66,7 @@ export function OnChainChart({
             className={`min-h-[32px] rounded-md px-2.5 text-[10px] font-medium transition ${
               metric === "hash_rate"
                 ? "bg-accent-blue text-white"
-                : "text-slate-400 hover:text-slate-200"
+                : "text-content-secondary hover:text-slate-200"
             }`}
           >
             ハッシュレート
@@ -77,7 +77,7 @@ export function OnChainChart({
             className={`min-h-[32px] rounded-md px-2.5 text-[10px] font-medium transition ${
               metric === "tx_count"
                 ? "bg-accent-blue text-white"
-                : "text-slate-400 hover:text-slate-200"
+                : "text-content-secondary hover:text-slate-200"
             }`}
           >
             TX数

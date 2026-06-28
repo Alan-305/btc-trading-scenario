@@ -38,9 +38,9 @@ export function SavedSnapshotsPanel({ records, loading }: SavedSnapshotsPanelPro
       defaultExpanded={false}
     >
       {loading ? (
-        <p className="text-sm text-slate-500">読み込み中…</p>
+        <p className="text-sm text-content-muted">読み込み中…</p>
       ) : records.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-content-muted">
           「シナリオを保存」で、この分析を Firestore に記録できます。
         </p>
       ) : (
@@ -50,7 +50,7 @@ export function SavedSnapshotsPanel({ records, loading }: SavedSnapshotsPanelPro
               key={row.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-surface-border/60 bg-surface px-3 py-2 text-sm"
             >
-              <span className="text-slate-400">{formatSavedAt(row.saved_at)}</span>
+              <span className="text-content-secondary">{formatSavedAt(row.saved_at)}</span>
               <span className="font-english text-slate-200">
                 {row.market_summary.whitebit_price
                   ? `$${parseFloat(row.market_summary.whitebit_price).toLocaleString()}`
@@ -61,7 +61,7 @@ export function SavedSnapshotsPanel({ records, loading }: SavedSnapshotsPanelPro
                   ? (TREND_LABEL[row.scenario.macro_trend] ?? row.scenario.macro_trend)
                   : "—"}
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-content-muted">
                 信頼度{" "}
                 {row.scenario?.confidence != null
                   ? `${(row.scenario.confidence * 100).toFixed(0)}%`

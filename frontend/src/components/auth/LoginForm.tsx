@@ -7,7 +7,7 @@ export function LoginForm({ signingIn, onGoogleSignIn }: LoginFormProps) {
   return (
     <section className="mx-auto w-full max-w-md rounded-xl border border-surface-border bg-surface-card p-6">
       <h2 className="mb-1 text-lg font-medium text-slate-100">ログイン</h2>
-      <p className="mb-6 text-sm text-slate-400">
+      <p className="mb-6 text-sm text-content-secondary">
         Google アカウントをお持ちの方は Google でログインできます。招待メールを受け取った方は、メール内のリンクからログインしてください。
       </p>
 

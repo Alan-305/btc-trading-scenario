@@ -117,7 +117,7 @@ export function FearGreedMeter({
             </span>
             <div>
               <h3 className="font-english text-sm font-semibold text-slate-100">Fear & Greed Index</h3>
-              <p className="mt-0.5 font-japanese text-[11px] leading-relaxed text-slate-500">
+              <p className="mt-0.5 font-japanese text-[11px] leading-relaxed text-content-muted">
                 暗号資産市場のセンチメント（複合指標）
               </p>
             </div>
@@ -127,7 +127,7 @@ export function FearGreedMeter({
           </ExternalLink>
         </header>
 
-        <p className="mb-2 text-center font-japanese text-sm text-slate-400">
+        <p className="mb-2 text-center font-japanese text-sm text-content-secondary">
           現在:{" "}
           <span className="font-semibold" style={{ color: accent }}>
             {label}
@@ -136,7 +136,7 @@ export function FearGreedMeter({
 
         <FearGreedGauge value={v} />
 
-        <footer className="mt-3 flex items-center justify-between text-[10px] text-slate-500">
+        <footer className="mt-3 flex items-center justify-between text-[10px] text-content-muted">
           <span className="font-english">alternative.me</span>
           <span>更新: {formatFearGreedUpdated(updatedAt)}</span>
         </footer>
@@ -146,7 +146,7 @@ export function FearGreedMeter({
       {history.length > 0 && (
         <article className="rounded-xl border border-surface-border bg-surface-card p-5">
           <h4 className="mb-1 font-english text-sm font-semibold text-slate-200">Historical Values</h4>
-          <p className="mb-3 font-japanese text-[11px] text-slate-500">過去の指数</p>
+          <p className="mb-3 font-japanese text-[11px] text-content-muted">過去の指数</p>
           <ul>
             {history.map((row) => (
               <HistoryRow key={row.period} {...row} />

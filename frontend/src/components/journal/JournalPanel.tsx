@@ -196,9 +196,9 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
       )}
 
       {loading ? (
-        <p className="text-sm text-slate-500">読み込み中…</p>
+        <p className="text-sm text-content-muted">読み込み中…</p>
       ) : entries.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-content-muted">
           まだ日誌がありません。「新規メモ」またはシナリオ保存時の「日誌にも記録」で追加できます。
         </p>
       ) : (

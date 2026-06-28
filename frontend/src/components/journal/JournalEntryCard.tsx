@@ -38,19 +38,19 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="font-japanese text-sm font-medium text-slate-100">{entry.title}</h3>
-          <p className="mt-1 text-xs text-slate-500">{formatWhen(entry.createdAt)}</p>
+          <p className="mt-1 text-xs text-content-muted">{formatWhen(entry.createdAt)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+          <span className="rounded bg-surface-hover px-2 py-0.5 text-[10px] text-slate-300">
             {JOURNAL_TYPE_LABEL[entry.type]}
           </span>
           {entry.side && (
-            <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+            <span className="rounded bg-surface-hover px-2 py-0.5 text-[10px] text-slate-300">
               {JOURNAL_SIDE_LABEL[entry.side]}
             </span>
           )}
           {entry.status && (
-            <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+            <span className="rounded bg-surface-hover px-2 py-0.5 text-[10px] text-slate-300">
               {JOURNAL_STATUS_LABEL[entry.status]}
             </span>
           )}
@@ -73,24 +73,24 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
         entry.plannedTp != null) && (
         <dl className="mb-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
           <div>
-            <dt className="text-slate-500">Entry</dt>
+            <dt className="text-content-muted">Entry</dt>
             <dd className="font-english text-slate-200">{formatPrice(entry.entryPrice)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">Exit</dt>
+            <dt className="text-content-muted">Exit</dt>
             <dd className="font-english text-slate-200">{formatPrice(entry.exitPrice)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">計画 SL</dt>
+            <dt className="text-content-muted">計画 SL</dt>
             <dd className="font-english text-slate-200">{formatPrice(entry.plannedSl)}</dd>
           </div>
           <div>
-            <dt className="text-slate-500">計画 TP</dt>
+            <dt className="text-content-muted">計画 TP</dt>
             <dd className="font-english text-slate-200">{formatPrice(entry.plannedTp)}</dd>
           </div>
           {pnlPct != null && (
             <div className="col-span-2 sm:col-span-4">
-              <dt className="text-slate-500">実現損益</dt>
+              <dt className="text-content-muted">実現損益</dt>
               <dd
                 className={`font-english text-sm font-medium ${pnlPct >= 0 ? "text-accent-green" : "text-accent-red"}`}
               >
@@ -103,13 +103,13 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
       )}
 
       {entry.reviewScore != null || entry.reviewLesson ? (
-        <div className="mb-3 rounded-lg border border-surface-border/40 bg-slate-900/30 px-3 py-2 text-xs">
-          <p className="text-slate-500">振り返り</p>
+        <div className="mb-3 rounded-lg border border-surface-border/40 bg-surface-elevated/30 px-3 py-2 text-xs">
+          <p className="text-content-muted">振り返り</p>
           {entry.reviewScore != null && (
             <p className="mt-1 font-japanese text-slate-300">{formatReviewScore(entry.reviewScore)}</p>
           )}
           {entry.reviewLesson && (
-            <p className="mt-1 font-japanese text-slate-400">{entry.reviewLesson}</p>
+            <p className="mt-1 font-japanese text-content-secondary">{entry.reviewLesson}</p>
           )}
         </div>
       ) : null}
@@ -145,7 +145,7 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
           {entry.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400"
+              className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] text-content-secondary"
             >
               #{tag}
             </span>
@@ -157,7 +157,7 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
         <ul className="mb-3 space-y-1">
           {entry.links.map((link) => (
             <li key={`${link.url}-${link.label}`} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-slate-500">{JOURNAL_LINK_KIND_LABEL[link.kind]}</span>
+              <span className="text-content-muted">{JOURNAL_LINK_KIND_LABEL[link.kind]}</span>
               <ExternalLink href={link.url}>{link.label}</ExternalLink>
             </li>
           ))}
@@ -184,7 +184,7 @@ export function JournalEntryCard({ entry, onEdit, onDelete, onMarkAsTrade }: Jou
         <button
           type="button"
           onClick={onDelete}
-          className="min-h-[36px] text-slate-500 hover:text-red-300"
+          className="min-h-[36px] text-content-muted hover:text-red-300"
         >
           削除
         </button>

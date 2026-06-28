@@ -38,10 +38,10 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-400">
+        <h3 className="text-sm font-medium text-content-secondary">
           先物指標
           {data?.source && (
-            <span className="ml-2 text-xs font-normal text-slate-500">
+            <span className="ml-2 text-xs font-normal text-content-muted">
               ({data.source === "free_aggregate" ? "無料・複数取引所" : data.source})
             </span>
           )}
@@ -52,7 +52,7 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
       {data && (data.open_interest_usd != null || data.funding_rate != null) && (
         <dl className="mb-4 space-y-1 border-b border-surface-border pb-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-slate-500">合計 OI (USD)</dt>
+            <dt className="text-content-muted">合計 OI (USD)</dt>
             <dd className="font-english text-slate-200">
               {data.open_interest_usd
                 ? `$${(data.open_interest_usd / 1e9).toFixed(2)}B`
@@ -60,7 +60,7 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-slate-500">平均 Funding</dt>
+            <dt className="text-content-muted">平均 Funding</dt>
             <dd className="font-english text-slate-200">
               {data.funding_rate != null ? `${(data.funding_rate * 100).toFixed(4)}%` : "—"}
             </dd>
@@ -73,7 +73,7 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
           {exchanges.map((ex) => (
             <li
               key={ex.exchange}
-              className="flex flex-wrap items-center justify-between gap-1 rounded-md bg-slate-800/50 px-2 py-1.5"
+              className="flex flex-wrap items-center justify-between gap-1 rounded-md bg-surface-hover/50 px-2 py-1.5"
             >
               <span className="font-english text-slate-300">
                 {EXCHANGE_LABEL[ex.exchange] ?? ex.exchange}
@@ -84,21 +84,21 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
                 )}
               </span>
               {formatPrice(ex) && (
-                <span className="font-english text-slate-400">{formatPrice(ex)}</span>
+                <span className="font-english text-content-secondary">{formatPrice(ex)}</span>
               )}
-              <span className="font-english text-slate-400">
+              <span className="font-english text-content-secondary">
                 {ex.funding_rate != null
                   ? `FR ${(ex.funding_rate * 100).toFixed(4)}%`
                   : "FR —"}
               </span>
-              <span className="font-english text-slate-500">
+              <span className="font-english text-content-muted">
                 OI {formatOi(ex)}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-slate-500">データなし</p>
+        <p className="text-sm text-content-muted">データなし</p>
       )}
     </div>
   );
