@@ -11,6 +11,8 @@ interface DashboardShellProps {
   mobileMenuOpen: boolean;
   onMobileMenuOpenChange: (open: boolean) => void;
   headerActions: ReactNode;
+  sidebarFooter?: ReactNode;
+  userEmail?: string | null;
   children: ReactNode;
 }
 
@@ -68,6 +70,8 @@ export function DashboardShell({
   mobileMenuOpen,
   onMobileMenuOpenChange,
   headerActions,
+  sidebarFooter,
+  userEmail,
   children,
 }: DashboardShellProps) {
   const selectSection = (section: DashboardSection) => {
@@ -107,6 +111,9 @@ export function DashboardShell({
           <p className="mt-1 font-japanese text-[10px] text-content-muted">トレード分析</p>
         </div>
         <div className="flex-1 overflow-y-auto">{sidebar}</div>
+        {sidebarFooter && (
+          <div className="border-t border-surface-border p-3">{sidebarFooter}</div>
+        )}
       </aside>
 
       {/* Mobile overlay menu */}
@@ -131,6 +138,9 @@ export function DashboardShell({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">{sidebar}</div>
+            {sidebarFooter && (
+              <div className="border-t border-surface-border p-3">{sidebarFooter}</div>
+            )}
           </aside>
         </div>
       )}
@@ -149,11 +159,27 @@ export function DashboardShell({
                 <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
               </svg>
             </button>
-            <div className="min-w-0 flex-1 lg:hidden">
-              <p className="font-english text-sm font-semibold text-white">BTC Trading Scenario</p>
-              <p className="font-japanese text-[10px] text-content-muted">
-                {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
-              </p>
+            <div className="min-w-0 flex-1">
+              {userEmail ? (
+                <p
+                  className="truncate font-english text-sm text-content-primary"
+                  title={userEmail}
+                >
+                  {userEmail}
+                </p>
+              ) : (
+                <div className="lg:hidden">
+                  <p className="font-english text-sm font-semibold text-white">BTC Trading Scenario</p>
+                  <p className="font-japanese text-[10px] text-content-muted">
+                    {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
+                  </p>
+                </div>
+              )}
+              {userEmail && (
+                <p className="mt-0.5 font-japanese text-[10px] text-content-muted lg:hidden">
+                  {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
           </div>

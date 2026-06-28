@@ -432,13 +432,14 @@ export function DashboardPage() {
 
   const headerActions = (
     <>
-      {firebaseReady ? (
+      {firebaseReady && !user ? (
         <AuthButton
           user={user}
           loading={authLoading}
           signingIn={signingIn}
           onSignIn={signInWithGoogle}
           onSignOut={logout}
+          placement="header"
         />
       ) : null}
       {firebaseReady && user && scenario && (
@@ -689,6 +690,19 @@ export function DashboardPage() {
       mobileMenuOpen={mobileMenuOpen}
       onMobileMenuOpenChange={setMobileMenuOpen}
       headerActions={headerActions}
+      userEmail={user?.email ?? null}
+      sidebarFooter={
+        firebaseReady ? (
+          <AuthButton
+            user={user}
+            loading={authLoading}
+            signingIn={signingIn}
+            onSignIn={signInWithGoogle}
+            onSignOut={logout}
+            placement="sidebar"
+          />
+        ) : null
+      }
     >
       {!firebaseReady && (
         <div className="mb-4 rounded-lg border border-accent-amber/50 bg-accent-amber/10 p-3 text-sm text-amber-100">
