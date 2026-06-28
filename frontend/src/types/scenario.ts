@@ -138,12 +138,23 @@ export interface HeatmapCell {
 
 export type HeatmapExchange = "all" | "whitebit" | "binance" | "bybit" | "bitget" | "coinbase";
 
+export type MacroStance = "bullish" | "bearish" | "neutral" | "reversal" | "caution";
+
+export interface MacroSeriesPoint {
+  ts: string;
+  value: number;
+}
+
 export interface BtcOptionsSnapshot {
   put_open_interest: number;
   call_open_interest: number;
   put_call_ratio: number;
   dvol_index: number | null;
+  dvol_history: MacroSeriesPoint[];
   instrument_count: number;
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
   source: string;
   timestamp: string | null;
 }
@@ -152,7 +163,11 @@ export interface BtcEtfFlowSnapshot {
   net_flow_1d_usd: number | null;
   net_flow_3d_usd: number | null;
   trend: "inflow" | "outflow" | "neutral";
+  daily_flows: MacroSeriesPoint[];
   tickers_tracked: string[];
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
   source: string;
   timestamp: string | null;
 }
@@ -164,6 +179,11 @@ export interface OnChainSnapshot {
   trade_volume_usd: number | null;
   mempool_fast_fee_sat: number | null;
   activity_trend: "rising" | "falling" | "stable";
+  hash_rate_history: MacroSeriesPoint[];
+  tx_count_history: MacroSeriesPoint[];
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
   source: string;
   timestamp: string | null;
 }
@@ -172,4 +192,7 @@ export interface MacroContextSnapshot {
   options: BtcOptionsSnapshot | null;
   etf_flows: BtcEtfFlowSnapshot | null;
   onchain: OnChainSnapshot | null;
+  overall_stance?: MacroStance;
+  overall_signal_ja?: string;
+  overall_summary_ja?: string;
 }

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timezone
 
 import structlog
 
 from app.collectors.http_client import CollectorHttpClient
 from app.config import get_settings
-from app.schemas.extended_market import BtcEtfFlowSnapshot
+from app.schemas.extended_market import BtcEtfFlowSnapshot, MacroSeriesPoint
 
 logger = structlog.get_logger()
 
@@ -41,6 +42,15 @@ class BtcEtfFlowClient:
             rows = data.get("data") or []
             if not rows:
                 return None
+
+            daily_flows: list[MacroSeriesPoint] = []
+            for row in rows[-14:]:
+                flow = float(row.get("flowUsd") or row.get("flow_usd") or 0)
+                ts_raw = row.get("date") or row.get("timestamp")
+                ts = _parse_ts(ts_raw)
+                if ts:
+                    daily_flows.append(MacroSeriesPoint(ts=ts, value=round(flow, 0)))
+
             recent = rows[-3:]
             flows = [float(r.get("flowUsd") or r.get("flow_usd") or 0) for r in recent]
             net_1d = flows[-1] if flows else None
@@ -50,6 +60,7 @@ class BtcEtfFlowClient:
                 net_flow_1d_usd=round(net_1d, 0) if net_1d is not None else None,
                 net_flow_3d_usd=round(net_3d, 0) if net_3d is not None else None,
                 trend=trend,
+                daily_flows=daily_flows,
                 tickers_tracked=["coinglass_aggregate"],
                 source="coinglass",
                 timestamp=datetime.now(timezone.utc),
@@ -60,50 +71,77 @@ class BtcEtfFlowClient:
 
     async def _fetch_yahoo_proxy(self) -> BtcEtfFlowSnapshot | None:
         tickers = list(DEFAULT_TICKERS)
-        daily_flows: list[float] = []
+        daily_totals: dict[int, float] = defaultdict(float)
+        daily_flows_list: list[float] = []
 
         for symbol in tickers:
             try:
                 data = await self.http.get_json(
                     YAHOO_CHART.format(symbol=symbol),
-                    params={"interval": "1d", "range": "5d"},
+                    params={"interval": "1d", "range": "1mo"},
                     headers={"User-Agent": "btc-trading-scenario/1.0"},
                     rate_limit_key="yahoo",
                 )
                 result = (data.get("chart") or {}).get("result") or []
                 if not result:
                     continue
-                quotes = result[0].get("indicators", {}).get("quote", [{}])[0]
-                closes = [c for c in (quotes.get("close") or []) if c is not None]
-                volumes = [v for v in (quotes.get("volume") or []) if v is not None]
-                if len(closes) < 2 or len(volumes) < 2:
+                meta = result[0]
+                timestamps = meta.get("timestamp") or []
+                quotes = meta.get("indicators", {}).get("quote", [{}])[0]
+                closes = quotes.get("close") or []
+                volumes = quotes.get("volume") or []
+                if len(closes) < 2:
                     continue
                 for i in range(1, len(closes)):
                     prev, curr = closes[i - 1], closes[i]
-                    vol = volumes[i] if i < len(volumes) else volumes[-1]
-                    if prev <= 0 or vol is None:
+                    vol = volumes[i] if i < len(volumes) else None
+                    if prev is None or curr is None or prev <= 0 or vol is None:
                         continue
                     direction = 1.0 if curr >= prev else -1.0
-                    daily_flows.append(direction * float(vol) * float(curr))
+                    flow = direction * float(vol) * float(curr)
+                    ts = timestamps[i] if i < len(timestamps) else timestamps[-1]
+                    daily_totals[int(ts)] += flow
+                    daily_flows_list.append(flow)
             except Exception as exc:
                 logger.warning("yahoo_etf_symbol_failed", symbol=symbol, error=str(exc))
 
-        if not daily_flows:
+        if not daily_totals:
             return None
 
-        # Group by day index approximation: last chunk per ticker summed
-        net_1d = daily_flows[-len(tickers) :] if len(daily_flows) >= len(tickers) else daily_flows[-1:]
-        flow_1d = sum(net_1d)
-        flow_3d = sum(daily_flows[-3 * len(tickers) :]) if daily_flows else flow_1d
+        daily_flows = [
+            MacroSeriesPoint(
+                ts=datetime.fromtimestamp(ts, tz=timezone.utc),
+                value=round(val, 0),
+            )
+            for ts, val in sorted(daily_totals.items())
+        ][-14:]
+
+        net_1d = daily_flows[-1].value if daily_flows else 0
+        net_3d = sum(p.value for p in daily_flows[-3:]) if daily_flows else net_1d
 
         return BtcEtfFlowSnapshot(
-            net_flow_1d_usd=round(flow_1d, 0),
-            net_flow_3d_usd=round(flow_3d, 0),
-            trend=_trend_from_flow(flow_3d),
+            net_flow_1d_usd=round(net_1d, 0),
+            net_flow_3d_usd=round(net_3d, 0),
+            trend=_trend_from_flow(net_3d),
+            daily_flows=daily_flows,
             tickers_tracked=tickers,
             source="yahoo_proxy",
             timestamp=datetime.now(timezone.utc),
         )
+
+
+def _parse_ts(raw: object) -> datetime | None:
+    if raw is None:
+        return None
+    if isinstance(raw, (int, float)):
+        sec = raw / 1000 if raw > 1_000_000_000_000 else raw
+        return datetime.fromtimestamp(sec, tz=timezone.utc)
+    if isinstance(raw, str):
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return None
 
 
 def _trend_from_flow(flow: float | None) -> str:

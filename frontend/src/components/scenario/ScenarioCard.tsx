@@ -72,6 +72,7 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
       <p className="whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {active.scenario_text_ja}
       </p>
+
       {scenario.data_sources && (
         <p className="mt-3 text-xs text-slate-500">
           統合データ: テクニカル

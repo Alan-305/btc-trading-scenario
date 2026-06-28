@@ -11,6 +11,7 @@ from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.schemas.extended_market import MacroContextSnapshot
 from app.schemas.market import SentimentIndicators
+from app.services.macro_analysis import enrich_macro_context
 from app.storage.redis_cache import AppCache
 
 router = APIRouter()
@@ -48,4 +49,6 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
         etf_client.fetch_snapshot(),
         onchain_client.fetch_snapshot(),
     )
-    return MacroContextSnapshot(options=options, etf_flows=etf, onchain=onchain)
+    return enrich_macro_context(
+        MacroContextSnapshot(options=options, etf_flows=etf, onchain=onchain)
+    )

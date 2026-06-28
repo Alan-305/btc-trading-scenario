@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import structlog
 
 from app.collectors.http_client import CollectorHttpClient
-from app.schemas.extended_market import OnChainSnapshot
+from app.schemas.extended_market import MacroSeriesPoint, OnChainSnapshot
 
 logger = structlog.get_logger()
 
@@ -19,8 +19,8 @@ class OnChainMetricsClient:
 
     async def fetch_snapshot(self) -> OnChainSnapshot | None:
         try:
-            hash_vals = await self._chart_values("hash-rate", days=14)
-            tx_vals = await self._chart_values("n-transactions", days=14)
+            hash_vals = await self._chart_values("hash-rate", days=30)
+            tx_vals = await self._chart_values("n-transactions", days=30)
             vol_vals = await self._chart_values("trade-volume", days=14)
             fees = await self._mempool_fees()
 
@@ -37,6 +37,8 @@ class OnChainMetricsClient:
                 trade_volume_usd=round(trade_vol, 0) if trade_vol is not None else None,
                 mempool_fast_fee_sat=fees,
                 activity_trend=activity,
+                hash_rate_history=_to_series(hash_vals[-14:]),
+                tx_count_history=_to_series(tx_vals[-14:]),
                 source="blockchain.info+mempool.space",
                 timestamp=datetime.now(timezone.utc),
             )
@@ -59,6 +61,22 @@ class OnChainMetricsClient:
             return int(fee) if fee is not None else None
         except Exception:
             return None
+
+
+def _to_series(values: list[dict]) -> list[MacroSeriesPoint]:
+    out: list[MacroSeriesPoint] = []
+    for row in values:
+        ts_sec = row.get("x")
+        val = row.get("y")
+        if ts_sec is None or val is None:
+            continue
+        out.append(
+            MacroSeriesPoint(
+                ts=datetime.fromtimestamp(float(ts_sec), tz=timezone.utc),
+                value=round(float(val), 2),
+            )
+        )
+    return out
 
 
 def _pct_change(values: list[dict], window: int) -> float | None:

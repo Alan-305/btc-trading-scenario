@@ -84,6 +84,7 @@ export function DashboardPage() {
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [macroContext, setMacroContext] = useState<MacroContextSnapshot | null>(null);
   const [macroLoading, setMacroLoading] = useState(false);
+  const [macroError, setMacroError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
   const [candles, setCandles] = useState<CandlesResponse | null>(null);
   const [technical, setTechnical] = useState<TechnicalAnalysis | null>(null);
@@ -132,11 +133,13 @@ export function DashboardPage() {
 
   const loadMacro = useCallback(async () => {
     setMacroLoading(true);
+    setMacroError(null);
     try {
       const macro = await api.getMacroContext();
       setMacroContext(macro);
-    } catch {
+    } catch (e) {
       setMacroContext(null);
+      setMacroError(e instanceof Error ? e.message : "マクロデータの取得に失敗しました");
     } finally {
       setMacroLoading(false);
     }
@@ -424,6 +427,7 @@ export function DashboardPage() {
               void load(true);
               void loadChart(candleInterval);
               void loadHeatmap(heatmapExchange);
+              void loadMacro();
             }}
             disabled={loading || !canAccessApp}
             className="min-h-[44px] rounded-lg bg-accent-blue px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
@@ -486,6 +490,8 @@ export function DashboardPage() {
               onHorizonChange={setActiveHorizonId}
             />
           ) : null}
+
+          <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
 
           {/* 3. 世界市場の時間帯 */}
           {sessions && <MarketSessionsPanel data={sessions} />}
@@ -556,8 +562,6 @@ export function DashboardPage() {
               loading={heatmapLoading}
             />
           </section>
-
-          <MacroContextPanel data={macroContext} loading={macroLoading} />
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {snapshot && (

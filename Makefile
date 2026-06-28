@@ -1,4 +1,4 @@
-.PHONY: setup redis redis-brew redis-down dev dev-all test lint docker-up docker-down frontend-dev frontend-build gcp-bootstrap gcp-deploy
+.PHONY: setup redis redis-brew redis-down dev dev-all test lint docker-up docker-down frontend-dev frontend-build gcp-bootstrap gcp-deploy firebase-deploy
 
 GCP_PROJECT_ID ?= nexus-btc-trading
 
@@ -67,9 +67,13 @@ frontend-dev:
 frontend-build:
 	cd frontend && npm run build
 
-# GCP Cloud Run（プロジェクト: nexus-btc-trading）
 gcp-bootstrap:
 	GCP_PROJECT_ID=$(GCP_PROJECT_ID) ./scripts/gcp-bootstrap.sh
 
+# GCP Cloud Run API + Firebase Hosting（本番 web.app は Hosting が配信元）
 gcp-deploy:
 	gcloud builds submit --config=infra/cloudbuild.yaml --project=$(GCP_PROJECT_ID) .
+	$(MAKE) firebase-deploy
+
+firebase-deploy:
+	GCP_PROJECT_ID=$(GCP_PROJECT_ID) ./scripts/firebase-deploy-hosting.sh
