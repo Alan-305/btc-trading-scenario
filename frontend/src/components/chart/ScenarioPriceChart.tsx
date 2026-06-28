@@ -10,7 +10,13 @@ import {
   ReferenceLine,
 } from "recharts";
 import { buildEntryGuide } from "../../lib/entry-guide";
-import type { EntryZone, ExitStrategy, ForecastPoint, TradeSide } from "../../types/scenario";
+import type {
+  EntryZone,
+  ExitStrategy,
+  ForecastPoint,
+  ScenarioHorizonId,
+  TradeSide,
+} from "../../types/scenario";
 
 interface PricePoint {
   ts: string;
@@ -45,6 +51,8 @@ interface ScenarioPriceChartProps {
   forecast: ForecastPoint[];
   entry: EntryZone;
   exit: ExitStrategy;
+  horizonId?: ScenarioHorizonId;
+  periodHint?: string;
 }
 
 function formatOpenedAt(d: Date): string {
@@ -56,10 +64,21 @@ function formatOpenedAt(d: Date): string {
   });
 }
 
+function formatFutureLabel(ts: string, horizonId: ScenarioHorizonId, index: number): string {
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return `+${index + 1}`;
+
+  if (horizonId === "today") return `+${index + 1}時間`;
+  if (horizonId === "week") return `+${index + 1}日`;
+  if (horizonId === "month") return `+${index + 1}週`;
+  return date.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+}
+
 function buildChartRows(
   history: PricePoint[],
   currentPrice: number,
   forecast: ForecastPoint[],
+  horizonId: ScenarioHorizonId,
 ): ChartRow[] {
   const past = history.slice(-5).map((h) => ({
     ts: h.ts,
@@ -76,13 +95,52 @@ function buildChartRows(
   };
 
   const future = forecast.map((f, i) => ({
-    ts: `+${i + 1}時間`,
+    ts: formatFutureLabel(f.ts, horizonId, i),
     kind: "future" as const,
     pastPrice: null,
     futurePrice: f.price,
   }));
 
   return [...past, nowRow, ...future];
+}
+
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: ChartRow; value: number }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const row = payload[0]?.payload;
+  if (!row) return null;
+
+  const price =
+    row.kind === "past"
+      ? row.pastPrice
+      : row.kind === "future"
+        ? row.futurePrice
+        : row.pastPrice ?? row.futurePrice;
+
+  if (price == null) return null;
+
+  const kindLabel =
+    row.kind === "past" ? "過去の価格" : row.kind === "now" ? "現在の価格" : "将来の目安";
+
+  const timeLabel =
+    label === "いま" ? "いま（アプリを開いた時点）" : label ?? "";
+
+  return (
+    <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs shadow-lg">
+      <p className="mb-1 text-slate-400">{timeLabel}</p>
+      <p className="font-english text-slate-100">
+        {kindLabel}: ${price.toLocaleString()}
+      </p>
+    </div>
+  );
 }
 
 export function ScenarioPriceChart({
@@ -92,6 +150,8 @@ export function ScenarioPriceChart({
   forecast,
   entry,
   exit,
+  horizonId = "today",
+  periodHint = "約6時間",
 }: ScenarioPriceChartProps) {
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
   const entryHigh = Math.max(entry.zone_low, entry.zone_high);
@@ -104,7 +164,7 @@ export function ScenarioPriceChart({
     exit.take_profit,
   );
 
-  const chartData = buildChartRows(history, currentPrice, forecast);
+  const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
 
   return (
@@ -113,7 +173,7 @@ export function ScenarioPriceChart({
         <div>
           <h2 className="text-sm font-medium text-slate-400">エントリー判断と価格の流れ</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {formatOpenedAt(openedAt)} 時点 — 左が過去、右が6時間先の目安
+            {formatOpenedAt(openedAt)} 時点 — 左が過去、右が{periodHint}の目安
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -156,15 +216,7 @@ export function ScenarioPriceChart({
               domain={["auto", "auto"]}
               tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
             />
-            <Tooltip
-              contentStyle={{ background: "#1e293b", border: "1px solid #334155" }}
-              formatter={(value, name) => {
-                if (value == null || typeof value !== "number") return [null, null];
-                const label = name === "pastPrice" ? "過去" : "予測";
-                return [`$${value.toLocaleString()}`, label];
-              }}
-              labelFormatter={(label) => (label === "いま" ? "いま（アプリを開いた時点）" : label)}
-            />
+            <Tooltip content={<ChartTooltip />} />
             <ReferenceArea
               y1={entryLow}
               y2={entryHigh}
@@ -200,7 +252,7 @@ export function ScenarioPriceChart({
               strokeWidth={2}
               dot={{ r: 3, fill: "#60a5fa" }}
               connectNulls={false}
-              name="過去"
+              name="pastPrice"
             />
             <Line
               type="monotone"
@@ -229,7 +281,7 @@ export function ScenarioPriceChart({
                 );
               }}
               connectNulls={false}
-              name="予測"
+              name="futurePrice"
             />
           </ComposedChart>
         </ResponsiveContainer>
@@ -254,12 +306,12 @@ export function ScenarioPriceChart({
         </div>
         <div>
           <dt className="text-xs text-slate-500">有効目安</dt>
-          <dd className="text-slate-300">開いてから約6時間</dd>
+          <dd className="text-slate-300">{periodHint}</dd>
         </div>
       </dl>
 
       <p className="mt-3 text-xs text-slate-500">
-        青い実線＝過去の推移　紫の点線＝いまから6時間先の目安（白丸＝いま）　青い帯＝エントリー候補
+        青い実線＝過去の実績　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
       </p>
     </section>
   );

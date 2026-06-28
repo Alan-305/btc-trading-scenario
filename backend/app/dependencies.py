@@ -20,6 +20,7 @@ from app.services.prediction_evaluator import PredictionEvaluator
 from app.services.risk_zones import RiskZoneEstimator
 from app.services.technical_analysis import TechnicalAnalysisService
 from app.services.volume_profile import OrderbookHeatmapService, VolumeProfileService
+from app.services.market_sessions import MarketSessionsService
 from app.storage.redis_cache import AppCache
 
 logger = structlog.get_logger()
@@ -66,6 +67,9 @@ def get_scenario_builder(
         fear_greed=fear_greed,
         coinglass=coinglass,
         klines=BinanceKlinesClient(http),
+        heatmap=OrderbookHeatmapService(),
+        risk_zones=RiskZoneEstimator(),
+        sessions=MarketSessionsService(),
     )
 
 

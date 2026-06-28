@@ -1,10 +1,45 @@
 import pytest
 import respx
+from datetime import datetime, timezone
 from httpx import Response
 
 from app.config import Settings
 from app.llm.gemini_client import GEMINI_API_BASE
 from app.llm.scenario_writer import ScenarioWriter
+from app.schemas.market import FearGreedIndex, MarketSnapshot
+from app.services.scenario_market_context import ScenarioMarketContext
+
+
+def _writer_context(
+    *,
+    fear_greed: int | None = 20,
+    funding_rate: float | None = 0.0001,
+    research_count: int = 0,
+) -> ScenarioMarketContext:
+    fg = (
+        FearGreedIndex(value=fear_greed, classification="Fear", timestamp=datetime.now(timezone.utc))
+        if fear_greed is not None
+        else None
+    )
+    from app.schemas.market import CoinglassSnapshot
+
+    cg = (
+        CoinglassSnapshot(funding_rate=funding_rate, timestamp=datetime.now(timezone.utc))
+        if funding_rate is not None
+        else None
+    )
+    return ScenarioMarketContext(
+        snapshot=MarketSnapshot(tickers=[], orderbooks=[], collected_at=datetime.now(timezone.utc)),
+        reference_price=100_000,
+        fear_greed=fg,
+        derivatives=cg,
+        technical=None,
+        risk_zones=None,
+        sessions=None,
+        heatmap=None,
+        divergence_pct={"binance": 0.2},
+        research=[],
+    )
 
 
 @pytest.mark.asyncio
@@ -19,9 +54,7 @@ async def test_scenario_writer_uses_template_without_api_key():
         entry_high=100_500,
         take_profit=[101_000],
         stop_loss=99_000,
-        fear_greed=20,
-        funding_rate=0.0001,
-        divergence_max_pct=0.2,
+        market_context=_writer_context(),
     )
     assert "本日のBTCは" in text
     assert "99,500" in text
@@ -65,9 +98,7 @@ async def test_scenario_writer_uses_gemini_when_configured():
         entry_high=100_500,
         take_profit=[101_000],
         stop_loss=99_000,
-        fear_greed=20,
-        funding_rate=0.0001,
-        divergence_max_pct=0.2,
+        market_context=_writer_context(),
     )
 
     assert route.called
@@ -103,9 +134,7 @@ async def test_scenario_writer_falls_back_when_gemini_output_incomplete():
         entry_high=60_500,
         take_profit=[61_000],
         stop_loss=59_000,
-        fear_greed=15,
-        funding_rate=0.0,
-        divergence_max_pct=0.1,
+        market_context=_writer_context(fear_greed=15, funding_rate=0.0),
     )
     assert "本日のBTCは" in text
     assert "59,900" in text
@@ -140,8 +169,6 @@ async def test_scenario_writer_falls_back_when_gemini_fails():
         entry_high=100_500,
         take_profit=[102_000, 104_000],
         stop_loss=97_000,
-        fear_greed=60,
-        funding_rate=None,
-        divergence_max_pct=None,
+        market_context=_writer_context(fear_greed=60, funding_rate=None),
     )
     assert "上昇" in text

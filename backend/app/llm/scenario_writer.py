@@ -7,6 +7,7 @@ import structlog
 from app.config import Settings, get_settings
 from app.llm.gemini_client import GeminiClient, GeminiClientError
 from app.schemas.scenario import MacroTrend, TradeSide
+from app.services.scenario_market_context import ScenarioMarketContext
 
 logger = structlog.get_logger()
 
@@ -40,31 +41,32 @@ class ScenarioWriter:
         entry_high: float,
         take_profit: list[float],
         stop_loss: float,
-        fear_greed: int | None,
-        funding_rate: float | None,
-        divergence_max_pct: float | None = None,
+        market_context: ScenarioMarketContext,
     ) -> str:
-        facts = {
-            "macro_trend": macro_trend,
-            "confidence_pct": round(confidence * 100),
-            "side": side,
-            "reference_price_usd": reference_price,
-            "entry_zone_low_usd": entry_low,
-            "entry_zone_high_usd": entry_high,
-            "take_profit_usd": take_profit,
-            "stop_loss_usd": stop_loss,
-            "fear_greed_index": fear_greed,
-            "funding_rate": funding_rate,
-            "max_exchange_divergence_pct": divergence_max_pct,
-        }
+        facts = market_context.to_writer_facts(
+            macro_trend=macro_trend,
+            confidence=confidence,
+            side=side,
+            entry_low=entry_low,
+            entry_high=entry_high,
+            take_profit=take_profit,
+            stop_loss=stop_loss,
+        )
         template = self._template(
             macro_trend=macro_trend,
             entry_low=entry_low,
             entry_high=entry_high,
             take_profit=take_profit,
             stop_loss=stop_loss,
-            fear_greed=fear_greed,
-            funding_rate=funding_rate,
+            fear_greed=market_context.fear_greed.value if market_context.fear_greed else None,
+            funding_rate=market_context.derivatives.funding_rate if market_context.derivatives else None,
+            research_count=len(market_context.research),
+            session_summary=(
+                market_context.sessions.entry_hint.summary_ja
+                if market_context.sessions and market_context.sessions.entry_hint
+                else None
+            ),
+            ta_summary=market_context.technical.summary_ja if market_context.technical else None,
         )
 
         if self.settings.llm_provider != "gemini" or not self.settings.gemini_api_key.strip():
@@ -100,10 +102,12 @@ class ScenarioWriter:
     def _build_prompt(self, facts: dict) -> str:
         facts_json = json.dumps(facts, ensure_ascii=False, indent=2)
         return f"""あなたはBTCスイングトレード向けのシナリオ解説者です。
-以下のJSON数値だけを根拠に、日本語で3〜5文の短いシナリオを書いてください。
+以下のJSON（市場データ・テクニカル・リスクゾーン・セッション・板・ユーザー調査メモ）を根拠に、
+日本語で3〜5文の短いシナリオを書いてください。
 
 【厳守】
-- JSONにない価格・数値・方向を作らない
+- JSONにない価格・数値・方向を作らない（entry/take_profit/stop_loss は必ずJSONの値を使う）
+- user_research_summaries があれば1文以内で要点に触れる（要約の捏造禁止）
 - 投資助言ではなく参考情報として書く
 - 高校生にもわかるやさしい日本語
 - 箇条書き・見出し・Markdownは使わない
@@ -127,6 +131,9 @@ class ScenarioWriter:
         stop_loss: float,
         fear_greed: int | None,
         funding_rate: float | None,
+        research_count: int = 0,
+        session_summary: str | None = None,
+        ta_summary: str | None = None,
     ) -> str:
         trend_ja = TREND_JA.get(macro_trend, "レンジ")
         fg_text = f"恐怖・強欲指数は {fear_greed} です。" if fear_greed is not None else ""
@@ -135,11 +142,20 @@ class ScenarioWriter:
             fr_text = f"ファンディングレートは {funding_rate:.4f} です。"
 
         tp_text = "、".join(f"{p:,.0f}" for p in take_profit)
+        research_text = (
+            f"登録した調査メモ {research_count} 件も方向判断に反映しています。"
+            if research_count
+            else ""
+        )
+        session_text = f"{session_summary}" if session_summary else ""
+        ta_text = f"テクニカル: {ta_summary}。" if ta_summary else ""
 
         return (
-            f"本日のBTCは、マクロでは{trend_ja}寄りの環境です。{fg_text}{fr_text}"
+            f"本日のBTCは、マクロでは{trend_ja}寄りの環境です。{fg_text}{fr_text}{ta_text}"
+            f"{research_text}"
             f"エントリーは {entry_low:,.0f}〜{entry_high:,.0f} 付近を目安にしてください。"
             f"利確は {tp_text}、損切りは {stop_loss:,.0f} を想定しています。"
+            f"{session_text}"
             f"急な値動きには注意し、必ず自分のルールで判断してください。"
         )
 

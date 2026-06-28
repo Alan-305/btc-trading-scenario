@@ -5,9 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.scenario_context import ScenarioDataSources
+
 
 MacroTrend = Literal["bullish", "bearish", "range"]
 TradeSide = Literal["long", "short", "neutral"]
+ScenarioHorizonId = Literal["today", "week", "month", "halving"]
 
 
 class EntryZone(BaseModel):
@@ -37,6 +40,16 @@ class ScenarioIndicators(BaseModel):
     rsi_14: float | None = None
 
 
+class ScenarioHorizonBundle(BaseModel):
+    id: ScenarioHorizonId
+    label: str
+    period_hint: str
+    entry: EntryZone
+    exit: ExitStrategy
+    forecast: list[ForecastPoint]
+    scenario_text_ja: str
+
+
 class ScenarioResponse(BaseModel):
     macro_trend: MacroTrend
     confidence: float = Field(ge=0.0, le=1.0)
@@ -44,6 +57,8 @@ class ScenarioResponse(BaseModel):
     exit: ExitStrategy
     forecast: list[ForecastPoint]
     scenario_text_ja: str
+    horizons: list[ScenarioHorizonBundle] = Field(default_factory=list)
     indicators: ScenarioIndicators
+    data_sources: ScenarioDataSources | None = None
     generated_at: datetime
     disclaimer: str = "本情報は参考情報であり、投資助言ではありません。"

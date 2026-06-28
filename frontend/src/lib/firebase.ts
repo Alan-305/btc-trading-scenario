@@ -6,6 +6,7 @@ import {
   type Auth,
 } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const ENV_KEYS = [
   "VITE_FIREBASE_API_KEY",
@@ -29,6 +30,7 @@ export function isFirebaseConfigured(): boolean {
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 function firebaseConfig() {
   return {
@@ -68,4 +70,11 @@ export function getFirebaseDb(): Firestore {
     db = getFirestore(getFirebaseApp());
   }
   return db;
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  if (!storage) {
+    storage = getStorage(getFirebaseApp());
+  }
+  return storage;
 }

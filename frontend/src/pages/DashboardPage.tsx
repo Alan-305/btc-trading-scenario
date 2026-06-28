@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, setApiAuthTokenProvider } from "../api/client";
 import { AuthButton } from "../components/auth/AuthButton";
 import { InvitePanel } from "../components/auth/InvitePanel";
+import { JournalAnalyticsPanel } from "../components/journal/JournalAnalyticsPanel";
+import { JournalPanel } from "../components/journal/JournalPanel";
 import { LoginForm } from "../components/auth/LoginForm";
 import { LoginSetupHelp } from "../components/auth/LoginSetupHelp";
 import { CandlestickChart } from "../components/chart/CandlestickChart";
@@ -14,8 +16,9 @@ import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
+import { ResearchPanel } from "../components/research/ResearchPanel";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
-import { ScenarioCard } from "../components/scenario/ScenarioCard";
+import { ScenarioCard, useScenarioHorizon } from "../components/scenario/ScenarioCard";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
 import { EXTERNAL_LINKS } from "../lib/external-links";
@@ -31,6 +34,12 @@ import {
   subscribeRecentSnapshots,
   type SavedSnapshotRecord,
 } from "../lib/firestore-snapshots";
+import { buildResearchContext } from "../lib/scenario-context";
+import { createJournalFromScenario } from "../lib/journal-from-scenario";
+import { subscribeJournalEntries } from "../lib/firestore-journal";
+import { subscribeResearchItems } from "../lib/firestore-research";
+import type { JournalEntry } from "../types/journal";
+import type { ResearchItem } from "../types/research";
 import type {
   AccuracySummary,
   CandlesResponse,
@@ -57,6 +66,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveAlsoJournal, setSaveAlsoJournal] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
   const [scenario, setScenario] = useState<ScenarioResponse | null>(null);
@@ -69,11 +79,16 @@ export function DashboardPage() {
   const [accuracy, setAccuracy] = useState<AccuracySummary | null>(null);
   const [accuracyLoading, setAccuracyLoading] = useState(false);
   const [savedRecords, setSavedRecords] = useState<SavedSnapshotRecord[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [journalLoading, setJournalLoading] = useState(false);
+  const [researchItems, setResearchItems] = useState<ResearchItem[]>([]);
+  const [researchLoading, setResearchLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [openedAt, setOpenedAt] = useState<Date | null>(null);
   const [candleInterval, setCandleInterval] = useState<CandleInterval>("4h");
   const [chartLoading, setChartLoading] = useState(false);
+  const { activeHorizonId, setActiveHorizonId, activeHorizon } = useScenarioHorizon(scenario);
 
   const loadChart = useCallback(async (interval: CandleInterval) => {
     setChartLoading(true);
@@ -93,9 +108,10 @@ export function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
+      const researchContext = buildResearchContext(researchItems);
       const [snap, scen, sent, hm, sess, zones] = await Promise.all([
         api.getMarketSnapshot(refresh),
-        api.getScenario(refresh),
+        api.buildScenario(researchContext),
         api.getSentiment(),
         api.getHeatmap().catch(() => ({ cells: [] as HeatmapCell[] })),
         api.getMarketSessions(),
@@ -113,7 +129,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [researchItems]);
 
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {
@@ -182,6 +198,44 @@ export function DashboardPage() {
   }, [user]);
 
   useEffect(() => {
+    if (!user) {
+      setJournalEntries([]);
+      return;
+    }
+    setJournalLoading(true);
+    const unsub = subscribeJournalEntries(
+      user.uid,
+      (records) => {
+        setJournalEntries(records);
+        setJournalLoading(false);
+      },
+      () => {
+        setJournalLoading(false);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setResearchItems([]);
+      return;
+    }
+    setResearchLoading(true);
+    const unsub = subscribeResearchItems(
+      user.uid,
+      (records) => {
+        setResearchItems(records);
+        setResearchLoading(false);
+      },
+      () => {
+        setResearchLoading(false);
+      },
+    );
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
     if (!user || savedRecords.length === 0) {
       setAccuracy(null);
       return;
@@ -211,12 +265,15 @@ export function DashboardPage() {
     setSaving(true);
     setSaveMessage(null);
     try {
-      await saveScenarioSnapshot({
+      const snapshotId = await saveScenarioSnapshot({
         uid: user.uid,
         scenario,
         snapshot,
       });
-      setSaveMessage("保存しました");
+      if (saveAlsoJournal) {
+        await createJournalFromScenario(user.uid, snapshotId, scenario);
+      }
+      setSaveMessage(saveAlsoJournal ? "シナリオと日誌に保存しました" : "保存しました");
     } catch (e) {
       setSaveMessage(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
@@ -292,14 +349,25 @@ export function DashboardPage() {
             />
           ) : null}
           {firebaseReady && user && scenario && (
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="min-h-[44px] rounded-lg border border-accent-green/50 bg-accent-green/10 px-4 py-2 text-sm font-medium text-accent-green transition hover:bg-accent-green/20 disabled:opacity-50"
-            >
-              {saving ? "保存中…" : "シナリオを保存"}
-            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={saveAlsoJournal}
+                  onChange={(e) => setSaveAlsoJournal(e.target.checked)}
+                  className="h-4 w-4 rounded border-surface-border"
+                />
+                日誌にも記録
+              </label>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="min-h-[44px] rounded-lg border border-accent-green/50 bg-accent-green/10 px-4 py-2 text-sm font-medium text-accent-green transition hover:bg-accent-green/20 disabled:opacity-50"
+              >
+                {saving ? "保存中…" : "シナリオを保存"}
+              </button>
+            </div>
           )}
           <button
             type="button"
@@ -332,7 +400,7 @@ export function DashboardPage() {
       {saveMessage && (
         <div
           className={`mb-4 rounded-lg border p-3 text-sm ${
-            saveMessage === "保存しました"
+            saveMessage === "保存しました" || saveMessage === "シナリオと日誌に保存しました"
               ? "border-accent-green/50 bg-accent-green/10 text-green-200"
               : "border-accent-red/50 bg-accent-red/10 text-red-200"
           }`}
@@ -353,10 +421,19 @@ export function DashboardPage() {
 
       {scenario && canAccessApp && (
         <div className="space-y-6">
-          {/* 1. 本日のシナリオ */}
-          <ScenarioCard scenario={scenario} />
+          {/* 1. シナリオ分析データ */}
+          {user && (
+            <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
+          )}
 
-          {/* 2. 世界市場の時間帯 */}
+          {/* 2. シナリオ（期間切替） */}
+          <ScenarioCard
+            scenario={scenario}
+            activeHorizonId={activeHorizonId}
+            onHorizonChange={setActiveHorizonId}
+          />
+
+          {/* 3. 世界市場の時間帯 */}
           {sessions && <MarketSessionsPanel data={sessions} />}
 
           {/* 3. ローソク足 */}
@@ -420,26 +497,43 @@ export function DashboardPage() {
           </section>
 
           {/* 5. エントリー判断と価格の流れ */}
-          {openedAt && price > 0 && (
+          {openedAt && price > 0 && activeHorizon && (
             <ScenarioPriceChart
               history={history}
               currentPrice={price}
               openedAt={openedAt}
-              forecast={scenario.forecast}
-              entry={scenario.entry}
-              exit={scenario.exit}
+              forecast={activeHorizon.forecast}
+              entry={activeHorizon.entry}
+              exit={activeHorizon.exit}
+              horizonId={activeHorizon.id}
+              periodHint={activeHorizon.period_hint}
             />
           )}
 
           {/* 6. AI分析的中率 */}
           {user && <AccuracyPanel data={accuracy} loading={accuracyLoading} />}
 
+          {/* 6b. 実トレード分析 */}
+          {user && (
+            <JournalAnalyticsPanel
+              aiAccuracy={accuracy}
+              journalEntries={journalEntries}
+              savedRecords={savedRecords}
+              loading={accuracyLoading || journalLoading}
+            />
+          )}
+
           {/* 7. 保存履歴 */}
           {user && (
             <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />
           )}
 
-          {/* 8. 招待 */}
+          {/* 8. トレード日誌 */}
+          {user && (
+            <JournalPanel userId={user.uid} entries={journalEntries} loading={journalLoading} />
+          )}
+
+          {/* 9. 招待 */}
           <InvitePanel userEmail={user?.email} />
 
           <p className="text-center text-xs text-slate-600">

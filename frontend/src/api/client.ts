@@ -5,6 +5,7 @@ import type {
   SavedPredictionInput,
   TechnicalAnalysis,
 } from "../types/market";
+import type { ResearchContextItem, ResearchSummarizeRequest, ResearchSummarizeResponse } from "../types/research";
 import type {
   HeatmapCell,
   MarketSnapshot,
@@ -66,6 +67,8 @@ export const api = {
     fetchJson<MarketSnapshot>("/api/v1/market/snapshot", refresh),
   getScenario: (refresh = false) =>
     fetchJson<ScenarioResponse>("/api/v1/scenario", refresh),
+  buildScenario: (research: ResearchContextItem[] = []) =>
+    postJson<ScenarioResponse>("/api/v1/scenario", { research }),
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
   getHeatmap: () =>
     fetchJson<{ cells: HeatmapCell[] }>("/api/v1/market/orderbook-heatmap"),
@@ -80,4 +83,6 @@ export const api = {
     postJson<AccuracySummary>("/api/v1/scenario/evaluate", predictions),
   sendInvite: (email: string) =>
     postJson<{ email: string; message: string }>("/api/v1/invites", { email }),
+  summarizeResearch: (body: ResearchSummarizeRequest) =>
+    postJson<ResearchSummarizeResponse>("/api/v1/research/summarize", body),
 };

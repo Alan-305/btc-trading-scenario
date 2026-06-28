@@ -28,6 +28,28 @@ export interface ScenarioIndicators {
   rsi_14?: number | null;
 }
 
+export interface ScenarioDataSources {
+  research_items_used: number;
+  includes_technical: boolean;
+  includes_risk_zones: boolean;
+  includes_sessions: boolean;
+  includes_heatmap: boolean;
+  includes_derivatives: boolean;
+  personalized: boolean;
+}
+
+export type ScenarioHorizonId = "today" | "week" | "month" | "halving";
+
+export interface ScenarioHorizonBundle {
+  id: ScenarioHorizonId;
+  label: string;
+  period_hint: string;
+  entry: EntryZone;
+  exit: ExitStrategy;
+  forecast: ForecastPoint[];
+  scenario_text_ja: string;
+}
+
 export interface ScenarioResponse {
   macro_trend: MacroTrend;
   confidence: number;
@@ -35,7 +57,9 @@ export interface ScenarioResponse {
   exit: ExitStrategy;
   forecast: ForecastPoint[];
   scenario_text_ja: string;
+  horizons?: ScenarioHorizonBundle[];
   indicators: ScenarioIndicators;
+  data_sources?: ScenarioDataSources | null;
   generated_at: string;
   disclaimer: string;
 }

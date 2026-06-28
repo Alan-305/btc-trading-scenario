@@ -11,6 +11,7 @@ from app.dependencies import (
 from app.integrations.binance_klines import BinanceKlinesClient
 from app.schemas.candles import AccuracySummary
 from app.schemas.scenario import ScenarioResponse
+from app.schemas.scenario_context import ScenarioBuildRequest
 from app.services.prediction_evaluator import PredictionEvaluator, SavedPredictionInput
 from app.services.scenario_builder import ScenarioBuilder
 from app.storage.redis_cache import AppCache
@@ -32,6 +33,15 @@ async def get_scenario(
     scenario = await builder.build()
     await cache.set_json(AppCache.SCENARIO_KEY, scenario.model_dump(mode="json"), ttl=120)
     return scenario
+
+
+@router.post("/scenario", response_model=ScenarioResponse)
+async def build_scenario(
+    body: ScenarioBuildRequest,
+    builder: ScenarioBuilder = Depends(get_scenario_builder),
+):
+    """Build a personalized scenario using dashboard market data + user research."""
+    return await builder.build(research=body.research)
 
 
 @router.post("/scenario/evaluate", response_model=AccuracySummary)
