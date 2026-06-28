@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, setApiAuthTokenProvider } from "../api/client";
 import { AuthButton } from "../components/auth/AuthButton";
 import { InvitePanel } from "../components/auth/InvitePanel";
@@ -12,16 +12,23 @@ import { AccuracyPanel } from "../components/dashboard/AccuracyPanel";
 import { CoinglassPanel } from "../components/dashboard/CoinglassPanel";
 import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
+import { IndicatorSignalHeader } from "../components/dashboard/IndicatorSignalHeader";
 import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
+import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
+import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
 import { ScenarioCard, useScenarioHorizon } from "../components/scenario/ScenarioCard";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
+import {
+  type DashboardSection,
+  loadDashboardSection,
+} from "../lib/dashboard-nav";
 import { EXTERNAL_LINKS } from "../lib/external-links";
 import {
   type CandleInterval,
@@ -39,6 +46,15 @@ import { buildResearchContext } from "../lib/scenario-context";
 import { createJournalFromScenario } from "../lib/journal-from-scenario";
 import { subscribeJournalEntries } from "../lib/firestore-journal";
 import { subscribeResearchItems } from "../lib/firestore-research";
+import {
+  coinglassSignal,
+  exchangeSignal,
+  fearGreedSignal,
+  heatmapSignal,
+  riskZonesSignal,
+  sessionsSignal,
+  technicalSignal,
+} from "../lib/indicator-signals";
 import type { JournalEntry } from "../types/journal";
 import type { ResearchItem } from "../types/research";
 import type {
@@ -71,6 +87,8 @@ export function DashboardPage() {
     signInWithGoogle,
     logout,
   } = useAuth(firebaseReady);
+  const [activeSection, setActiveSection] = useState<DashboardSection>(loadDashboardSection);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -171,17 +189,22 @@ export function DashboardPage() {
     }
   }, [researchItems, loadMacro]);
 
+  const handleRefresh = useCallback(() => {
+    void load(true);
+    void loadChart(candleInterval);
+    void loadHeatmap(heatmapExchange);
+    void loadMacro();
+  }, [load, loadChart, candleInterval, loadHeatmap, heatmapExchange, loadMacro]);
+
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {
       setApiAuthTokenProvider(null);
       return;
     }
-
     setApiAuthTokenProvider(async () => {
       if (!user) return null;
       return user.getIdToken();
     });
-
     return () => setApiAuthTokenProvider(null);
   }, [firebaseReady, canAccessApp, user]);
 
@@ -261,9 +284,7 @@ export function DashboardPage() {
         setJournalEntries(records);
         setJournalLoading(false);
       },
-      () => {
-        setJournalLoading(false);
-      },
+      () => setJournalLoading(false),
     );
     return unsub;
   }, [user]);
@@ -280,9 +301,7 @@ export function DashboardPage() {
         setResearchItems(records);
         setResearchLoading(false);
       },
-      () => {
-        setResearchLoading(false);
-      },
+      () => setResearchLoading(false),
     );
     return unsub;
   }, [user]);
@@ -317,11 +336,7 @@ export function DashboardPage() {
     setSaving(true);
     setSaveMessage(null);
     try {
-      const snapshotId = await saveScenarioSnapshot({
-        uid: user.uid,
-        scenario,
-        snapshot,
-      });
+      const snapshotId = await saveScenarioSnapshot({ uid: user.uid, scenario, snapshot });
       if (saveAlsoJournal) {
         await createJournalFromScenario(user.uid, snapshotId, scenario);
       }
@@ -333,8 +348,8 @@ export function DashboardPage() {
     }
   };
 
-  const baselinePrice = snapshot?.tickers.find((t) => t.exchange === "whitebit")
-    ?? snapshot?.tickers[0];
+  const baselinePrice =
+    snapshot?.tickers.find((t) => t.exchange === "whitebit") ?? snapshot?.tickers[0];
   const price = baselinePrice ? parseFloat(baselinePrice.last_price) : 0;
 
   const history = candles?.candles.length
@@ -351,6 +366,292 @@ export function DashboardPage() {
         }))
       : [];
 
+  const fgValue = sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null;
+
+  const signalStripItems = useMemo((): SignalStripItem[] => {
+    const items: SignalStripItem[] = [
+      {
+        id: "technical",
+        label: "テクニカル",
+        section: "market",
+        signal: technicalSignal(technical),
+      },
+      {
+        id: "macro",
+        label: "マクロ環境",
+        section: "context",
+        signal: macroContext?.overall_summary_ja
+          ? {
+              stance: macroContext.overall_stance ?? "neutral",
+              signalJa: macroContext.overall_signal_ja ?? "様子見",
+              summaryJa: macroContext.overall_summary_ja,
+            }
+          : { stance: "neutral", signalJa: "様子見", summaryJa: "マクロデータを読み込み中です。" },
+      },
+      {
+        id: "fear-greed",
+        label: "Fear & Greed",
+        section: "market",
+        signal: fearGreedSignal(fgValue, sentiment?.fear_greed?.classification),
+      },
+      {
+        id: "derivatives",
+        label: "先物",
+        section: "market",
+        signal: coinglassSignal(sentiment?.coinglass ?? null),
+      },
+      {
+        id: "heatmap",
+        label: "板厚み",
+        section: "market",
+        signal: heatmapSignal(heatmap),
+      },
+      {
+        id: "risk",
+        label: "清算・スクイズ",
+        section: "market",
+        signal: riskZonesSignal(riskZones),
+      },
+      {
+        id: "sessions",
+        label: "世界時間",
+        section: "context",
+        signal: sessionsSignal(sessions),
+      },
+    ];
+    if (snapshot) {
+      items.push({
+        id: "exchange",
+        label: "取引所乖離",
+        section: "market",
+        signal: exchangeSignal(snapshot.divergence_pct),
+      });
+    }
+    return items;
+  }, [technical, macroContext, fgValue, sentiment, heatmap, riskZones, sessions, snapshot]);
+
+  const headerActions = (
+    <>
+      {firebaseReady ? (
+        <AuthButton
+          user={user}
+          loading={authLoading}
+          signingIn={signingIn}
+          onSignIn={signInWithGoogle}
+          onSignOut={logout}
+        />
+      ) : null}
+      {firebaseReady && user && scenario && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-slate-400">
+            <input
+              type="checkbox"
+              checked={saveAlsoJournal}
+              onChange={(e) => setSaveAlsoJournal(e.target.checked)}
+              className="h-4 w-4 rounded border-surface-border"
+            />
+            日誌にも記録
+          </label>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="min-h-[44px] rounded-lg border border-accent-green/50 bg-accent-green/10 px-3 py-2 text-sm font-medium text-accent-green transition hover:bg-accent-green/20 disabled:opacity-50"
+          >
+            {saving ? "保存中…" : "保存"}
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={handleRefresh}
+        disabled={loading || !canAccessApp}
+        className="min-h-[44px] rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
+      >
+        {loading ? "分析中…" : "再分析"}
+      </button>
+    </>
+  );
+
+  const candleSection = (
+    <section className="rounded-xl border border-surface-border bg-surface-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-sm font-medium text-slate-400">
+            {candleIntervalLabel(candleInterval)}ローソク足
+          </h2>
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <span>足</span>
+            <select
+              value={candleInterval}
+              onChange={(e) => setCandleInterval(e.target.value as CandleInterval)}
+              disabled={chartLoading}
+              className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-slate-200"
+            >
+              {CANDLE_INTERVAL_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {chartLoading && <span className="text-xs text-slate-500">読み込み中…</span>}
+        </div>
+        <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
+      </div>
+      {chartLoading && !candles?.candles?.length ? (
+        <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
+          チャート読み込み中…
+        </div>
+      ) : (
+        <CandlestickChart
+          candles={candles?.candles ?? []}
+          interval={candleInterval}
+          overlays={technical?.overlay_series ?? []}
+          support={technical?.support}
+          resistance={technical?.resistance}
+          longLiqLow={riskZones?.long_liquidation?.zone_low}
+          longLiqHigh={riskZones?.long_liquidation?.zone_high}
+          shortSqLow={riskZones?.short_squeeze?.zone_low}
+          shortSqHigh={riskZones?.short_squeeze?.zone_high}
+        />
+      )}
+    </section>
+  );
+
+  const renderSection = () => {
+    switch (activeSection) {
+      case "overview":
+        return (
+          <div className="space-y-6">
+            {scenario ? (
+              <ScenarioCard
+                scenario={scenario}
+                activeHorizonId={activeHorizonId}
+                onHorizonChange={setActiveHorizonId}
+              />
+            ) : null}
+            {openedAt && price > 0 && activeHorizon && scenario && (
+              <ScenarioPriceChart
+                history={history}
+                currentPrice={price}
+                openedAt={openedAt}
+                forecast={activeHorizon.forecast}
+                entry={activeHorizon.entry}
+                exit={activeHorizon.exit}
+                horizonId={activeHorizon.id}
+                periodHint={activeHorizon.period_hint}
+                indicators={scenario.indicators}
+              />
+            )}
+            <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />
+          </div>
+        );
+
+      case "chart":
+        return candleSection;
+
+      case "market":
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div>
+                <IndicatorSignalHeader signal={technicalSignal(technical)} />
+                <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
+              </div>
+              <div>
+                <IndicatorSignalHeader signal={riskZonesSignal(riskZones)} />
+                <RiskZonesPanel data={riskZones} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <div>
+                <IndicatorSignalHeader
+                  signal={fearGreedSignal(fgValue, sentiment?.fear_greed?.classification)}
+                />
+                <FearGreedMeter
+                  value={fgValue}
+                  classification={sentiment?.fear_greed?.classification}
+                  updatedAt={sentiment?.fear_greed?.timestamp}
+                  history={sentiment?.fear_greed_history}
+                />
+              </div>
+              <div>
+                <IndicatorSignalHeader signal={heatmapSignal(heatmap)} />
+                <VolumeHeatmap
+                  cells={heatmap}
+                  referencePrice={price > 0 ? price : undefined}
+                  exchange={heatmapExchange}
+                  onExchangeChange={setHeatmapExchange}
+                  loading={heatmapLoading}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {snapshot && (
+                <div>
+                  <IndicatorSignalHeader signal={exchangeSignal(snapshot.divergence_pct)} />
+                  <ExchangeDivergence
+                    tickers={snapshot.tickers}
+                    divergence={snapshot.divergence_pct}
+                  />
+                </div>
+              )}
+              <div>
+                <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
+                <CoinglassPanel data={sentiment?.coinglass ?? null} />
+              </div>
+            </div>
+          </div>
+        );
+
+      case "context":
+        return (
+          <div className="space-y-6">
+            <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
+            {sessions && (
+              <div>
+                <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
+                <MarketSessionsPanel data={sessions} />
+              </div>
+            )}
+            {user && (
+              <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
+            )}
+          </div>
+        );
+
+      case "journal":
+        return (
+          <div className="space-y-4">
+            {user && (
+              <AccuracyPanel
+                data={accuracy}
+                loading={accuracyLoading}
+                savedRecords={savedRecords}
+              />
+            )}
+            {user && (
+              <JournalAnalyticsPanel
+                aiAccuracy={accuracy}
+                journalEntries={journalEntries}
+                savedRecords={savedRecords}
+                loading={accuracyLoading || journalLoading}
+              />
+            )}
+            {user && <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />}
+            {user && (
+              <JournalPanel userId={user.uid} entries={journalEntries} loading={journalLoading} />
+            )}
+            <InvitePanel userEmail={user?.email} />
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   const showLoginGate = firebaseReady && inviteOnly && !canAccessApp;
 
   if (showLoginGate) {
@@ -360,9 +661,10 @@ export function DashboardPage() {
           <h1 className="font-english text-2xl font-semibold tracking-tight text-white">
             BTC Trading Scenario
           </h1>
-          <p className="mt-2 text-sm text-slate-400">Google アカウントまたは招待メールのリンクでログインしてください</p>
+          <p className="mt-2 text-sm text-slate-400">
+            Google アカウントまたは招待メールのリンクでログインしてください
+          </p>
         </div>
-
         {authLoading ? (
           <p className="text-sm text-slate-400">確認中…</p>
         ) : (
@@ -371,7 +673,6 @@ export function DashboardPage() {
             <LoginForm signingIn={signingIn} onGoogleSignIn={signInWithGoogle} />
           </>
         )}
-
         {authError && (
           <div className="mt-4 max-w-md rounded-lg border border-accent-red/50 bg-accent-red/10 p-3 text-sm text-red-200">
             {authError}
@@ -382,66 +683,18 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface px-4 py-8 sm:px-6 lg:px-8">
-      <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-english text-2xl font-semibold tracking-tight text-white">
-            BTC Trading Scenario
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">価格予測・トレーディングシナリオ</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {firebaseReady ? (
-            <AuthButton
-              user={user}
-              loading={authLoading}
-              signingIn={signingIn}
-              onSignIn={signInWithGoogle}
-              onSignOut={logout}
-            />
-          ) : null}
-          {firebaseReady && user && scenario && (
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={saveAlsoJournal}
-                  onChange={(e) => setSaveAlsoJournal(e.target.checked)}
-                  className="h-4 w-4 rounded border-surface-border"
-                />
-                日誌にも記録
-              </label>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saving || loading}
-                className="min-h-[44px] rounded-lg border border-accent-green/50 bg-accent-green/10 px-4 py-2 text-sm font-medium text-accent-green transition hover:bg-accent-green/20 disabled:opacity-50"
-              >
-                {saving ? "保存中…" : "シナリオを保存"}
-              </button>
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              void load(true);
-              void loadChart(candleInterval);
-              void loadHeatmap(heatmapExchange);
-              void loadMacro();
-            }}
-            disabled={loading || !canAccessApp}
-            className="min-h-[44px] rounded-lg bg-accent-blue px-5 py-2 text-sm font-medium text-white transition hover:bg-blue-600 disabled:opacity-50"
-          >
-            {loading ? "分析中…" : "再分析"}
-          </button>
-        </div>
-      </header>
-
+    <DashboardShell
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+      mobileMenuOpen={mobileMenuOpen}
+      onMobileMenuOpenChange={setMobileMenuOpen}
+      headerActions={headerActions}
+    >
       {!firebaseReady && (
         <div className="mb-4 rounded-lg border border-accent-amber/50 bg-accent-amber/10 p-3 text-sm text-amber-100">
           Firebase 未設定のためログイン・保存は使えません。
           <code className="mx-1 text-xs">frontend/.env.local</code>
-          を用意して Vite を再起動してください（不足: {getMissingFirebaseEnvKeys().join(", ")}）。
+          を用意してください（不足: {getMissingFirebaseEnvKeys().join(", ")}）。
         </div>
       )}
 
@@ -454,7 +707,7 @@ export function DashboardPage() {
       {saveMessage && (
         <div
           className={`mb-4 rounded-lg border p-3 text-sm ${
-            saveMessage === "保存しました" || saveMessage === "シナリオと日誌に保存しました"
+            saveMessage.includes("保存")
               ? "border-accent-green/50 bg-accent-green/10 text-green-200"
               : "border-accent-red/50 bg-accent-red/10 text-red-200"
           }`}
@@ -471,154 +724,15 @@ export function DashboardPage() {
 
       {loading && !scenario && canAccessApp && (
         <div className="mb-6 rounded-xl border border-surface-border bg-surface-card px-5 py-4 text-sm text-slate-400">
-          シナリオを分析中… チャートなど他のデータは先に表示されます。
+          シナリオを分析中…
         </div>
       )}
 
-      {canAccessApp && (
-        <div className="space-y-6">
-          {/* 1. シナリオ分析データ */}
-          {user && (
-            <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
-          )}
+      {canAccessApp && renderSection()}
 
-          {/* 2. シナリオ（期間切替） */}
-          {scenario ? (
-            <ScenarioCard
-              scenario={scenario}
-              activeHorizonId={activeHorizonId}
-              onHorizonChange={setActiveHorizonId}
-            />
-          ) : null}
-
-          <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
-
-          {/* 3. 世界市場の時間帯 */}
-          {sessions && <MarketSessionsPanel data={sessions} />}
-
-          {/* 3. ローソク足 */}
-          <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-sm font-medium text-slate-400">
-                  {candleIntervalLabel(candleInterval)}ローソク足
-                </h2>
-                <label className="flex items-center gap-2 text-xs text-slate-500">
-                  <span>足</span>
-                  <select
-                    value={candleInterval}
-                    onChange={(e) => setCandleInterval(e.target.value as CandleInterval)}
-                    disabled={chartLoading}
-                    className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-slate-200"
-                  >
-                    {CANDLE_INTERVAL_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {chartLoading && <span className="text-xs text-slate-500">読み込み中…</span>}
-              </div>
-              <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
-            </div>
-            {chartLoading && !candles?.candles?.length ? (
-              <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-slate-500">
-                チャート読み込み中…
-              </div>
-            ) : (
-              <CandlestickChart
-                candles={candles?.candles ?? []}
-                interval={candleInterval}
-                overlays={technical?.overlay_series ?? []}
-                support={technical?.support}
-                resistance={technical?.resistance}
-                longLiqLow={riskZones?.long_liquidation?.zone_low}
-                longLiqHigh={riskZones?.long_liquidation?.zone_high}
-                shortSqLow={riskZones?.short_squeeze?.zone_low}
-                shortSqHigh={riskZones?.short_squeeze?.zone_high}
-              />
-            )}
-          </section>
-
-          {/* 4. テクニカル・清算・スクイズ・センチメントなど */}
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
-            <RiskZonesPanel data={riskZones} />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <FearGreedMeter
-              value={sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null}
-              classification={sentiment?.fear_greed?.classification}
-              updatedAt={sentiment?.fear_greed?.timestamp}
-              history={sentiment?.fear_greed_history}
-            />
-            <VolumeHeatmap
-              cells={heatmap}
-              referencePrice={price > 0 ? price : undefined}
-              exchange={heatmapExchange}
-              onExchangeChange={setHeatmapExchange}
-              loading={heatmapLoading}
-            />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {snapshot && (
-              <ExchangeDivergence
-                tickers={snapshot.tickers}
-                divergence={snapshot.divergence_pct}
-              />
-            )}
-            <CoinglassPanel data={sentiment?.coinglass ?? null} />
-          </section>
-
-          {/* 5. エントリー判断と価格の流れ */}
-          {openedAt && price > 0 && activeHorizon && scenario && (
-            <ScenarioPriceChart
-              history={history}
-              currentPrice={price}
-              openedAt={openedAt}
-              forecast={activeHorizon.forecast}
-              entry={activeHorizon.entry}
-              exit={activeHorizon.exit}
-              horizonId={activeHorizon.id}
-              periodHint={activeHorizon.period_hint}
-              indicators={scenario.indicators}
-            />
-          )}
-
-          {/* 6. AI分析的中率 */}
-          {user && <AccuracyPanel data={accuracy} loading={accuracyLoading} savedRecords={savedRecords} />}
-
-          {/* 6b. 実トレード分析 */}
-          {user && (
-            <JournalAnalyticsPanel
-              aiAccuracy={accuracy}
-              journalEntries={journalEntries}
-              savedRecords={savedRecords}
-              loading={accuracyLoading || journalLoading}
-            />
-          )}
-
-          {/* 7. 保存履歴 */}
-          {user && (
-            <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />
-          )}
-
-          {/* 8. トレード日誌 */}
-          {user && (
-            <JournalPanel userId={user.uid} entries={journalEntries} loading={journalLoading} />
-          )}
-
-          {/* 9. 招待 */}
-          <InvitePanel userEmail={user?.email} />
-
-          <p className="text-center text-xs text-slate-600">
-            本アプリは参考情報であり、投資助言ではありません。
-          </p>
-        </div>
-      )}
-    </div>
+      <p className="mt-8 text-center font-japanese text-xs text-slate-600">
+        本アプリは参考情報であり、投資助言ではありません。
+      </p>
+    </DashboardShell>
   );
 }
