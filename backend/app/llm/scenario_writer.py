@@ -107,7 +107,7 @@ class ScenarioWriter:
 
 【厳守】
 - JSONにない価格・数値・方向を作らない（entry/take_profit/stop_loss は必ずJSONの値を使う）
-- user_research_summaries があれば1文以内で要点に触れる（要約の捏造禁止）
+- user_research_summaries があれば要点に触れる（箇条書きの捏造禁止）
 - 投資助言ではなく参考情報として書く
 - 高校生にもわかるやさしい日本語
 - 箇条書き・見出し・Markdownは使わない

@@ -80,7 +80,7 @@ export function ResearchAddForm({
       return;
     }
     if (!summaryLine.trim()) {
-      setError("「AI要約を生成」を実行するか、要約1行を入力してください");
+      setError("「AI要約を生成」を実行するか、要約（箇条書き）を入力してください");
       return;
     }
     setError(null);
@@ -89,7 +89,7 @@ export function ResearchAddForm({
       sourceType,
       sourceUrl: url.trim() || null,
       contentExcerpt: content.trim().slice(0, 500),
-      summaryLine: summaryLine.trim(),
+      summaryLine: summaryLine.trim().slice(0, 1200),
       tags: normalizeResearchTags(tagsRaw),
       includeInAnalysis,
       marketContext: marketContext || null,
@@ -206,19 +206,21 @@ export function ResearchAddForm({
 
       <div className="mb-3">
         <label htmlFor="research-summary" className="mb-1 block text-xs text-slate-500">
-          要約（1行）— 今後の分析に使うか判断する基準
+          要約（箇条書き2〜10項目・最大1200文字）— シナリオ分析に渡す要点
         </label>
-        <input
+        <textarea
           id="research-summary"
-          type="text"
           value={summaryLine}
-          onChange={(e) => setSummaryLine(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") e.preventDefault();
-          }}
-          placeholder="例: 米金利低下観測でリスクオン、BTC は高値圏での利確圧力に注意"
-          className="min-h-[44px] w-full rounded-lg border border-surface-border bg-surface px-3 text-sm text-slate-200"
+          onChange={(e) => setSummaryLine(e.target.value.slice(0, 1200))}
+          rows={8}
+          placeholder={
+            "例（情報量に応じて2〜10行）:\n・米金利低下観測でリスクオン寄り\n・BTCは高値圏で利確圧力に注意\n・半減期後の供給減は中長期で意識"
+          }
+          className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm leading-relaxed text-slate-200"
         />
+        <p className="mt-1 text-xs text-slate-500">
+          {summaryLine.split("\n").filter((l) => l.trim()).length} 行 / 最大10項目 · {summaryLine.length}/1200 文字
+        </p>
       </div>
 
       <div className="mb-3">

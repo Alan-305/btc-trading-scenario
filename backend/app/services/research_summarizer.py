@@ -15,6 +15,9 @@ logger = structlog.get_logger()
 
 MAX_CONTENT_CHARS = 12_000
 EXCERPT_CHARS = 500
+MAX_SUMMARY_CHARS = 1200
+MAX_SUMMARY_BULLETS = 10
+MIN_SUMMARY_BULLETS = 2
 
 
 class ResearchSummarizer:
@@ -106,29 +109,64 @@ class ResearchSummarizer:
             raise ValueError("AI要約機能は未設定です。管理者に GEMINI_API_KEY の設定を依頼してください。")
 
         prompt = f"""あなたはBTCトレード向けの調査メモ要約者です。
-以下の資料を読み、**1行（80文字以内）**で「今後のシナリオ分析に使える要点」だけを日本語でまとめてください。
+以下の資料を読み、「今後のシナリオ分析に使える要点」を日本語の箇条書きでまとめてください。
+
+【行数の目安（資料の情報量に応じて調整）】
+- 情報が少ない: {MIN_SUMMARY_BULLETS}〜3行
+- 普通: 4〜7行
+- 文字起こしなど情報が多い: 最大 {MAX_SUMMARY_BULLETS} 行（それ以上は書かない）
+- 重要度の高い順。重複・枝葉の細部は省略
 
 【厳守】
-- 1行のみ。改行しない
+- 各行は「・」で始める。合計 {MAX_SUMMARY_CHARS} 文字以内
 - 投資助言口調にしない。「〜の可能性」「〜に注意」など参考情報として
 - 資料にない具体価格を作らない
-- BTC/Bitcoin との関連が薄い場合はその旨を短く
+- BTC/Bitcoin との関連が薄い場合はその旨を1行で
+- 見出し・Markdown・番号リストは使わない
 
 【タイトル】{title}
 
 【資料本文（抜粋）】
 {content[:8000]}
-"""
+
+【出力】
+箇条書きのみ（{MIN_SUMMARY_BULLETS}〜{MAX_SUMMARY_BULLETS} 行）。"""
         try:
             client = GeminiClient(self.settings.gemini_api_key, self._model_candidates())
             result = await client.generate_text(prompt, temperature=0.2)
-            line = " ".join(result.text.split())
-            if not line:
+            summary = _normalize_summary(result.text)
+            if not summary:
                 raise ValueError("AI要約が空で返されました。時間をおいて再度お試しください。")
-            return line[:120]
+            return summary
         except GeminiClientError as exc:
             logger.warning("research_summarize_gemini_failed", error=str(exc))
             raise ValueError(_gemini_error_message(exc)) from exc
+
+
+def _normalize_summary(text: str) -> str:
+    lines: list[str] = []
+    for raw in text.replace("\r", "").split("\n"):
+        line = raw.strip()
+        if not line:
+            continue
+        for prefix in ("・", "-", "*", "•"):
+            if line.startswith(prefix):
+                line = line[len(prefix) :].strip()
+                break
+        if line and not line[0].isdigit():
+            lines.append(f"・{line}")
+        elif line:
+            lines.append(f"・{line.lstrip('0123456789.)、 ')}")
+
+    if not lines:
+        compact = " ".join(text.split()).strip()
+        return compact[:MAX_SUMMARY_CHARS] if compact else ""
+
+    if len(lines) > MAX_SUMMARY_BULLETS:
+        lines = lines[:MAX_SUMMARY_BULLETS]
+
+    normalized = "\n".join(lines)
+    return normalized[:MAX_SUMMARY_CHARS]
 
 
 def _html_to_text(html: str) -> str:

@@ -1,7 +1,7 @@
 import pytest
 
 from app.schemas.research import ResearchSummarizeRequest
-from app.services.research_summarizer import ResearchSummarizer, _gemini_error_message, _html_to_text
+from app.services.research_summarizer import ResearchSummarizer, _gemini_error_message, _html_to_text, _normalize_summary
 from app.config import Settings
 from app.llm.gemini_client import GeminiClientError
 
@@ -14,6 +14,19 @@ def test_html_to_text_strips_tags():
 def test_gemini_error_message_quota():
     msg = _gemini_error_message(GeminiClientError("gemini-2.5-flash: HTTP 429 quota exceeded"))
     assert "利用上限" in msg
+
+
+def test_normalize_summary_bullets():
+    raw = "- ETF流入継続\n・規制懸念は限定的\n2) 半減期後の供給減"
+    out = _normalize_summary(raw)
+    assert out.count("・") >= 3
+    assert len(out) <= 1200
+
+
+def test_normalize_summary_caps_at_ten_bullets():
+    raw = "\n".join(f"・要点{i}" for i in range(1, 15))
+    out = _normalize_summary(raw)
+    assert out.count("・") == 10
 
 
 @pytest.mark.asyncio

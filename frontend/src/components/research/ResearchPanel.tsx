@@ -155,7 +155,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
         <div>
           <h2 className="font-japanese text-sm font-medium text-slate-300">シナリオ分析データ</h2>
           <p className="mt-1 text-xs text-slate-500">
-            記事・URL・YouTube などを要約1行で管理。分析に使うデータだけを ON にしてください。
+            記事・URL・YouTube などを要約（箇条書き可）で管理。分析に使うデータだけを ON にしてください。
           </p>
           <p className="mt-1 text-xs text-accent-blue">
             分析対象: {analysisCount} 件 / 全 {items.length} 件
@@ -376,7 +376,7 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
               onChange={toggleSelectAllVisible}
               aria-label="表示中をすべて選択"
             />
-            要約1行（分析に使うかの判断基準）
+            要約（分析に使う要点・箇条書き可）
           </li>
           {filtered.map((item) => (
             <li
@@ -406,7 +406,9 @@ export function ResearchPanel({ userId, items, loading }: ResearchPanelProps) {
                     )}
                     <span className="text-[10px] text-slate-600">{formatResearchWhen(item.createdAt)}</span>
                   </div>
-                  <p className="font-japanese text-sm leading-relaxed text-slate-300">{item.summaryLine}</p>
+                  <p className="whitespace-pre-wrap font-japanese text-sm leading-relaxed text-slate-300">
+                    {item.summaryLine}
+                  </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <label className="flex min-h-[36px] cursor-pointer items-center gap-1 text-slate-400">
                       <input
