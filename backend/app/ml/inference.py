@@ -206,6 +206,10 @@ class ScenarioInference:
         )
         if context.risk_zones and (context.risk_zones.long_liquidation or context.risk_zones.short_squeeze):
             exit_rationale += "清算帯推定も参考にしています。"
+            if context.risk_zones.long_liquidation and "履歴" in context.risk_zones.long_liquidation.label:
+                exit_rationale += " OKX直近清算履歴を反映しています。"
+            if context.risk_zones.short_squeeze and "履歴" in context.risk_zones.short_squeeze.label:
+                exit_rationale += " OKX直近清算履歴を反映しています。"
         if context.etf_flows and context.etf_flows.trend != "neutral":
             exit_rationale += f"米国BTC ETFは{context.etf_flows.trend}傾向です。"
         if context.options:

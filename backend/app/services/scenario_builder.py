@@ -22,6 +22,7 @@ from app.schemas.scenario_context import ResearchContextItem, ScenarioDataSource
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.market_sessions import MarketSessionsService
+from app.services.liquidation_feed import LiquidationFeed
 from app.services.risk_zones import RiskZoneEstimator
 from app.services.scenario_context import reference_price_from_snapshot
 from app.services.scenario_horizons import build_scenario_horizons
@@ -43,6 +44,7 @@ class ScenarioBuilder:
         technical: TechnicalAnalysisService | None = None,
         heatmap: OrderbookHeatmapService | None = None,
         risk_zones: RiskZoneEstimator | None = None,
+        liquidation_feed: LiquidationFeed | None = None,
         sessions: MarketSessionsService | None = None,
         deribit_options: DeribitOptionsClient | None = None,
         etf_flows: BtcEtfFlowClient | None = None,
@@ -58,6 +60,7 @@ class ScenarioBuilder:
         self.technical = technical or TechnicalAnalysisService()
         self.heatmap = heatmap or OrderbookHeatmapService()
         self.risk_zones = risk_zones or RiskZoneEstimator()
+        self.liquidation_feed = liquidation_feed
         self.sessions = sessions or MarketSessionsService()
         self.deribit_options = deribit_options
         self.etf_flows = etf_flows
@@ -82,7 +85,10 @@ class ScenarioBuilder:
 
         heatmap_cells = self.heatmap.compute(snapshot.orderbooks, reference_price=ref_price)
         heatmap_summary = summarize_heatmap(heatmap_cells, ref_price)
-        risk = self.risk_zones.estimate(ref_price, cg, heatmap_cells)
+        liq_events = []
+        if self.liquidation_feed:
+            liq_events = await self.liquidation_feed.fetch_recent()
+        risk = self.risk_zones.estimate(ref_price, cg, heatmap_cells, liq_events)
         session_data = self.sessions.build()
 
         options = await self.deribit_options.fetch_snapshot() if self.deribit_options else None

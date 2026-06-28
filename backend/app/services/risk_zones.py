@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from app.schemas.candles import RiskZone, RiskZonesResponse
+from app.schemas.liquidation import LiquidationClusters, LiquidationEvent
 from app.schemas.market import CoinglassSnapshot, OrderbookHeatmapCell
+from app.services.liquidation_clusters import build_liquidation_clusters
 from app.services.price_sanity import is_plausible_usd_price
 
 
 class RiskZoneEstimator:
-    """Estimate liquidation / squeeze zones from free derivatives + orderbook data."""
+    """Estimate liquidation / squeeze zones from derivatives, orderbook, and liquidation history."""
 
     def estimate(
         self,
         reference_price: float,
         coinglass: CoinglassSnapshot | None,
         heatmap_cells: list[OrderbookHeatmapCell] | None = None,
+        liquidation_events: list[LiquidationEvent] | None = None,
     ) -> RiskZonesResponse:
         if reference_price <= 0:
             return RiskZonesResponse(reference_price=0)
@@ -88,8 +91,91 @@ class RiskZoneEstimator:
                         update={"zone_high": max(short_sq.zone_high, resist_bin * 1.005)}
                     )
 
+        clusters = build_liquidation_clusters(liquidation_events or [], reference_price)
+        if clusters:
+            long_liq = _merge_long_history(long_liq, clusters, reference_price)
+            short_sq = _merge_short_history(short_sq, clusters, reference_price)
+
         return RiskZonesResponse(
             reference_price=reference_price,
             long_liquidation=long_liq,
             short_squeeze=short_sq,
         )
+
+
+def _merge_long_history(
+    existing: RiskZone | None,
+    clusters: LiquidationClusters,
+    reference_price: float,
+) -> RiskZone | None:
+    if clusters.long_zone_low is None or clusters.long_zone_high is None:
+        return existing
+
+    hist_low = clusters.long_zone_low
+    hist_high = clusters.long_zone_high
+    notional_m = clusters.long_notional_usd / 1_000_000
+    hist_rationale = (
+        f"OKX直近清算 {clusters.long_event_count}件・約${notional_m:.1f}M が"
+        f" ${hist_low:,.0f}〜${hist_high:,.0f} に集中。"
+    )
+    confidence = min(0.92, 0.6 + min(notional_m / 10, 0.25))
+
+    if existing is None:
+        return RiskZone(
+            zone_low=hist_low,
+            zone_high=hist_high,
+            label="Long清算帯（履歴）",
+            rationale=hist_rationale + " 直近の実清算履歴に基づく参考帯です。",
+            confidence=round(confidence, 2),
+        )
+
+    zone_low = min(existing.zone_low, hist_low)
+    zone_high = max(min(existing.zone_high, reference_price * 0.999), hist_high)
+    return existing.model_copy(
+        update={
+            "zone_low": zone_low,
+            "zone_high": zone_high,
+            "label": "Long清算帯（履歴+推定）",
+            "rationale": existing.rationale + " " + hist_rationale,
+            "confidence": round(max(existing.confidence, confidence), 2),
+        }
+    )
+
+
+def _merge_short_history(
+    existing: RiskZone | None,
+    clusters: LiquidationClusters,
+    reference_price: float,
+) -> RiskZone | None:
+    if clusters.short_zone_low is None or clusters.short_zone_high is None:
+        return existing
+
+    hist_low = clusters.short_zone_low
+    hist_high = clusters.short_zone_high
+    notional_m = clusters.short_notional_usd / 1_000_000
+    hist_rationale = (
+        f"OKX直近清算 {clusters.short_event_count}件・約${notional_m:.1f}M が"
+        f" ${hist_low:,.0f}〜${hist_high:,.0f} に集中。"
+    )
+    confidence = min(0.92, 0.6 + min(notional_m / 10, 0.25))
+
+    if existing is None:
+        return RiskZone(
+            zone_low=hist_low,
+            zone_high=hist_high,
+            label="ショートスクイズ帯（履歴）",
+            rationale=hist_rationale + " 直近の実清算履歴に基づく参考帯です。",
+            confidence=round(confidence, 2),
+        )
+
+    zone_low = min(max(existing.zone_low, reference_price * 1.001), hist_low)
+    zone_high = max(existing.zone_high, hist_high)
+    return existing.model_copy(
+        update={
+            "zone_low": zone_low,
+            "zone_high": zone_high,
+            "label": "ショートスクイズ帯（履歴+推定）",
+            "rationale": existing.rationale + " " + hist_rationale,
+            "confidence": round(max(existing.confidence, confidence), 2),
+        }
+    )

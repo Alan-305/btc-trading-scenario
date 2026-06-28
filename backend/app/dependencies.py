@@ -20,6 +20,8 @@ from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.scenario_builder import ScenarioBuilder
 from app.services.prediction_evaluator import PredictionEvaluator
+from app.integrations.okx_liquidations import OkxLiquidationClient
+from app.services.liquidation_feed import LiquidationFeed
 from app.services.risk_zones import RiskZoneEstimator
 from app.services.technical_analysis import TechnicalAnalysisService
 from app.services.volume_profile import OrderbookHeatmapService, VolumeProfileService
@@ -76,6 +78,7 @@ def get_scenario_builder(
         deribit_options=DeribitOptionsClient(http),
         etf_flows=BtcEtfFlowClient(http),
         onchain=OnChainMetricsClient(http),
+        liquidation_feed=LiquidationFeed(OkxLiquidationClient(http)),
     )
 
 
@@ -97,6 +100,10 @@ def get_technical_analysis_service() -> TechnicalAnalysisService:
 
 def get_risk_zone_estimator() -> RiskZoneEstimator:
     return RiskZoneEstimator()
+
+
+def get_liquidation_feed(http: CollectorHttpClient = Depends(get_http_client)) -> LiquidationFeed:
+    return LiquidationFeed(OkxLiquidationClient(http))
 
 
 def get_prediction_evaluator() -> PredictionEvaluator:

@@ -5,6 +5,7 @@ from app.dependencies import (
     get_divergence_service,
     get_heatmap_service,
     get_klines_client,
+    get_liquidation_feed,
     get_market_aggregator,
     get_redis_cache,
     get_risk_zone_estimator,
@@ -22,6 +23,7 @@ from app.schemas.candles import (
 from app.schemas.market import MarketSnapshot
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
+from app.services.liquidation_feed import LiquidationFeed
 from app.services.risk_zones import RiskZoneEstimator
 from app.services.scenario_context import reference_price_from_snapshot
 from app.services.technical_analysis import TechnicalAnalysisService
@@ -131,9 +133,11 @@ async def market_risk_zones(
     coinglass: DerivativesProvider = Depends(get_coinglass),
     heatmap_service: OrderbookHeatmapService = Depends(get_heatmap_service),
     estimator: RiskZoneEstimator = Depends(get_risk_zone_estimator),
+    liquidation_feed: LiquidationFeed = Depends(get_liquidation_feed),
 ):
     snapshot = await aggregator.collect_all(include_orderbooks=True)
     cg = await coinglass.fetch_snapshot()
     price = reference_price_from_snapshot(snapshot)
     cells = heatmap_service.compute(snapshot.orderbooks, reference_price=price)
-    return estimator.estimate(price, cg, cells)
+    liq_events = await liquidation_feed.fetch_recent()
+    return estimator.estimate(price, cg, cells, liq_events)

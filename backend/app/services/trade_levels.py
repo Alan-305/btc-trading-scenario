@@ -118,6 +118,7 @@ def compute_exit_levels(
         take_profit = sorted({tp1, tp2})
         entry_mid = price
         take_profit, stop_loss = _enforce_min_reward_risk(entry_mid, "long", take_profit, stop_loss)
+        stop_loss = _apply_long_liquidation_stop_cap(stop_loss, context, price)
         return take_profit, stop_loss
 
     if side == "short":
@@ -149,6 +150,7 @@ def compute_exit_levels(
 
         take_profit = sorted({tp1, tp2}, reverse=True)
         take_profit, stop_loss = _enforce_min_reward_risk(price, "short", take_profit, stop_loss)
+        stop_loss = _apply_short_squeeze_stop_floor(stop_loss, context, price)
         return take_profit, stop_loss
 
     take_profit = [round(price * (1 + atr_pct * 0.8), 2)]
@@ -200,3 +202,29 @@ def _enforce_min_reward_risk(
             take_profit[1] = round(take_profit[0] - risk * 0.8, 2)
 
     return take_profit, stop_loss
+
+
+def _apply_long_liquidation_stop_cap(
+    stop_loss: float,
+    context: ScenarioMarketContext,
+    price: float,
+) -> float:
+    if not context.risk_zones or not context.risk_zones.long_liquidation:
+        return stop_loss
+    liq_low = context.risk_zones.long_liquidation.zone_low
+    if not is_plausible_usd_price(liq_low, price, min_ratio=0.85, max_ratio=1.0):
+        return stop_loss
+    return round(min(stop_loss, liq_low * 0.995), 2)
+
+
+def _apply_short_squeeze_stop_floor(
+    stop_loss: float,
+    context: ScenarioMarketContext,
+    price: float,
+) -> float:
+    if not context.risk_zones or not context.risk_zones.short_squeeze:
+        return stop_loss
+    sq_high = context.risk_zones.short_squeeze.zone_high
+    if not is_plausible_usd_price(sq_high, price, min_ratio=1.0, max_ratio=1.15):
+        return stop_loss
+    return round(max(stop_loss, sq_high * 1.005), 2)
