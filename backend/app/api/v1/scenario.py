@@ -51,6 +51,14 @@ async def evaluate_predictions(
     evaluator: PredictionEvaluator = Depends(get_prediction_evaluator),
 ):
     now = datetime.now(timezone.utc)
-    start = now - timedelta(days=7)
-    candles = await klines.fetch_range(start, now, interval="1h")
+    earliest = now
+    for pred in predictions:
+        saved_at = PredictionEvaluator._parse_saved_at(pred.saved_at)
+        if saved_at is not None and saved_at < earliest:
+            earliest = saved_at
+
+    start = earliest if predictions else now - timedelta(days=7)
+    if start > now:
+        start = now - timedelta(days=7)
+    candles = await klines.fetch_range_paginated(start, now, interval="1h")
     return evaluator.evaluate_batch(predictions, candles, now=now)

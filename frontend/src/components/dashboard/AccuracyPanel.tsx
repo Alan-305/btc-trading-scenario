@@ -1,8 +1,17 @@
+import { useMemo } from "react";
 import type { AccuracySummary } from "../../types/market";
+import type { SavedSnapshotRecord } from "../../lib/firestore-snapshots";
+import {
+  buildAccuracyPeriodSummaries,
+  formatAccuracyHeaderSummary,
+  type AccuracyPeriodSummary,
+} from "../../lib/accuracy-periods";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 
 interface AccuracyPanelProps {
   data: AccuracySummary | null;
   loading: boolean;
+  savedRecords?: SavedSnapshotRecord[];
 }
 
 const OUTCOME_LABEL = {
@@ -13,60 +22,95 @@ const OUTCOME_LABEL = {
   neutral: { text: "様子見", color: "text-slate-500" },
 } as const;
 
-export function AccuracyPanel({ data, loading }: AccuracyPanelProps) {
+function PeriodCard({ row }: { row: AccuracyPeriodSummary }) {
+  const { period } = row;
+  return (
+    <article className="rounded-lg border border-surface-border/60 bg-slate-900/40 p-4">
+      <h3 className="mb-3 font-japanese text-xs font-medium text-slate-300">{period.label}</h3>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div>
+          <dt className="text-[10px] text-slate-500">{period.reachLabel}</dt>
+          <dd className="font-english text-xl font-semibold text-accent-blue">
+            {row.entry_zone_reach_pct != null ? `${row.entry_zone_reach_pct}%` : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] text-slate-500">方向的中率</dt>
+          <dd className="font-english text-xl font-semibold text-slate-100">
+            {row.direction_accuracy_pct != null ? `${row.direction_accuracy_pct}%` : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] text-slate-500">TP/SLスコア</dt>
+          <dd className="font-english text-xl font-semibold text-slate-100">
+            {row.win_rate_pct != null ? `${row.win_rate_pct}%` : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] text-slate-500">対象</dt>
+          <dd className="font-english text-xl font-semibold text-slate-100">
+            {row.total}
+            <span className="ml-1 text-xs font-normal text-slate-500">
+              (確定 {row.finalized_count})
+            </span>
+          </dd>
+        </div>
+      </dl>
+      {row.total === 0 && (
+        <p className="mt-2 text-[10px] text-slate-500">この期間の保存データはありません。</p>
+      )}
+    </article>
+  );
+}
+
+export function AccuracyPanel({ data, loading, savedRecords = [] }: AccuracyPanelProps) {
+  const periods = useMemo(
+    () => (data ? buildAccuracyPeriodSummaries(data, savedRecords) : []),
+    [data, savedRecords],
+  );
+  const headerSummary = formatAccuracyHeaderSummary(periods);
+
   if (loading) {
     return (
-      <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h2 className="text-sm font-medium text-slate-400">AI分析の的中率（7日スイング）</h2>
-        <p className="mt-3 text-sm text-slate-500">評価中…</p>
-      </section>
+      <CollapsibleSection
+        title="AI分析の的中率"
+        subtitle="保存シナリオの7日スイング評価を期間別に集計"
+        summary="評価中…"
+      >
+        <p className="text-sm text-slate-500">評価中…</p>
+      </CollapsibleSection>
     );
   }
 
   if (!data || data.total === 0) {
     return (
-      <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h2 className="text-sm font-medium text-slate-400">AI分析の的中率（7日スイング）</h2>
-        <p className="mt-3 text-sm text-slate-500">
-          直近7日以内にシナリオを保存すると、保存から7日間の TP/SL・トレンドをここで集計します。
+      <CollapsibleSection
+        title="AI分析の的中率"
+        subtitle="保存シナリオの7日スイング評価を期間別に集計"
+        summary="保存データなし"
+      >
+        <p className="text-sm text-slate-500">
+          シナリオを保存すると、保存から7日間の TP/SL・トレンド・エントリー带到達を期間別に集計します。
         </p>
-      </section>
+      </CollapsibleSection>
     );
   }
 
   return (
-    <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h2 className="mb-1 text-sm font-medium text-slate-400">AI分析の的中率（7日スイング）</h2>
-      <p className="mb-4 text-xs text-slate-500">
-        直近7日以内の保存を対象。各保存は保存日時から7日間で評価（確定 {data.finalized_count} 件 / 集計中{" "}
-        {data.pending_count} 件）
-      </p>
-      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div>
-          <p className="text-xs text-slate-500">大トレンド的中率</p>
-          <p className="font-english text-2xl font-semibold text-slate-100">
-            {data.direction_accuracy_pct != null ? `${data.direction_accuracy_pct}%` : "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">エントリー带到達率</p>
-          <p className="font-english text-2xl font-semibold text-slate-100">
-            {data.entry_zone_reach_pct != null ? `${data.entry_zone_reach_pct}%` : "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">TP/SLスコア平均</p>
-          <p className="font-english text-2xl font-semibold text-slate-100">
-            {data.win_rate_pct != null ? `${data.win_rate_pct}%` : "—"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-500">対象件数</p>
-          <p className="font-english text-2xl font-semibold text-slate-100">{data.total}</p>
-        </div>
+    <CollapsibleSection
+      title="AI分析の的中率"
+      subtitle="各保存は保存日時から7日間で評価（1時間足の高安値で判定）"
+      summary={headerSummary}
+    >
+      <div className="space-y-3">
+        {periods.map((row) => (
+          <PeriodCard key={row.period.id} row={row} />
+        ))}
       </div>
+
+      <h3 className="mb-2 mt-5 font-japanese text-xs font-medium text-slate-400">直近の評価一覧</h3>
       <ul className="space-y-2">
-        {data.evaluations.map((ev, i) => {
+        {data.evaluations.slice(0, 20).map((ev, i) => {
           const outcome = OUTCOME_LABEL[ev.outcome];
           return (
             <li
@@ -95,10 +139,14 @@ export function AccuracyPanel({ data, loading }: AccuracyPanelProps) {
           );
         })}
       </ul>
+      {data.evaluations.length > 20 && (
+        <p className="mt-2 text-[10px] text-slate-500">
+          ほか {data.evaluations.length - 20} 件（折りたたみ時は非表示）
+        </p>
+      )}
       <p className="mt-3 text-[10px] leading-relaxed text-slate-600">
-        TP到達=100% / 方向のみ=80% / SL・逆転=0%。保存から7日未満は集計中。1時間足の高安値で TP/SL
-        到達を判定しています。
+        TP到達=100% / 方向のみ=80% / SL・逆転=0%。週間・月間・年間到達率はエントリー帯への到達率です。
       </p>
-    </section>
+    </CollapsibleSection>
   );
 }

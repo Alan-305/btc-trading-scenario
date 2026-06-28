@@ -30,8 +30,8 @@ interface SaveSnapshotInput {
   snapshot: MarketSnapshot | null;
 }
 
-export const SNAPSHOT_RETENTION_DAYS = 7;
-export const SNAPSHOT_QUERY_LIMIT = 50;
+export const SNAPSHOT_RETENTION_DAYS = 365;
+export const SNAPSHOT_QUERY_LIMIT = 200;
 
 function snapshotsCollection(uid: string) {
   return collection(getFirebaseDb(), "users", uid, "snapshots");

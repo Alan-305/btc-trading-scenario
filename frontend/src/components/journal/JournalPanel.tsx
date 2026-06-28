@@ -12,6 +12,7 @@ import {
 } from "../../lib/journal-storage";
 import { JournalEntryCard } from "./JournalEntryCard";
 import { JournalEntryForm } from "./JournalEntryForm";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
 
 interface JournalPanelProps {
   userId: string;
@@ -47,8 +48,17 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<JournalEntry | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const openEntries = entries.filter((e) => e.type === "entry" && e.status === "open");
+  const openCount = openEntries.length;
+
+  const summary =
+    entries.length > 0
+      ? `全 ${entries.length} 件${openCount > 0 ? ` · 未決済 ${openCount} 件` : ""}`
+      : loading
+        ? "読み込み中…"
+        : "記録なし";
 
   const syncParentOnExit = async (input: JournalEntryInput) => {
     if (input.type !== "exit" || !input.parentEntryId || input.exitPrice == null) return;
@@ -143,25 +153,27 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
   };
 
   return (
-    <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-japanese text-sm font-medium text-slate-300">トレード日誌</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            テンプレート・振り返り・チャート画像（直近90日・最大100件）
-          </p>
-        </div>
-        {!showForm && !editing && (
+    <CollapsibleSection
+      title="トレード日誌"
+      subtitle="テンプレート・振り返り・チャート画像（直近90日・最大100件）"
+      summary={summary}
+      expanded={expanded}
+      onExpandedChange={setExpanded}
+      headerActions={
+        !showForm && !editing ? (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={() => {
+              setShowForm(true);
+              setExpanded(true);
+            }}
             className="min-h-[44px] rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
           >
             新規メモ
           </button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {error && (
         <p className="mb-3 rounded-lg border border-accent-red/40 bg-accent-red/10 px-3 py-2 text-sm text-red-200">
           {error}
@@ -190,7 +202,7 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
           まだ日誌がありません。「新規メモ」またはシナリオ保存時の「日誌にも記録」で追加できます。
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="max-h-[480px] space-y-3 overflow-y-auto pr-1">
           {entries.map((entry) => (
             <li key={entry.id}>
               <JournalEntryCard
@@ -198,6 +210,7 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
                 onEdit={() => {
                   setEditing(entry);
                   setShowForm(false);
+                  setExpanded(true);
                 }}
                 onDelete={() => void handleDelete(entry)}
                 onMarkAsTrade={() => void handleMarkAsTrade(entry)}
@@ -206,6 +219,6 @@ export function JournalPanel({ userId, entries, loading }: JournalPanelProps) {
           ))}
         </ul>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

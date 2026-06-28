@@ -535,7 +535,7 @@ export function DashboardPage() {
           )}
 
           {/* 6. AI分析的中率 */}
-          {user && <AccuracyPanel data={accuracy} loading={accuracyLoading} />}
+          {user && <AccuracyPanel data={accuracy} loading={accuracyLoading} savedRecords={savedRecords} />}
 
           {/* 6b. 実トレード分析 */}
           {user && (

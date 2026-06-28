@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.collectors.http_client import CollectorHttpClient
 from app.config import get_settings
 from app.schemas.candles import Candle, CandleInterval
 
 BASE = "https://fapi.binance.com"
+_MAX_KLINES_PER_REQUEST = 1500
 
 
 class BinanceKlinesClient:
@@ -54,6 +55,34 @@ class BinanceKlinesClient:
             rate_limit_key="binance",
         )
         return self._parse_rows(raw)
+
+    async def fetch_range_paginated(
+        self,
+        start: datetime,
+        end: datetime,
+        interval: CandleInterval = "1h",
+    ) -> list[Candle]:
+        """start〜end のローソク足をページング取得。"""
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+
+        all_candles: list[Candle] = []
+        cursor = start
+        while cursor < end:
+            batch = await self.fetch_range(cursor, end, interval=interval)
+            if not batch:
+                break
+            all_candles.extend(batch)
+            if len(batch) < _MAX_KLINES_PER_REQUEST:
+                break
+            last_ts = batch[-1].ts
+            if last_ts >= end:
+                break
+            cursor = last_ts + timedelta(hours=1)
+
+        return all_candles
 
     @staticmethod
     def _parse_rows(raw: list) -> list[Candle]:
