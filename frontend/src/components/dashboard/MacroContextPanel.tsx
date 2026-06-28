@@ -1,6 +1,6 @@
 import type { MacroContextSnapshot } from "../../types/scenario";
 import { ExternalLink } from "../ui/ExternalLink";
-import { MacroSignalBadge, MacroSummaryText, MACRO_STANCE_STYLE } from "./macro/MacroCommentary";
+import { MacroSignalBadge, MacroSummaryText } from "./macro/MacroCommentary";
 import { EtfFlowChart } from "./macro/EtfFlowChart";
 import { OnChainChart } from "./macro/OnChainChart";
 import { DvolChart, PutCallOiChart } from "./macro/OptionsCharts";
@@ -40,7 +40,6 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
   }
 
   const { options, etf_flows, onchain } = data;
-  const overallStyle = MACRO_STANCE_STYLE[data.overall_stance ?? "neutral"];
 
   return (
     <section id="macro-environment" className="space-y-4">
@@ -57,11 +56,6 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
             stance={data.overall_stance}
           />
         </div>
-        {data.overall_summary_ja && (
-          <p className={`mt-3 font-japanese text-sm font-medium ${overallStyle.color}`}>
-            総合: {data.overall_signal_ja ?? overallStyle.text}
-          </p>
-        )}
         <MacroSummaryText summary={data.overall_summary_ja ?? ""} />
       </header>
 

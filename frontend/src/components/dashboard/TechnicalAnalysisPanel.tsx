@@ -3,13 +3,6 @@ import { candleIntervalLabel, type CandleInterval } from "../../lib/candle-inter
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { ExternalLink } from "../ui/ExternalLink";
 
-const TREND_LABEL = {
-  bullish: { text: "上昇", color: "text-accent-green" },
-  bearish: { text: "下降", color: "text-accent-red" },
-  neutral: { text: "中立", color: "text-slate-400" },
-  range: { text: "レンジ", color: "text-accent-amber" },
-};
-
 interface TechnicalAnalysisPanelProps {
   data: TechnicalAnalysis | null;
   interval?: CandleInterval;
@@ -37,15 +30,12 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
     );
   }
 
-  const trend = TREND_LABEL[data.trend] ?? TREND_LABEL.neutral;
-
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-400">テクニカル分析（{title}）</h3>
         <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
       </div>
-      <p className={`mb-3 text-sm font-medium ${trend.color}`}>総合: {trend.text}</p>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <div>
           <dt className="text-slate-500">RSI(14)</dt>
