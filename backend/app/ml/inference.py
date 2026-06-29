@@ -219,6 +219,34 @@ class ScenarioInference:
                 elif hr_chg < -3:
                     bearish_score += 1
 
+        if context.usdt_dominance:
+            trend = context.usdt_dominance.trend
+            if trend == "rising":
+                bearish_score += 2
+            elif trend == "falling":
+                bullish_score += 2
+            change = context.usdt_dominance.change_7d_pct
+            if change is not None:
+                if change >= 0.5:
+                    bearish_score += 1
+                elif change <= -0.5:
+                    bullish_score += 1
+
+        if ta and ta.stoch_last_cross == "gc":
+            if ta.stoch_zone == "oversold":
+                bullish_score += 2
+            elif ta.stoch_zone != "overbought":
+                bullish_score += 1
+        elif ta and ta.stoch_last_cross == "dc":
+            if ta.stoch_zone == "overbought":
+                bearish_score += 2
+            elif ta.stoch_zone != "oversold":
+                bearish_score += 1
+        elif ta and ta.stoch_zone == "oversold":
+            bullish_score += 1
+        elif ta and ta.stoch_zone == "overbought":
+            bearish_score += 1
+
         return bullish_score, bearish_score
 
     def _pick_primary_trend(self, bullish_score: int, bearish_score: int) -> MacroTrend:
@@ -379,4 +407,17 @@ class ScenarioInference:
             exit_rationale += f"米国BTC ETFは{context.etf_flows.trend}傾向です。"
         if context.options:
             exit_rationale += f" Deribit Put/Call比は {context.options.put_call_ratio:.2f} です。"
+        if context.usdt_dominance:
+            u = context.usdt_dominance
+            exit_rationale += (
+                f" USDTドミナンスは {u.dominance_pct:.2f}%（{u.trend}）で、"
+                f"{'BTC逆風' if u.trend == 'rising' else 'BTC追い風' if u.trend == 'falling' else '中立'}材料です。"
+            )
+        if ta and ta.stoch_k is not None and ta.stoch_d is not None:
+            cross = ""
+            if ta.stoch_last_cross == "gc":
+                cross = "・直近GC"
+            elif ta.stoch_last_cross == "dc":
+                cross = "・直近DC"
+            exit_rationale += f" ストキャス %K {ta.stoch_k:.0f}/%D {ta.stoch_d:.0f}{cross} をタイミング参考にしています。"
         return exit_rationale

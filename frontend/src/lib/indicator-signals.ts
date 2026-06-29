@@ -4,6 +4,7 @@ import type {
   CoinglassSnapshot,
   HeatmapCell,
   MacroStance,
+  UsdtDominanceSnapshot,
 } from "../types/scenario";
 
 export interface IndicatorSignal {
@@ -40,9 +41,60 @@ export function technicalSignal(data: TechnicalAnalysis | null): IndicatorSignal
     return { stance: "neutral", signalJa: "様子見", summaryJa: "テクニカルデータがありません。" };
   }
   const base = TREND_SIGNAL[data.trend] ?? TREND_SIGNAL.neutral;
+  const stochNote =
+    data.stoch_summary_ja && data.stoch_summary_ja !== base.summaryJa
+      ? ` ${data.stoch_summary_ja}`
+      : "";
   return {
-    ...base,
-    summaryJa: data.summary_ja || base.summaryJa,
+    stance: data.stoch_stance && data.stoch_stance !== "neutral" ? data.stoch_stance : base.stance,
+    signalJa: data.stoch_signal_ja || base.signalJa,
+    summaryJa: (data.summary_ja || base.summaryJa) + stochNote,
+  };
+}
+
+export function stochasticSignal(data: TechnicalAnalysis | null): IndicatorSignal {
+  if (!data || data.stoch_k == null || data.stoch_d == null) {
+    return { stance: "neutral", signalJa: "様子見", summaryJa: "ストキャスデータがありません。" };
+  }
+  const stance: MacroStance =
+    data.stoch_stance && data.stoch_stance !== "caution" ? data.stoch_stance : "neutral";
+  return {
+    stance,
+    signalJa: data.stoch_signal_ja || "様子見",
+    summaryJa: data.stoch_summary_ja || `%K ${data.stoch_k.toFixed(0)}・%D ${data.stoch_d.toFixed(0)}`,
+  };
+}
+
+export function usdtDominanceSignal(data: UsdtDominanceSnapshot | null): IndicatorSignal {
+  if (!data) {
+    return { stance: "neutral", signalJa: "様子見", summaryJa: "USDTドミナンスデータがありません。" };
+  }
+  if (data.summary_ja) {
+    return {
+      stance: data.stance ?? "neutral",
+      signalJa: data.signal_ja ?? "様子見",
+      summaryJa: data.summary_ja,
+    };
+  }
+  const trend = data.trend;
+  if (trend === "rising") {
+    return {
+      stance: "bearish",
+      signalJa: "下落の症候",
+      summaryJa: `USDT.D ${data.dominance_pct.toFixed(2)}% と上昇中。リスクオフでBTCに逆風です。`,
+    };
+  }
+  if (trend === "falling") {
+    return {
+      stance: "bullish",
+      signalJa: "上昇支援",
+      summaryJa: `USDT.D ${data.dominance_pct.toFixed(2)}% と低下中。リスクオンでBTCに追い風です。`,
+    };
+  }
+  return {
+    stance: "neutral",
+    signalJa: "様子見",
+    summaryJa: `USDT.D ${data.dominance_pct.toFixed(2)}% は横ばいです。`,
   };
 }
 

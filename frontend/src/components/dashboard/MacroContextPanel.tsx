@@ -4,6 +4,7 @@ import { MacroSignalBadge, MacroSummaryText } from "./macro/MacroCommentary";
 import { EtfFlowChart } from "./macro/EtfFlowChart";
 import { OnChainChart } from "./macro/OnChainChart";
 import { DvolChart, PutCallOiChart } from "./macro/OptionsCharts";
+import { UsdtDominancePanel } from "./macro/UsdtDominancePanel";
 
 interface MacroContextPanelProps {
   data: MacroContextSnapshot | null;
@@ -30,7 +31,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
     );
   }
 
-  if (!data || (!data.options && !data.etf_flows && !data.onchain)) {
+  if (!data || (!data.options && !data.etf_flows && !data.onchain && !data.usdt_dominance)) {
     return (
       <div id="macro-environment" className="rounded-xl border border-surface-border bg-surface-card p-5">
         <h3 className="font-japanese text-sm font-medium text-content-secondary">マクロ環境（ETF・オプション・オンチェーン）</h3>
@@ -48,7 +49,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
           <div>
             <h3 className="font-japanese text-base font-medium text-slate-200">マクロ環境</h3>
             <p className="mt-1 font-japanese text-[11px] text-content-muted">
-              ETF資金・Deribitオプション・オンチェーン（シナリオ分析に反映）
+              ETF資金・Deribitオプション・オンチェーン・USDT.D（シナリオ分析に反映）
             </p>
           </div>
           <MacroSignalBadge
@@ -58,6 +59,10 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
         </div>
         <MacroSummaryText summary={data.overall_summary_ja ?? ""} />
       </header>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        {data.usdt_dominance ? <UsdtDominancePanel data={data.usdt_dominance} /> : null}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {etf_flows && (

@@ -17,6 +17,7 @@ import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
+import { StochasticChart } from "../components/dashboard/StochasticChart";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { DashboardShell } from "../components/layout/DashboardShell";
@@ -63,7 +64,9 @@ import {
   heatmapSignal,
   riskZonesSignal,
   sessionsSignal,
+  stochasticSignal,
   technicalSignal,
+  usdtDominanceSignal,
 } from "../lib/indicator-signals";
 import type { JournalEntry } from "../types/journal";
 import type { ResearchItem } from "../types/research";
@@ -419,6 +422,18 @@ export function DashboardPage() {
           : { stance: "neutral", signalJa: "様子見", summaryJa: "マクロデータを読み込み中です。" },
       },
       {
+        id: "stochastic",
+        label: "ストキャス",
+        section: "market",
+        signal: stochasticSignal(technical),
+      },
+      {
+        id: "usdt-dominance",
+        label: "USDT.D",
+        section: "context",
+        signal: usdtDominanceSignal(macroContext?.usdt_dominance ?? null),
+      },
+      {
         id: "fear-greed",
         label: "Fear & Greed",
         section: "market",
@@ -596,15 +611,37 @@ export function DashboardPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
+                <IndicatorSignalHeader signal={stochasticSignal(technical)} />
+                <div className="rounded-xl border border-surface-border bg-surface-card p-5">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="font-japanese text-sm font-medium text-content-secondary">
+                      ストキャスティクス（14,3,3）
+                    </h3>
+                    <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
+                  </div>
+                  <StochasticChart
+                    series={technical?.stoch_series ?? []}
+                    k={technical?.stoch_k ?? null}
+                    d={technical?.stoch_d ?? null}
+                    lastCross={technical?.stoch_last_cross ?? null}
+                  />
+                  {technical?.stoch_summary_ja ? (
+                    <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">
+                      {technical.stoch_summary_ja}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div>
                 <IndicatorSignalHeader signal={technicalSignal(technical)} />
                 <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
                 <IndicatorSignalHeader signal={riskZonesSignal(riskZones)} />
                 <RiskZonesPanel data={riskZones} />
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
                 <IndicatorSignalHeader
                   signal={fearGreedSignal(fgValue, sentiment?.fear_greed?.classification)}
@@ -616,6 +653,8 @@ export function DashboardPage() {
                   history={sentiment?.fear_greed_history}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
                 <IndicatorSignalHeader signal={heatmapSignal(heatmap)} />
                 <VolumeHeatmap
@@ -626,8 +665,6 @@ export function DashboardPage() {
                   loading={heatmapLoading}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {snapshot && (
                 <div>
                   <IndicatorSignalHeader signal={exchangeSignal(snapshot.divergence_pct)} />
@@ -637,10 +674,10 @@ export function DashboardPage() {
                   />
                 </div>
               )}
-              <div>
-                <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
-                <CoinglassPanel data={sentiment?.coinglass ?? null} />
-              </div>
+            </div>
+            <div>
+              <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
+              <CoinglassPanel data={sentiment?.coinglass ?? null} />
             </div>
           </div>
         );

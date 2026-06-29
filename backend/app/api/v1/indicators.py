@@ -6,6 +6,7 @@ from app.collectors.http_client import CollectorHttpClient
 from app.dependencies import get_alternative_me, get_coinglass, get_http_client, get_redis_cache
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
+from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
@@ -44,11 +45,13 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
     options_client = DeribitOptionsClient(http)
     etf_client = BtcEtfFlowClient(http)
     onchain_client = OnChainMetricsClient(http)
-    options, etf, onchain = await asyncio.gather(
+    usdt_client = CoingeckoUsdtDominanceClient(http)
+    options, etf, onchain, usdt = await asyncio.gather(
         options_client.fetch_snapshot(),
         etf_client.fetch_snapshot(),
         onchain_client.fetch_snapshot(),
+        usdt_client.fetch_snapshot(),
     )
     return enrich_macro_context(
-        MacroContextSnapshot(options=options, etf_flows=etf, onchain=onchain)
+        MacroContextSnapshot(options=options, etf_flows=etf, onchain=onchain, usdt_dominance=usdt)
     )

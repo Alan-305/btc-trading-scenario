@@ -45,6 +45,13 @@ class OverlaySeriesPoint(BaseModel):
     bb_lower: float | None = None
 
 
+class StochSeriesPoint(BaseModel):
+    ts: datetime
+    k: float
+    d: float
+    cross: Literal["gc", "dc"] | None = None
+
+
 class TechnicalAnalysisResponse(BaseModel):
     symbol: str
     interval: CandleInterval
@@ -57,6 +64,15 @@ class TechnicalAnalysisResponse(BaseModel):
     support: float | None = None
     resistance: float | None = None
     atr_14: float | None = None
+    stoch_k: float | None = None
+    stoch_d: float | None = None
+    stoch_last_cross: Literal["gc", "dc"] | None = None
+    stoch_last_cross_ts: datetime | None = None
+    stoch_zone: Literal["oversold", "overbought", "neutral"] | None = None
+    stoch_signal_ja: str = ""
+    stoch_summary_ja: str = ""
+    stoch_stance: Literal["bullish", "bearish", "neutral", "reversal", "caution"] = "neutral"
+    stoch_series: list[StochSeriesPoint] = Field(default_factory=list)
     trend: Literal["bullish", "bearish", "neutral"] = "neutral"
     summary_ja: str = ""
     overlay_series: list[OverlaySeriesPoint] = Field(default_factory=list)

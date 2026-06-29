@@ -9,6 +9,7 @@ from app.schemas.extended_market import (
     BtcEtfFlowSnapshot,
     BtcOptionsSnapshot,
     OnChainSnapshot,
+    UsdtDominanceSnapshot,
 )
 from app.services.price_sanity import is_plausible_usd_price
 
@@ -37,6 +38,7 @@ class ScenarioMarketContext:
     options: BtcOptionsSnapshot | None = None
     etf_flows: BtcEtfFlowSnapshot | None = None
     onchain: OnChainSnapshot | None = None
+    usdt_dominance: UsdtDominanceSnapshot | None = None
     research: list[ResearchContextItem] = field(default_factory=list)
 
     def to_writer_facts(
@@ -94,6 +96,16 @@ class ScenarioMarketContext:
             }
             if self.technical.macd:
                 facts["technical_analysis"]["macd_histogram"] = self.technical.macd.histogram
+            if self.technical.stoch_k is not None:
+                facts["technical_analysis"]["stoch"] = {
+                    "k": self.technical.stoch_k,
+                    "d": self.technical.stoch_d,
+                    "last_cross": self.technical.stoch_last_cross,
+                    "zone": self.technical.stoch_zone,
+                    "signal_ja": self.technical.stoch_signal_ja,
+                    "summary_ja": self.technical.stoch_summary_ja,
+                    "stance": self.technical.stoch_stance,
+                }
 
         if self.risk_zones:
             rz: dict = {"reference_price_usd": self.risk_zones.reference_price}
@@ -168,6 +180,17 @@ class ScenarioMarketContext:
                 "mempool_fast_fee_sat": self.onchain.mempool_fast_fee_sat,
                 "activity_trend": self.onchain.activity_trend,
                 "source": self.onchain.source,
+            }
+
+        if self.usdt_dominance:
+            facts["usdt_dominance"] = {
+                "dominance_pct": self.usdt_dominance.dominance_pct,
+                "change_7d_pct": self.usdt_dominance.change_7d_pct,
+                "trend": self.usdt_dominance.trend,
+                "signal_ja": self.usdt_dominance.signal_ja,
+                "summary_ja": self.usdt_dominance.summary_ja,
+                "stance": self.usdt_dominance.stance,
+                "source": self.usdt_dominance.source,
             }
 
         return facts

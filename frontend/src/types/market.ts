@@ -1,4 +1,4 @@
-import type { MacroTrend } from "./scenario";
+import type { MacroStance, MacroTrend } from "./scenario";
 
 export interface Candle {
   ts: string;
@@ -36,6 +36,13 @@ export interface OverlayPoint {
   bb_lower: number | null;
 }
 
+export interface StochSeriesPoint {
+  ts: string;
+  k: number;
+  d: number;
+  cross: "gc" | "dc" | null;
+}
+
 export interface TechnicalAnalysis {
   symbol: string;
   interval: string;
@@ -47,6 +54,16 @@ export interface TechnicalAnalysis {
   macd: MacdValues | null;
   support: number | null;
   resistance: number | null;
+  atr_14?: number | null;
+  stoch_k?: number | null;
+  stoch_d?: number | null;
+  stoch_last_cross?: "gc" | "dc" | null;
+  stoch_last_cross_ts?: string | null;
+  stoch_zone?: "oversold" | "overbought" | "neutral" | null;
+  stoch_signal_ja?: string;
+  stoch_summary_ja?: string;
+  stoch_stance?: MacroStance;
+  stoch_series?: StochSeriesPoint[];
   trend: MacroTrend | "neutral";
   summary_ja: string;
   overlay_series?: OverlayPoint[];

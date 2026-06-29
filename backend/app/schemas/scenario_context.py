@@ -25,4 +25,5 @@ class ScenarioDataSources(BaseModel):
     includes_options: bool = False
     includes_etf_flows: bool = False
     includes_onchain: bool = False
+    includes_usdt_dominance: bool = False
     personalized: bool = False

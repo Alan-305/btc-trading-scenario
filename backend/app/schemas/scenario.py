@@ -43,6 +43,12 @@ class ScenarioIndicators(BaseModel):
     etf_flow_3d_usd: float | None = None
     etf_trend: str | None = None
     onchain_activity_trend: str | None = None
+    usdt_dominance_pct: float | None = None
+    usdt_dominance_change_7d_pct: float | None = None
+    usdt_dominance_trend: str | None = None
+    stoch_k: float | None = None
+    stoch_d: float | None = None
+    stoch_last_cross: str | None = None
 
 
 class ScenarioHorizonBundle(BaseModel):

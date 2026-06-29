@@ -1,6 +1,8 @@
 import pytest
 
 from app.ml.inference import ScenarioInference
+from app.schemas.candles import TechnicalAnalysisResponse
+from app.schemas.extended_market import UsdtDominanceSnapshot
 from app.schemas.market import FearGreedIndex, MarketSnapshot
 from app.schemas.scenario_context import ResearchContextItem
 from app.services.scenario_market_context import ScenarioMarketContext
@@ -98,3 +100,33 @@ def test_watch_primary_when_scores_close():
     branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
     if abs(branches.bullish_score - branches.bearish_score) <= ScenarioInference.WATCH_SCORE_DIFF_THRESHOLD:
         assert branches.primary_trend == "range"
+
+
+def test_usdt_rising_biases_bearish():
+    inference = ScenarioInference()
+    ctx = _context(
+        usdt_dominance=UsdtDominanceSnapshot(
+            dominance_pct=6.1,
+            change_7d_pct=0.7,
+            trend="rising",
+        )
+    )
+    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
+    assert branches.bearish_score > branches.bullish_score
+
+
+def test_stoch_gc_oversold_biases_bullish():
+    inference = ScenarioInference()
+    ctx = _context(
+        technical=TechnicalAnalysisResponse(
+            symbol="BTCUSDT",
+            interval="4h",
+            stoch_k=18.0,
+            stoch_d=15.0,
+            stoch_last_cross="gc",
+            stoch_zone="oversold",
+            stoch_signal_ja="反発寄り",
+        )
+    )
+    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
+    assert branches.bullish_score >= branches.bearish_score

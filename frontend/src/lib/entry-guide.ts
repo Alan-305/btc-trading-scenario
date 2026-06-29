@@ -29,6 +29,10 @@ export interface MacroHints {
   rsi14?: number | null;
   fearGreed?: number | null;
   fundingRate?: number | null;
+  usdtDominanceTrend?: string | null;
+  stochCross?: "gc" | "dc" | null;
+  stochK?: number | null;
+  stochZone?: string | null;
 }
 
 const NEAR_TP_PCT = 1.5;
@@ -242,6 +246,10 @@ function collectReversalSignals(
     if (macro?.putCallRatio != null && macro.putCallRatio >= 1.2) {
       signals.push("Put/Call比が高め（警戒感）");
     }
+    if (macro?.usdtDominanceTrend === "rising") signals.push("USDT.Dが上昇（リスクオフ）");
+    if (macro?.stochCross === "dc" || (macro?.stochK != null && macro.stochK >= 80)) {
+      signals.push("ストキャスが戻り売り寄り");
+    }
     if (entryMid > 0 && price < entryMid * (1 - TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上下落`);
     }
@@ -252,6 +260,10 @@ function collectReversalSignals(
     if (macro?.etfTrend === "inflow") signals.push("ETFは流入傾向");
     if (macro?.putCallRatio != null && macro.putCallRatio <= 0.7) {
       signals.push("Put/Call比が低め（強気）");
+    }
+    if (macro?.usdtDominanceTrend === "falling") signals.push("USDT.Dが低下（リスクオン）");
+    if (macro?.stochCross === "gc" || (macro?.stochK != null && macro.stochK <= 20)) {
+      signals.push("ストキャスが反発寄り");
     }
     if (entryMid > 0 && price > entryMid * (1 + TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上上昇`);
@@ -345,6 +357,10 @@ function formatMacroNote(macro?: MacroHints): string {
   }
   if (macro.onchainActivity === "rising") parts.push("オンチェーン活動は活発");
   if (macro.onchainActivity === "falling") parts.push("オンチェーン活動は減速");
+  if (macro.usdtDominanceTrend === "rising") parts.push("USDT.Dは上昇傾向");
+  if (macro.usdtDominanceTrend === "falling") parts.push("USDT.Dは低下傾向");
+  if (macro.stochCross === "gc") parts.push("ストキャス直近GC");
+  if (macro.stochCross === "dc") parts.push("ストキャス直近DC");
   if (!parts.length) return "";
   return `（${parts.join("・")}）`;
 }

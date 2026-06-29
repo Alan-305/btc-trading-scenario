@@ -87,6 +87,12 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
         </div>
       </dl>
       <p className="mt-3 text-xs leading-relaxed text-content-muted">{data.summary_ja}</p>
+      {data.stoch_summary_ja ? (
+        <p className="mt-2 font-japanese text-xs leading-relaxed text-content-muted">
+          <span className="text-content-secondary">Stoch: </span>
+          {data.stoch_summary_ja}
+        </p>
+      ) : null}
     </div>
   );
 }

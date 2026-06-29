@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
+from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
@@ -30,6 +31,7 @@ from app.services.risk_zones import RiskZoneEstimator
 from app.services.scenario_context import reference_price_from_snapshot
 from app.services.scenario_horizons import build_scenario_horizons
 from app.services.scenario_market_context import ScenarioMarketContext, summarize_heatmap
+from app.services.macro_analysis import enrich_usdt_dominance
 from app.services.technical_analysis import TechnicalAnalysisService
 from app.services.volume_profile import OrderbookHeatmapService
 
@@ -52,6 +54,7 @@ class ScenarioBuilder:
         deribit_options: DeribitOptionsClient | None = None,
         etf_flows: BtcEtfFlowClient | None = None,
         onchain: OnChainMetricsClient | None = None,
+        usdt_dominance: CoingeckoUsdtDominanceClient | None = None,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -68,6 +71,7 @@ class ScenarioBuilder:
         self.deribit_options = deribit_options
         self.etf_flows = etf_flows
         self.onchain = onchain
+        self.usdt_dominance = usdt_dominance
 
     async def _collect_market_context(
         self,
@@ -97,6 +101,8 @@ class ScenarioBuilder:
         options = await self.deribit_options.fetch_snapshot() if self.deribit_options else None
         etf = await self.etf_flows.fetch_snapshot() if self.etf_flows else None
         onchain = await self.onchain.fetch_snapshot() if self.onchain else None
+        usdt_raw = await self.usdt_dominance.fetch_snapshot() if self.usdt_dominance else None
+        usdt = enrich_usdt_dominance(usdt_raw) if usdt_raw else None
 
         return ScenarioMarketContext(
             snapshot=snapshot,
@@ -111,6 +117,7 @@ class ScenarioBuilder:
             options=options,
             etf_flows=etf,
             onchain=onchain,
+            usdt_dominance=usdt,
             research=research or [],
         )
 
@@ -245,6 +252,14 @@ class ScenarioBuilder:
             etf_flow_3d_usd=context.etf_flows.net_flow_3d_usd if context.etf_flows else None,
             etf_trend=context.etf_flows.trend if context.etf_flows else None,
             onchain_activity_trend=context.onchain.activity_trend if context.onchain else None,
+            usdt_dominance_pct=context.usdt_dominance.dominance_pct if context.usdt_dominance else None,
+            usdt_dominance_change_7d_pct=(
+                context.usdt_dominance.change_7d_pct if context.usdt_dominance else None
+            ),
+            usdt_dominance_trend=context.usdt_dominance.trend if context.usdt_dominance else None,
+            stoch_k=context.technical.stoch_k if context.technical else None,
+            stoch_d=context.technical.stoch_d if context.technical else None,
+            stoch_last_cross=context.technical.stoch_last_cross if context.technical else None,
         )
 
     def _build_data_sources(self, context: ScenarioMarketContext) -> ScenarioDataSources:
@@ -258,6 +273,7 @@ class ScenarioBuilder:
             includes_options=context.options is not None,
             includes_etf_flows=context.etf_flows is not None,
             includes_onchain=context.onchain is not None,
+            includes_usdt_dominance=context.usdt_dominance is not None,
             personalized=len(context.research) > 0,
         )
 

@@ -216,6 +216,9 @@ export function ScenarioPriceChart({
       rsi14: indicators?.rsi_14,
       fearGreed: indicators?.fear_greed,
       fundingRate: indicators?.funding_rate,
+      usdtDominanceTrend: indicators?.usdt_dominance_trend,
+      stochCross: indicators?.stoch_last_cross,
+      stochK: indicators?.stoch_k,
     },
   );
 

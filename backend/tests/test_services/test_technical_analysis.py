@@ -53,6 +53,17 @@ def test_technical_analysis_ema200_with_enough_candles():
     assert any(p.ema_200 is not None for p in result.overlay_series)
 
 
+def test_technical_analysis_stochastic_with_enough_candles():
+    closes = [100 + (i % 20) * 2 + (10 if i % 15 < 7 else -5) for i in range(80)]
+    candles = _make_candles(closes)
+    result = TechnicalAnalysisService().analyze(candles, interval="4h")
+    assert result.stoch_k is not None
+    assert result.stoch_d is not None
+    assert result.stoch_zone in ("oversold", "overbought", "neutral")
+    assert result.stoch_summary_ja
+    assert len(result.stoch_series) > 0
+
+
 def test_prediction_evaluator_direction():
     ev = PredictionEvaluator()
     saved = datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc)

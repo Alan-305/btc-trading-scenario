@@ -8,6 +8,7 @@ from app.schemas.extended_market import (
     MacroContextSnapshot,
     MacroSeriesPoint,
     OnChainSnapshot,
+    UsdtDominanceSnapshot,
 )
 
 MacroStance = Literal["bullish", "bearish", "neutral", "reversal", "caution"]
@@ -37,6 +38,11 @@ def enrich_macro_context(snapshot: MacroContextSnapshot) -> MacroContextSnapshot
         snapshot.onchain.stance = stance
         snapshot.onchain.signal_ja = label
         snapshot.onchain.summary_ja = summary
+    if snapshot.usdt_dominance:
+        stance, label, summary = _analyze_usdt_dominance(snapshot.usdt_dominance)
+        snapshot.usdt_dominance.stance = stance
+        snapshot.usdt_dominance.signal_ja = label
+        snapshot.usdt_dominance.summary_ja = summary
 
     overall_stance, overall_label, overall_summary = _analyze_overall(snapshot)
     snapshot.overall_stance = overall_stance
@@ -124,6 +130,53 @@ def _analyze_options(opt: BtcOptionsSnapshot) -> tuple[MacroStance, str, str]:
     return stance, label, summary
 
 
+def enrich_usdt_dominance(snapshot: UsdtDominanceSnapshot) -> UsdtDominanceSnapshot:
+    stance, label, summary = _analyze_usdt_dominance(snapshot)
+    snapshot.stance = stance
+    snapshot.signal_ja = label
+    snapshot.summary_ja = summary
+    return snapshot
+
+
+def _analyze_usdt_dominance(usdt: UsdtDominanceSnapshot) -> tuple[MacroStance, str, str]:
+    """BTC視点: USDT.D上昇=リスクオフで逆風、低下=追い風。"""
+    parts: list[str] = []
+    bearish = 0
+    bullish = 0
+
+    dom = usdt.dominance_pct
+    parts.append(f"USDTドミナンス {dom:.2f}%")
+
+    if usdt.trend == "rising":
+        bearish += 2
+        parts.append("7日で上昇しており、資金がステーブルコインへ逃避するリスクオフ傾向です")
+    elif usdt.trend == "falling":
+        bullish += 2
+        parts.append("7日で低下しており、リスクオンでBTCへ資金が戻りやすい環境です")
+    else:
+        parts.append("7日変化は小さく、単独では方向を決めにくいです")
+
+    change = usdt.change_7d_pct
+    if change is not None:
+        if change >= 0.5:
+            bearish += 1
+            parts.append(f"7日で+{change:.2f}pt と明確な上昇です")
+        elif change <= -0.5:
+            bullish += 1
+            parts.append(f"7日で{change:.2f}pt と明確な低下です")
+
+    if dom >= 6.0:
+        bearish += 1
+        parts.append("水準が高めで、BTCにとって逆風材料になりやすいです")
+    elif dom <= 4.5:
+        bullish += 1
+        parts.append("水準が低めで、追い風材料になりやすいです")
+
+    stance, label = _resolve_stance(bullish, bearish, reversal_hint=False)
+    summary = "。".join(parts) + "。"
+    return stance, label, summary
+
+
 def _analyze_onchain(oc: OnChainSnapshot) -> tuple[MacroStance, str, str]:
     parts: list[str] = []
     bearish = 0
@@ -173,6 +226,7 @@ def _analyze_overall(snapshot: MacroContextSnapshot) -> tuple[MacroStance, str, 
         (snapshot.etf_flows, "ETF"),
         (snapshot.options, "オプション"),
         (snapshot.onchain, "オンチェーン"),
+        (snapshot.usdt_dominance, "USDT.D"),
     ):
         if block and block.summary_ja:
             stances.append(block.stance)  # type: ignore[arg-type]

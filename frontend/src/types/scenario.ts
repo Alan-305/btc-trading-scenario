@@ -31,6 +31,12 @@ export interface ScenarioIndicators {
   etf_flow_3d_usd?: number | null;
   etf_trend?: string | null;
   onchain_activity_trend?: string | null;
+  usdt_dominance_pct?: number | null;
+  usdt_dominance_change_7d_pct?: number | null;
+  usdt_dominance_trend?: string | null;
+  stoch_k?: number | null;
+  stoch_d?: number | null;
+  stoch_last_cross?: "gc" | "dc" | null;
 }
 
 export interface ScenarioDataSources {
@@ -43,6 +49,7 @@ export interface ScenarioDataSources {
   includes_options?: boolean;
   includes_etf_flows?: boolean;
   includes_onchain?: boolean;
+  includes_usdt_dominance?: boolean;
   personalized: boolean;
 }
 
@@ -212,10 +219,23 @@ export interface OnChainSnapshot {
   timestamp: string | null;
 }
 
+export interface UsdtDominanceSnapshot {
+  dominance_pct: number;
+  change_7d_pct: number | null;
+  trend: "rising" | "falling" | "stable";
+  history: MacroSeriesPoint[];
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
+  source: string;
+  timestamp: string | null;
+}
+
 export interface MacroContextSnapshot {
   options: BtcOptionsSnapshot | null;
   etf_flows: BtcEtfFlowSnapshot | null;
   onchain: OnChainSnapshot | null;
+  usdt_dominance?: UsdtDominanceSnapshot | null;
   overall_stance?: MacroStance;
   overall_signal_ja?: string;
   overall_summary_ja?: string;

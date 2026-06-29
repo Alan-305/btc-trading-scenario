@@ -4,6 +4,7 @@ from app.schemas.extended_market import (
     MacroContextSnapshot,
     MacroSeriesPoint,
     OnChainSnapshot,
+    UsdtDominanceSnapshot,
 )
 from app.services.macro_analysis import enrich_macro_context
 from datetime import datetime, timezone
@@ -81,3 +82,35 @@ def test_macro_analysis_overall_summary():
     assert snap.overall_signal_ja == "下落の症候"
     assert snap.overall_summary_ja
     assert "総合" in snap.overall_summary_ja
+
+
+def test_macro_analysis_usdt_rising_bearish():
+    usdt = UsdtDominanceSnapshot(
+        dominance_pct=6.2,
+        change_7d_pct=0.6,
+        trend="rising",
+        history=[
+            MacroSeriesPoint(ts=datetime(2026, 6, 20, tzinfo=timezone.utc), value=5.6),
+            MacroSeriesPoint(ts=datetime(2026, 6, 27, tzinfo=timezone.utc), value=6.2),
+        ],
+    )
+    snap = enrich_macro_context(MacroContextSnapshot(usdt_dominance=usdt))
+    assert snap.usdt_dominance
+    assert snap.usdt_dominance.signal_ja in ("下落の症候", "不安拡大")
+    assert "上昇" in snap.usdt_dominance.summary_ja
+
+
+def test_macro_analysis_usdt_falling_bullish():
+    usdt = UsdtDominanceSnapshot(
+        dominance_pct=4.3,
+        change_7d_pct=-0.55,
+        trend="falling",
+        history=[
+            MacroSeriesPoint(ts=datetime(2026, 6, 20, tzinfo=timezone.utc), value=4.9),
+            MacroSeriesPoint(ts=datetime(2026, 6, 27, tzinfo=timezone.utc), value=4.3),
+        ],
+    )
+    snap = enrich_macro_context(MacroContextSnapshot(usdt_dominance=usdt))
+    assert snap.usdt_dominance
+    assert snap.usdt_dominance.signal_ja == "上昇支援"
+    assert "低下" in snap.usdt_dominance.summary_ja

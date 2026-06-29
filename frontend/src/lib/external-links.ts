@@ -8,6 +8,7 @@ export const EXTERNAL_LINKS = {
   bitget: "https://www.bitget.com/spot/BTCUSDT",
   coinbase: "https://www.coinbase.com/advanced-trade/BTC-USD",
   tradingView: "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT",
+  usdtDominance: "https://www.tradingview.com/chart/?symbol=CRYPTOCAP:USDT.D",
 } as const;
 
 export const EXCHANGE_URLS: Record<string, string> = {
