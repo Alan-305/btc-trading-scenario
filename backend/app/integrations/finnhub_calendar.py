@@ -7,8 +7,10 @@ import structlog
 
 from app.collectors.http_client import CollectorHttpClient
 from app.config import get_settings
+from app.integrations.forex_factory_calendar import ForexFactoryCalendarClient
 from app.data.us_macro_static import static_us_macro_events
 from app.schemas.macro_events import MacroEvent, MacroEventsResponse
+from app.services.macro_event_labels import event_name_ja
 
 logger = structlog.get_logger()
 
@@ -22,24 +24,6 @@ IMPACT_MAP = {
     "": "medium",
 }
 
-# Japanese labels for common US events
-EVENT_JA: dict[str, str] = {
-    "fomc": "FOMC 政策金利発表",
-    "cpi": "米CPI",
-    "consumer price index": "米CPI",
-    "nonfarm": "米雇用統計",
-    "non-farm": "米雇用統計",
-    "payroll": "米雇用統計",
-    "gdp": "米GDP",
-    "ppi": "米PPI",
-    "retail sales": "米小売売上",
-    "ism manufacturing": "米ISM製造業",
-    "ism services": "米ISMサービス業",
-    "initial jobless": "米新規失業保険申請",
-    "fed chair": "FRB議長発言",
-}
-
-
 class MacroEventsService:
     def __init__(self, http: CollectorHttpClient):
         self.http = http
@@ -52,6 +36,7 @@ class MacroEventsService:
         end = now + timedelta(days=days)
 
         key = (self._settings.finnhub_api_key or "").strip()
+        finnhub_error = False
         if key:
             finnhub_events = await self._fetch_finnhub(start, end, key)
             if finnhub_events:
@@ -61,14 +46,39 @@ class MacroEventsService:
                     window_days=days,
                     fetched_at=now,
                 )
+            finnhub_error = True
+
+        ff_client = ForexFactoryCalendarClient(self.http)
+        ff_events = await ff_client.fetch_events(
+            start=start,
+            end=end,
+            include_next_week=days > 5,
+        )
+        if ff_events:
+            note = None
+            if finnhub_error and key:
+                note = (
+                    "Finnhubの経済カレンダーは無料プランでは利用できないため、"
+                    "Forex Factoryの公開フィードを表示しています。"
+                )
+            return MacroEventsResponse(
+                events=ff_events,
+                source="forex_factory",
+                window_days=days,
+                fetched_at=now,
+                note_ja=note,
+            )
 
         static_events = static_us_macro_events(start, end)
-        note = (
-            "Finnhub APIキー未設定のため、FOMC日程のみ表示しています。"
-            "CPI・雇用統計などは `.env` に `FINNHUB_API_KEY` を設定してください。"
-            if not key
-            else "経済カレンダーの取得に失敗したため、FOMC日程のみ表示しています。"
-        )
+        if not key:
+            note = "経済カレンダーフィードを取得できませんでした。FOMC日程のみ表示しています。"
+        elif finnhub_error:
+            note = (
+                "Finnhubの経済カレンダーは有料プラン向けです（無料キーでは利用不可）。"
+                "Forex Factoryフィードも取得できなかったため、FOMC静的データのみです。"
+            )
+        else:
+            note = "経済カレンダーの取得に失敗したため、FOMC日程のみ表示しています。"
         return MacroEventsResponse(
             events=static_events,
             source="static_fomc",
@@ -88,6 +98,9 @@ class MacroEventsService:
                 },
                 rate_limit_key="finnhub",
             )
+            if data.get("error"):
+                logger.warning("finnhub_calendar_denied", error=data.get("error"))
+                return []
             rows = data.get("economicCalendar") or []
             events: list[MacroEvent] = []
             for i, row in enumerate(rows):
@@ -111,7 +124,7 @@ class MacroEventsService:
                     MacroEvent(
                         event_id=f"finnhub-{country}-{scheduled.isoformat()}-{i}",
                         name=name,
-                        name_ja=_event_name_ja(name),
+                        name_ja=event_name_ja(name),
                         country=country,
                         scheduled_at=scheduled,
                         impact=impact,  # type: ignore[arg-type]
@@ -156,11 +169,3 @@ def _fmt_num(value: object) -> str | None:
     if value is None or value == "":
         return None
     return str(value)
-
-
-def _event_name_ja(name: str) -> str | None:
-    lower = name.lower()
-    for key, ja in EVENT_JA.items():
-        if key in lower:
-            return ja
-    return None

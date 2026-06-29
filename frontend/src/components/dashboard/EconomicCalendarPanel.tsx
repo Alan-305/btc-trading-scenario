@@ -60,7 +60,13 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
       <header className="mb-4">
         <h3 className="font-japanese text-base font-medium text-slate-200">経済指標カレンダー</h3>
         <p className="mt-1 font-japanese text-[11px] text-content-muted">
-          米国中心（{data?.source === "finnhub" ? "Finnhub" : "FOMC静的"}）— 高インパクトはエントリーチャートにも表示
+          米国中心（
+          {data?.source === "finnhub"
+            ? "Finnhub"
+            : data?.source === "forex_factory"
+              ? "Forex Factory"
+              : "FOMC静的"}
+          ）— 高インパクトはエントリーチャートにも表示
         </p>
       </header>
 
