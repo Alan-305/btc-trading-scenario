@@ -76,3 +76,25 @@ def test_research_bearish_context_biases_short():
     )
     signal = inference.predict(ctx.snapshot, ctx.fear_greed, None, ctx)
     assert signal.macro_trend in ("bearish", "range", "bullish")
+    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
+    assert branches.bearish.confidence >= branches.bullish.confidence or branches.primary_trend == "range"
+
+
+def test_predict_branches_returns_bullish_and_bearish():
+    inference = ScenarioInference()
+    ctx = _context()
+    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
+    assert branches.bullish.side == "long"
+    assert branches.bearish.side == "short"
+    assert branches.bullish.macro_trend == "bullish"
+    assert branches.bearish.macro_trend == "bearish"
+    assert branches.watch.range_low > 0
+    assert branches.watch.range_high > branches.watch.range_low
+
+
+def test_watch_primary_when_scores_close():
+    inference = ScenarioInference()
+    ctx = _context()
+    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
+    if abs(branches.bullish_score - branches.bearish_score) <= ScenarioInference.WATCH_SCORE_DIFF_THRESHOLD:
+        assert branches.primary_trend == "range"

@@ -59,6 +59,7 @@ interface ScenarioPriceChartProps {
   horizonId?: ScenarioHorizonId;
   periodHint?: string;
   indicators?: ScenarioIndicators;
+  branchLabel?: string;
 }
 
 function formatOpenedAt(d: Date): string {
@@ -159,6 +160,7 @@ export function ScenarioPriceChart({
   horizonId = "today",
   periodHint = "7日間（4時間足）",
   indicators,
+  branchLabel,
 }: ScenarioPriceChartProps) {
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
   const entryHigh = Math.max(entry.zone_low, entry.zone_high);
@@ -190,6 +192,7 @@ export function ScenarioPriceChart({
         <div>
           <h2 className="text-sm font-medium text-content-secondary">エントリー判断と価格の流れ</h2>
           <p className="mt-1 text-xs text-content-muted">
+            {branchLabel ? `${branchLabel} — ` : ""}
             {formatOpenedAt(openedAt)} 時点 — 左が過去、右が{periodHint}の目安
           </p>
         </div>

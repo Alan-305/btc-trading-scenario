@@ -24,8 +24,30 @@ class InferenceSignal:
     exit_rationale: str
 
 
+@dataclass
+class WatchInference:
+    confidence: float
+    range_low: float
+    range_high: float
+    support: float | None
+    resistance: float | None
+    rationale: str
+
+
+@dataclass
+class ScenarioBranches:
+    bullish: InferenceSignal
+    bearish: InferenceSignal
+    watch: WatchInference
+    primary_trend: MacroTrend
+    bullish_score: int
+    bearish_score: int
+
+
 class ScenarioInference:
     """Rule-based signal engine using full dashboard market context + user research."""
+
+    WATCH_SCORE_DIFF_THRESHOLD = 2
 
     def __init__(self):
         self.features = FeatureEngine()
@@ -37,15 +59,68 @@ class ScenarioInference:
         coinglass: CoinglassSnapshot | None,
         context: ScenarioMarketContext,
     ) -> InferenceSignal:
+        branches = self.predict_branches(snapshot, fear_greed, coinglass, context)
+        if branches.primary_trend == "bullish":
+            return branches.bullish
+        if branches.primary_trend == "bearish":
+            return branches.bearish
+        return self._neutral_primary_signal(branches, context)
+
+    def predict_branches(
+        self,
+        snapshot: MarketSnapshot,
+        fear_greed: FearGreedIndex | None,
+        coinglass: CoinglassSnapshot | None,
+        context: ScenarioMarketContext,
+    ) -> ScenarioBranches:
         feat = self.features.extract(snapshot, fear_greed, coinglass)
-        price = feat.reference_price
-        spread_pct = feat.spread_pct
+        bullish_score, bearish_score = self._score_market(feat, coinglass, context)
+
+        bullish = self._build_directional_signal(
+            "bullish",
+            "long",
+            bullish_score,
+            bearish_score,
+            feat,
+            context,
+        )
+        bearish = self._build_directional_signal(
+            "bearish",
+            "short",
+            bearish_score,
+            bullish_score,
+            feat,
+            context,
+        )
+        watch = self._build_watch_signal(
+            bullish_score,
+            bearish_score,
+            feat.reference_price,
+            context,
+        )
+        primary_trend = self._pick_primary_trend(bullish_score, bearish_score)
+
+        return ScenarioBranches(
+            bullish=bullish,
+            bearish=bearish,
+            watch=watch,
+            primary_trend=primary_trend,
+            bullish_score=bullish_score,
+            bearish_score=bearish_score,
+        )
+
+    def _score_market(
+        self,
+        feat,
+        coinglass: CoinglassSnapshot | None,
+        context: ScenarioMarketContext,
+    ) -> tuple[int, int]:
+        bullish_score = 0
+        bearish_score = 0
         fg = feat.fear_greed or 50
         funding = feat.funding_rate or 0.0
         ta = context.technical
-
-        bullish_score = 0
-        bearish_score = 0
+        price = feat.reference_price
 
         if fg >= 55:
             bullish_score += 1
@@ -116,8 +191,6 @@ class ScenarioInference:
                 bullish_score += 2
             elif ctx == "bearish":
                 bearish_score += 2
-            elif ctx == "range":
-                pass
 
         if context.etf_flows:
             trend = context.etf_flows.trend
@@ -147,26 +220,40 @@ class ScenarioInference:
                 elif hr_chg < -3:
                     bearish_score += 1
 
-        if bullish_score > bearish_score:
-            macro_trend: MacroTrend = "bullish"
-            side: TradeSide = "long"
-        elif bearish_score > bullish_score:
-            macro_trend = "bearish"
-            side = "short"
-        else:
-            macro_trend = "range"
-            side = "neutral"
+        return bullish_score, bearish_score
 
-        total = bullish_score + bearish_score + 1
-        confidence = round(max(bullish_score, bearish_score) / total, 2)
-        confidence = max(0.35, min(0.85, confidence))
+    def _pick_primary_trend(self, bullish_score: int, bearish_score: int) -> MacroTrend:
+        diff = abs(bullish_score - bearish_score)
+        if diff <= self.WATCH_SCORE_DIFF_THRESHOLD:
+            return "range"
+        if bullish_score > bearish_score:
+            return "bullish"
+        return "bearish"
+
+    def _directional_confidence(self, own_score: int, other_score: int) -> float:
+        total = own_score + other_score + 1
+        confidence = round(own_score / total, 2)
+        return max(0.35, min(0.85, confidence))
+
+    def _build_directional_signal(
+        self,
+        macro_trend: MacroTrend,
+        side: TradeSide,
+        own_score: int,
+        other_score: int,
+        feat,
+        context: ScenarioMarketContext,
+    ) -> InferenceSignal:
+        price = feat.reference_price
+        ta = context.technical
+        confidence = self._directional_confidence(own_score, other_score)
 
         session_summary = (
             context.sessions.entry_hint.summary_ja
             if context.sessions and context.sessions.entry_hint
             else ""
         )
-        if "控えめ" in session_summary and side != "neutral":
+        if "控えめ" in session_summary:
             confidence = round(confidence * 0.88, 2)
 
         entry_low, entry_high = compute_entry_zone(
@@ -175,45 +262,22 @@ class ScenarioInference:
         take_profit, stop_loss = compute_exit_levels(price, side, ta, context)
         take_profit, stop_loss = clamp_exit_levels(price, side, take_profit, stop_loss)
 
-        atr_pct = resolve_atr_pct(price, ta)
-
+        direction = 1 if macro_trend == "bullish" else -1
         forecast_prices = [
-            round(
-                price
-                * (
-                    1
-                    + 0.005
-                    * (i + 1)
-                    * (1 if macro_trend == "bullish" else -1 if macro_trend == "bearish" else 0)
-                ),
-                2,
-            )
-            for i in range(6)
+            round(price * (1 + 0.005 * (i + 1) * direction), 2) for i in range(6)
         ]
 
         research_note = ""
         if context.research:
             research_note = f"登録調査メモ {len(context.research)} 件も方向判断に反映。"
 
+        trend_ja = "上昇" if macro_trend == "bullish" else "下降"
         entry_rationale = (
-            f"基準価格 {price:,.0f} 付近（{feat.reference_exchange}）。"
-            f"スプレッド {spread_pct:.3f}%、{feat.orderbook_imbalance_detail}・"
-            f"テクニカル・リスクゾーン・セッション時間帯を総合したエントリー帯です。{research_note}"
+            f"【{trend_ja}シナリオ】基準価格 {price:,.0f} 付近（{feat.reference_exchange}）。"
+            f"スプレッド {feat.spread_pct:.3f}%、{feat.orderbook_imbalance_detail}・"
+            f"テクニカル・板クラスターを前提にした{('ロング' if side == 'long' else 'ショート')}向けエントリー帯です。{research_note}"
         )
-        exit_rationale = (
-            f"ATR(14) {atr_pct * 100:.1f}% 相当のボラティリティ・板クラスター・"
-            "想定抵抗/支持・清算帯推定から利確・損切り水準を設定しています。"
-        )
-        if context.risk_zones and (context.risk_zones.long_liquidation or context.risk_zones.short_squeeze):
-            exit_rationale += "清算帯推定も参考にしています。"
-            if context.risk_zones.long_liquidation and "履歴" in context.risk_zones.long_liquidation.label:
-                exit_rationale += " OKX直近清算履歴を反映しています。"
-            if context.risk_zones.short_squeeze and "履歴" in context.risk_zones.short_squeeze.label:
-                exit_rationale += " OKX直近清算履歴を反映しています。"
-        if context.etf_flows and context.etf_flows.trend != "neutral":
-            exit_rationale += f"米国BTC ETFは{context.etf_flows.trend}傾向です。"
-        if context.options:
-            exit_rationale += f" Deribit Put/Call比は {context.options.put_call_ratio:.2f} です。"
+        exit_rationale = self._exit_rationale(price, ta, context)
 
         return InferenceSignal(
             macro_trend=macro_trend,
@@ -227,3 +291,82 @@ class ScenarioInference:
             entry_rationale=entry_rationale,
             exit_rationale=exit_rationale,
         )
+
+    def _build_watch_signal(
+        self,
+        bullish_score: int,
+        bearish_score: int,
+        price: float,
+        context: ScenarioMarketContext,
+    ) -> WatchInference:
+        ta = context.technical
+        range_low, range_high = compute_entry_zone(
+            price, "neutral", ta, context.heatmap, confidence=0.5
+        )
+        support = round(ta.support, 2) if ta and ta.support else range_low
+        resistance = round(ta.resistance, 2) if ta and ta.resistance else range_high
+
+        diff = abs(bullish_score - bearish_score)
+        total = max(1, bullish_score + bearish_score)
+        closeness = 1 - min(1.0, diff / (total + 1))
+        confidence = round(max(0.4, min(0.88, 0.45 + closeness * 0.4)), 2)
+
+        rationale = (
+            f"上昇材料スコア {bullish_score}・下降材料スコア {bearish_score} で方向が拮抗しています。"
+            f"レンジ ${min(range_low, range_high):,.0f}〜${max(range_low, range_high):,.0f} では新規エントリーを見送り、"
+            f"上抜け・下抜けで各シナリオを検討してください。"
+        )
+
+        return WatchInference(
+            confidence=confidence,
+            range_low=min(range_low, range_high, support),
+            range_high=max(range_low, range_high, resistance),
+            support=support,
+            resistance=resistance,
+            rationale=rationale,
+        )
+
+    def _neutral_primary_signal(
+        self, branches: ScenarioBranches, context: ScenarioMarketContext
+    ) -> InferenceSignal:
+        watch = branches.watch
+        price = context.reference_price
+        forecast_prices = [round(price, 2) for _ in range(6)]
+        return InferenceSignal(
+            macro_trend="range",
+            confidence=watch.confidence,
+            side="neutral",
+            entry_low=watch.range_low,
+            entry_high=watch.range_high,
+            take_profit=[],
+            stop_loss=watch.support or watch.range_low,
+            forecast_prices=forecast_prices,
+            entry_rationale=watch.rationale,
+            exit_rationale="様子見モードのため、明確な利確・損切りラインは設定していません。",
+        )
+
+    def _exit_rationale(self, price: float, ta, context: ScenarioMarketContext) -> str:
+        atr_pct = resolve_atr_pct(price, ta)
+        exit_rationale = (
+            f"ATR(14) {atr_pct * 100:.1f}% 相当のボラティリティ・板クラスター・"
+            "想定抵抗/支持・清算帯推定から利確・損切り水準を設定しています。"
+        )
+        if context.risk_zones and (
+            context.risk_zones.long_liquidation or context.risk_zones.short_squeeze
+        ):
+            exit_rationale += "清算帯推定も参考にしています。"
+            if (
+                context.risk_zones.long_liquidation
+                and "履歴" in context.risk_zones.long_liquidation.label
+            ):
+                exit_rationale += " OKX直近清算履歴を反映しています。"
+            if (
+                context.risk_zones.short_squeeze
+                and "履歴" in context.risk_zones.short_squeeze.label
+            ):
+                exit_rationale += " OKX直近清算履歴を反映しています。"
+        if context.etf_flows and context.etf_flows.trend != "neutral":
+            exit_rationale += f"米国BTC ETFは{context.etf_flows.trend}傾向です。"
+        if context.options:
+            exit_rationale += f" Deribit Put/Call比は {context.options.put_call_ratio:.2f} です。"
+        return exit_rationale

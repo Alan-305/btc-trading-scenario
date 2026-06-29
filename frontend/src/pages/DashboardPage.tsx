@@ -22,7 +22,8 @@ import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
-import { ScenarioCard, useScenarioHorizon } from "../components/scenario/ScenarioCard";
+import { ScenarioCard } from "../components/scenario/ScenarioCard";
+import { WatchScenarioCard } from "../components/scenario/WatchScenarioCard";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -45,6 +46,12 @@ import {
   subscribeRecentSnapshots,
   type SavedSnapshotRecord,
 } from "../lib/firestore-snapshots";
+import {
+  isWatchRecommended,
+  recommendedBranch,
+  resolveActiveHorizon,
+  resolveDirectionalScenario,
+} from "../lib/scenario-branches";
 import { buildResearchContext } from "../lib/scenario-context";
 import { createJournalFromScenario } from "../lib/journal-from-scenario";
 import { subscribeJournalEntries } from "../lib/firestore-journal";
@@ -72,8 +79,10 @@ import type {
   HeatmapExchange,
   MacroContextSnapshot,
   MarketSnapshot,
+  ScenarioHorizonId,
   ScenarioResponse,
   SentimentIndicators,
+  TradeBranch,
 } from "../types/scenario";
 import type { MarketSessionsResponse } from "../types/sessions";
 
@@ -123,7 +132,19 @@ export function DashboardPage() {
   const [openedAt, setOpenedAt] = useState<Date | null>(null);
   const [candleInterval, setCandleInterval] = useState<CandleInterval>("4h");
   const [chartLoading, setChartLoading] = useState(false);
-  const { activeHorizonId, setActiveHorizonId, activeHorizon } = useScenarioHorizon(scenario);
+  const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
+  const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
+
+  const activeDirectional = scenario
+    ? resolveDirectionalScenario(scenario, activeBranch)
+    : null;
+  const activeHorizon = resolveActiveHorizon(activeDirectional, activeHorizonId);
+
+  useEffect(() => {
+    if (!scenario) return;
+    setActiveBranch(recommendedBranch(scenario));
+    setActiveHorizonId("today");
+  }, [scenario?.generated_at]);
 
   const loadChart = useCallback(async (interval: CandleInterval) => {
     setChartLoading(true);
@@ -537,8 +558,16 @@ export function DashboardPage() {
             {scenario ? (
               <ScenarioCard
                 scenario={scenario}
+                activeBranch={activeBranch}
+                onBranchChange={setActiveBranch}
                 activeHorizonId={activeHorizonId}
                 onHorizonChange={setActiveHorizonId}
+              />
+            ) : null}
+            {scenario?.watch ? (
+              <WatchScenarioCard
+                watch={scenario.watch}
+                isRecommended={isWatchRecommended(scenario)}
               />
             ) : null}
             {openedAt && price > 0 && activeHorizon && scenario && entryHistory.length > 0 && (
@@ -552,6 +581,7 @@ export function DashboardPage() {
                 horizonId={activeHorizon.id}
                 periodHint={entryChartPeriodHint()}
                 indicators={scenario.indicators}
+                branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
               />
             )}
             <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />

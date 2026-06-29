@@ -47,6 +47,7 @@ export interface ScenarioDataSources {
 }
 
 export type ScenarioHorizonId = "today" | "week" | "month" | "halving";
+export type TradeBranch = "bullish" | "bearish";
 
 export interface ScenarioHorizonBundle {
   id: ScenarioHorizonId;
@@ -58,6 +59,26 @@ export interface ScenarioHorizonBundle {
   scenario_text_ja: string;
 }
 
+export interface DirectionalScenario {
+  macro_trend: TradeBranch;
+  confidence: number;
+  entry: EntryZone;
+  exit: ExitStrategy;
+  forecast: ForecastPoint[];
+  scenario_text_ja: string;
+  horizons?: ScenarioHorizonBundle[];
+}
+
+export interface WatchScenario {
+  confidence: number;
+  range_low: number;
+  range_high: number;
+  support: number | null;
+  resistance: number | null;
+  scenario_text_ja: string;
+  rationale: string;
+}
+
 export interface ScenarioResponse {
   macro_trend: MacroTrend;
   confidence: number;
@@ -66,6 +87,9 @@ export interface ScenarioResponse {
   forecast: ForecastPoint[];
   scenario_text_ja: string;
   horizons?: ScenarioHorizonBundle[];
+  bullish?: DirectionalScenario | null;
+  bearish?: DirectionalScenario | null;
+  watch?: WatchScenario | null;
   indicators: ScenarioIndicators;
   data_sources?: ScenarioDataSources | null;
   generated_at: string;

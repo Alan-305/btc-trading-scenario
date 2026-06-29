@@ -1,38 +1,45 @@
-import { useState } from "react";
-import type { ScenarioHorizonBundle, ScenarioHorizonId, ScenarioResponse } from "../../types/scenario";
+import type {
+  ScenarioHorizonId,
+  ScenarioResponse,
+  TradeBranch,
+} from "../../types/scenario";
+import {
+  isWatchRecommended,
+  recommendedBranch,
+  resolveDirectionalScenario,
+  resolveHorizons,
+} from "../../lib/scenario-branches";
 
-const TREND_LABEL = {
-  bullish: { text: "上昇寄り", color: "text-accent-green" },
-  bearish: { text: "下降寄り", color: "text-accent-red" },
-  range: { text: "レンジ", color: "text-accent-amber" },
+const BRANCH_LABEL: Record<TradeBranch, { text: string; color: string }> = {
+  bullish: { text: "上昇シナリオ", color: "text-accent-green" },
+  bearish: { text: "下落シナリオ", color: "text-accent-red" },
 };
 
 interface ScenarioCardProps {
   scenario: ScenarioResponse;
+  activeBranch: TradeBranch;
+  onBranchChange: (branch: TradeBranch) => void;
   activeHorizonId: ScenarioHorizonId;
   onHorizonChange: (id: ScenarioHorizonId) => void;
 }
 
-function resolveHorizons(scenario: ScenarioResponse): ScenarioHorizonBundle[] {
-  if (scenario.horizons?.length) return scenario.horizons;
-  return [
-    {
-      id: "today",
-      label: "本日のシナリオ",
-      period_hint: "約6時間",
-      entry: scenario.entry,
-      exit: scenario.exit,
-      forecast: scenario.forecast,
-      scenario_text_ja: scenario.scenario_text_ja,
-    },
-  ];
-}
+export function ScenarioCard({
+  scenario,
+  activeBranch,
+  onBranchChange,
+  activeHorizonId,
+  onHorizonChange,
+}: ScenarioCardProps) {
+  const directional = resolveDirectionalScenario(scenario, activeBranch);
+  const horizons = resolveHorizons(directional);
+  const active = horizons.find((h) => h.id === activeHorizonId) ?? horizons[0];
+  const branchMeta = BRANCH_LABEL[activeBranch];
+  const recommended = recommendedBranch(scenario);
+  const watchPrimary = isWatchRecommended(scenario);
 
-export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: ScenarioCardProps) {
-  const trend = TREND_LABEL[scenario.macro_trend];
-  const horizons = resolveHorizons(scenario);
-  const active =
-    horizons.find((h) => h.id === activeHorizonId) ?? horizons[0];
+  if (!directional || !active) {
+    return null;
+  }
 
   return (
     <article className="rounded-xl border border-surface-border bg-surface-card p-6">
@@ -41,8 +48,35 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
           <h2 className="text-lg font-medium text-slate-100">{active.label}</h2>
           <p className="mt-1 text-xs text-content-muted">{active.period_hint}</p>
         </div>
-        <span className={`text-sm font-medium ${trend.color}`}>{trend.text}</span>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`text-sm font-medium ${branchMeta.color}`}>{branchMeta.text}</span>
+          {!watchPrimary && activeBranch === recommended ? (
+            <span className="text-[10px] text-content-muted">いまのおすすめ</span>
+          ) : null}
+        </div>
       </header>
+
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="トレードシナリオ">
+        {(["bullish", "bearish"] as const).map((branch) => (
+          <button
+            key={branch}
+            type="button"
+            role="tab"
+            aria-selected={branch === activeBranch}
+            onClick={() => onBranchChange(branch)}
+            className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-medium transition ${
+              branch === activeBranch
+                ? branch === "bullish"
+                  ? "bg-accent-green/25 text-accent-green"
+                  : "bg-accent-red/25 text-accent-red"
+                : "border border-surface-border text-content-secondary hover:border-content-muted"
+            }`}
+          >
+            {BRANCH_LABEL[branch].text}
+            {!watchPrimary && branch === recommended ? " ★" : ""}
+          </button>
+        ))}
+      </div>
 
       <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="シナリオ期間">
         {horizons.map((h) => (
@@ -89,30 +123,9 @@ export function ScenarioCard({ scenario, activeHorizonId, onHorizonChange }: Sce
         </p>
       )}
       <footer className="mt-4 flex items-center justify-between text-xs text-content-muted">
-        <span>信頼度: {(scenario.confidence * 100).toFixed(0)}%</span>
+        <span>信頼度: {(directional.confidence * 100).toFixed(0)}%</span>
         <span>{scenario.disclaimer}</span>
       </footer>
     </article>
   );
-}
-
-export function useScenarioHorizon(scenario: ScenarioResponse | null) {
-  const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
-
-  const activeHorizon =
-    scenario?.horizons?.find((h) => h.id === activeHorizonId) ??
-    scenario?.horizons?.[0] ??
-    (scenario
-      ? {
-          id: "today" as const,
-          label: "本日のシナリオ",
-          period_hint: "約6時間",
-          entry: scenario.entry,
-          exit: scenario.exit,
-          forecast: scenario.forecast,
-          scenario_text_ja: scenario.scenario_text_ja,
-        }
-      : null);
-
-  return { activeHorizonId, setActiveHorizonId, activeHorizon };
 }

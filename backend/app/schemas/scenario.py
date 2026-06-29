@@ -55,6 +55,26 @@ class ScenarioHorizonBundle(BaseModel):
     scenario_text_ja: str
 
 
+class DirectionalScenario(BaseModel):
+    macro_trend: Literal["bullish", "bearish"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    entry: EntryZone
+    exit: ExitStrategy
+    forecast: list[ForecastPoint]
+    scenario_text_ja: str
+    horizons: list[ScenarioHorizonBundle] = Field(default_factory=list)
+
+
+class WatchScenario(BaseModel):
+    confidence: float = Field(ge=0.0, le=1.0)
+    range_low: float
+    range_high: float
+    support: float | None = None
+    resistance: float | None = None
+    scenario_text_ja: str
+    rationale: str
+
+
 class ScenarioResponse(BaseModel):
     macro_trend: MacroTrend
     confidence: float = Field(ge=0.0, le=1.0)
@@ -63,6 +83,9 @@ class ScenarioResponse(BaseModel):
     forecast: list[ForecastPoint]
     scenario_text_ja: str
     horizons: list[ScenarioHorizonBundle] = Field(default_factory=list)
+    bullish: DirectionalScenario | None = None
+    bearish: DirectionalScenario | None = None
+    watch: WatchScenario | None = None
     indicators: ScenarioIndicators
     data_sources: ScenarioDataSources | None = None
     generated_at: datetime
