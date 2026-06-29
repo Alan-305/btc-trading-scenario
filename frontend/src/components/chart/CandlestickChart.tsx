@@ -371,7 +371,7 @@ export function CandlestickChart({
           <span className="inline-block h-3 w-4 rounded-sm bg-slate-400/20 border border-slate-500/40" />
           ボリンジャー(20,2σ)
         </span>
-        <span>赤帯=Long清算 / 緑帯=スクイズ（推定）</span>
+        <span>赤帯=Long清算 / 緑帯=スクイズ（リキッド帯・推定）</span>
       </div>
     </div>
   );

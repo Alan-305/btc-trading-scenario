@@ -192,7 +192,7 @@ export function riskZonesSignal(data: RiskZonesResponse | null): IndicatorSignal
     return {
       stance: "neutral",
       signalJa: "様子見",
-      summaryJa: "清算・スクイズ帯の推定は目立ちません。",
+      summaryJa: "リキッド帯の推定は目立ちません。",
     };
   }
   const parts: string[] = [];

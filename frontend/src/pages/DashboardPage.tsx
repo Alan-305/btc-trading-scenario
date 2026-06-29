@@ -453,7 +453,7 @@ export function DashboardPage() {
       },
       {
         id: "risk",
-        label: "清算・スクイズ",
+        label: "リキッド帯",
         section: "market",
         signal: riskZonesSignal(riskZones),
       },

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ComposedChart,
   Line,
@@ -10,6 +10,13 @@ import {
   ReferenceLine,
 } from "recharts";
 import { buildEntryGuide } from "../../lib/entry-guide";
+import {
+  dragZoomFactor,
+  panYDomain,
+  wheelZoomFactor,
+  zoomYDomain,
+  type YDomain,
+} from "../../lib/chart-y-zoom";
 import type {
   EntryZone,
   ExitStrategy,
@@ -45,7 +52,11 @@ const STATUS_BADGE: Record<string, string> = {
 /** 1データ点あたりの幅（px）— 全ラベル表示＋横スクロール用 */
 const CHART_POINT_WIDTH = 44;
 const CHART_HEIGHT = 320;
-const CHART_RIGHT_MARGIN = 96;
+const Y_SCALE_WIDTH = 44;
+const CHART_LABEL_MARGIN = 72;
+
+const ENTRY_ZONE_FILL = "#38bdf8";
+const ENTRY_ZONE_STROKE = "#bae6fd";
 
 interface ChartRow {
   ts: string;
@@ -224,11 +235,121 @@ export function ScenarioPriceChart({
 
   const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
   const chartWidth = Math.max(chartData.length * CHART_POINT_WIDTH, 360);
-  const yDomain = useMemo(
+  const baseYDomain = useMemo(
     () => chartYDomain(chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss),
     [chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss],
   );
+  const [yDomainOverride, setYDomainOverride] = useState<YDomain | null>(null);
+  const yDomain = yDomainOverride ?? baseYDomain;
+
+  useEffect(() => {
+    setYDomainOverride(null);
+  }, [baseYDomain]);
+
+  const chartWrapRef = useRef<HTMLDivElement>(null);
+  const yDragRef = useRef<{ startY: number; startDomain: YDomain; mode: "zoom" | "pan" } | null>(
+    null,
+  );
+
+  const applyWheelZoom = useCallback(
+    (deltaY: number) => {
+      const factor = wheelZoomFactor(deltaY);
+      const anchor = (yDomain[0] + yDomain[1]) / 2;
+      setYDomainOverride(zoomYDomain(yDomain, factor, anchor));
+    },
+    [yDomain],
+  );
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      applyWheelZoom(e.deltaY);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [applyWheelZoom]);
+
+  useEffect(() => {
+    const el = chartWrapRef.current;
+    if (!el) return;
+    let lastPinchDist = 0;
+
+    const pinchDistance = (touches: TouchList) => {
+      if (touches.length < 2) return 0;
+      const [a, b] = [touches[0], touches[1]];
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        lastPinchDist = pinchDistance(e.touches);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || lastPinchDist <= 0) return;
+      e.preventDefault();
+      const dist = pinchDistance(e.touches);
+      const factor = dist / lastPinchDist;
+      if (Math.abs(factor - 1) < 0.01) return;
+      const anchor = (yDomain[0] + yDomain[1]) / 2;
+      setYDomainOverride(zoomYDomain(yDomain, factor, anchor));
+      lastPinchDist = dist;
+    };
+
+    const onTouchEnd = () => {
+      lastPinchDist = 0;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [yDomain]);
+
+  const onYScalePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    yDragRef.current = {
+      startY: e.clientY,
+      startDomain: yDomain,
+      mode: e.shiftKey ? "pan" : "zoom",
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onYScalePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = yDragRef.current;
+    if (!drag) return;
+    const dy = e.clientY - drag.startY;
+    if (drag.mode === "pan") {
+      const span = drag.startDomain[1] - drag.startDomain[0];
+      const delta = (-dy / CHART_HEIGHT) * span;
+      setYDomainOverride(panYDomain(drag.startDomain, delta));
+      return;
+    }
+    const factor = dragZoomFactor(dy, CHART_HEIGHT);
+    const anchor = (drag.startDomain[0] + drag.startDomain[1]) / 2;
+    setYDomainOverride(zoomYDomain(drag.startDomain, factor, anchor));
+  };
+
+  const onYScalePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    yDragRef.current = null;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
+  const isZoomed =
+    yDomainOverride != null &&
+    (Math.abs(yDomainOverride[0] - baseYDomain[0]) > 1 ||
+      Math.abs(yDomainOverride[1] - baseYDomain[1]) > 1);
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -261,17 +382,32 @@ export function ScenarioPriceChart({
         </div>
       </div>
 
-      <p className="mb-2 text-[10px] text-content-muted">
-        チャートは横にスクロールできます。緑の点線＝TP1/TP2、赤＝SL
-      </p>
-      <div className="overflow-x-auto rounded-lg border border-surface-border/40 bg-surface/30">
-        <div style={{ width: chartWidth, height: CHART_HEIGHT }}>
-          <ComposedChart
-            width={chartWidth}
-            height={CHART_HEIGHT}
-            data={chartData}
-            margin={{ top: 16, right: CHART_RIGHT_MARGIN, left: 4, bottom: 8 }}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] text-content-muted">
+          横スクロール可。価格目盛ドラッグ／ピンチ／ホイールで拡大縮小（Shift+ドラッグで上下移動）
+        </p>
+        {isZoomed ? (
+          <button
+            type="button"
+            onClick={() => setYDomainOverride(null)}
+            className="min-h-[32px] rounded-md border border-surface-border px-2.5 py-1 text-[10px] text-content-secondary transition hover:bg-surface-hover"
           >
+            価格幅リセット
+          </button>
+        ) : null}
+      </div>
+      <div
+        ref={chartWrapRef}
+        className="overflow-x-auto rounded-lg border border-surface-border/40 bg-surface/30"
+      >
+        <div className="relative flex" style={{ width: chartWidth + Y_SCALE_WIDTH, height: CHART_HEIGHT }}>
+          <div style={{ width: chartWidth, height: CHART_HEIGHT }}>
+            <ComposedChart
+              width={chartWidth}
+              height={CHART_HEIGHT}
+              data={chartData}
+              margin={{ top: 16, right: CHART_LABEL_MARGIN, left: 4, bottom: 8 }}
+            >
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
             <XAxis
               dataKey="ts"
@@ -294,9 +430,18 @@ export function ScenarioPriceChart({
             <ReferenceArea
               y1={entryLow}
               y2={entryHigh}
-              fill="#3b82f6"
-              fillOpacity={0.18}
-              label={{ value: "エントリー帯", fill: "#93c5fd", fontSize: 10, position: "insideTopLeft" }}
+              fill={ENTRY_ZONE_FILL}
+              fillOpacity={0.42}
+              stroke={ENTRY_ZONE_STROKE}
+              strokeWidth={2}
+              strokeDasharray="4 3"
+              label={{
+                value: "エントリー帯",
+                fill: "#e0f2fe",
+                fontSize: 11,
+                fontWeight: 600,
+                position: "insideTopLeft",
+              }}
             />
             <ReferenceLine
               x="いま"
@@ -372,6 +517,23 @@ export function ScenarioPriceChart({
               name="futurePrice"
             />
           </ComposedChart>
+          </div>
+          <div
+            role="slider"
+            aria-label="価格軸の拡大縮小"
+            className="flex shrink-0 cursor-ns-resize select-none flex-col items-center justify-center border-l border-surface-border/50 bg-surface/60 text-[9px] leading-tight text-content-muted"
+            style={{ width: Y_SCALE_WIDTH, height: CHART_HEIGHT }}
+            onPointerDown={onYScalePointerDown}
+            onPointerMove={onYScalePointerMove}
+            onPointerUp={onYScalePointerUp}
+            onPointerCancel={onYScalePointerUp}
+            title="ドラッグで価格幅を調整（Shift+ドラッグで移動）"
+          >
+            <span className="font-japanese text-[9px]" style={{ writingMode: "vertical-rl" }}>
+              価格幅
+            </span>
+            <span className="mt-1">↕</span>
+          </div>
         </div>
       </div>
 
@@ -401,7 +563,7 @@ export function ScenarioPriceChart({
       </dl>
 
       <p className="mt-3 text-xs text-content-muted">
-        青い実線＝過去7日間（4時間足・全足表示）　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
+        青い実線＝過去7日間（4時間足）　紫の点線＝選択中の期間の目安（白丸＝いま）　水色の帯＝エントリー候補
       </p>
     </section>
   );
