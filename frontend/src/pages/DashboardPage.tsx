@@ -38,7 +38,7 @@ import {
   ENTRY_CHART_BAR_COUNT,
   ENTRY_CHART_INTERVAL,
   entryChartPeriodHint,
-  formatEntryChartLabel,
+  formatEntryChartCompact,
 } from "../lib/candle-interval";
 import { getMissingFirebaseEnvKeys, isFirebaseConfigured } from "../lib/firebase";
 import {
@@ -390,7 +390,7 @@ export function DashboardPage() {
 
   const entryHistory = entryChartCandles?.candles.length
     ? entryChartCandles.candles.map((c) => ({
-        ts: formatEntryChartLabel(c.ts),
+        ts: formatEntryChartCompact(c.ts),
         price: c.close,
         type: "history" as const,
       }))

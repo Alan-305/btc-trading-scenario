@@ -39,6 +39,16 @@ export function formatEntryChartLabel(isoTs: string): string {
   });
 }
 
+/** チャートX軸用のコンパクト表記（全足ラベル表示向け） */
+export function formatEntryChartCompact(isoTs: string): string {
+  const date = new Date(isoTs);
+  if (Number.isNaN(date.getTime())) return isoTs;
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  const h = date.getHours().toString().padStart(2, "0");
+  return `${m}/${d} ${h}時`;
+}
+
 export function entryChartPeriodHint(): string {
   return `${ENTRY_EVAL_DAYS}日間（4時間足）`;
 }

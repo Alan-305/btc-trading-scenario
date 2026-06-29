@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   ComposedChart,
   Line,
@@ -5,7 +6,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
@@ -42,6 +42,11 @@ const STATUS_BADGE: Record<string, string> = {
   trend_reversal: "bg-accent-amber/25 text-amber-100",
 };
 
+/** 1データ点あたりの幅（px）— 全ラベル表示＋横スクロール用 */
+const CHART_POINT_WIDTH = 44;
+const CHART_HEIGHT = 320;
+const CHART_RIGHT_MARGIN = 96;
+
 interface ChartRow {
   ts: string;
   kind: "past" | "now" | "future";
@@ -69,6 +74,17 @@ function formatOpenedAt(d: Date): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatPriceLabel(value: number): string {
+  if (value >= 1000) {
+    return `$${(value / 1000).toFixed(1)}k`;
+  }
+  return `$${value.toLocaleString()}`;
+}
+
+function formatPriceLineLabel(prefix: string, value: number): string {
+  return `${prefix} ${formatPriceLabel(value)}`;
 }
 
 function formatFutureLabel(ts: string, horizonId: ScenarioHorizonId, index: number): string {
@@ -109,6 +125,27 @@ function buildChartRows(
   }));
 
   return [...past, nowRow, ...future];
+}
+
+function chartYDomain(
+  chartData: ChartRow[],
+  entryLow: number,
+  entryHigh: number,
+  takeProfit: number[],
+  stopLoss: number,
+): [number, number] {
+  const prices = chartData.flatMap((row) =>
+    [row.pastPrice, row.futurePrice].filter((p): p is number => p != null && p > 0),
+  );
+  const levels = [entryLow, entryHigh, stopLoss, ...takeProfit].filter((p) => p > 0);
+  const all = [...prices, ...levels];
+  if (!all.length) return [0, 1];
+
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const span = max - min || max * 0.02;
+  const pad = span * 0.08;
+  return [Math.floor(min - pad), Math.ceil(max + pad)];
 }
 
 function ChartTooltip({
@@ -183,8 +220,12 @@ export function ScenarioPriceChart({
   );
 
   const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
+  const chartWidth = Math.max(chartData.length * CHART_POINT_WIDTH, 360);
+  const yDomain = useMemo(
+    () => chartYDomain(chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss),
+    [chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss],
+  );
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
-  const xTickInterval = chartData.length > 14 ? Math.floor(chartData.length / 7) : 0;
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -217,23 +258,33 @@ export function ScenarioPriceChart({
         </div>
       </div>
 
-      <div className="h-80 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+      <p className="mb-2 text-[10px] text-content-muted">
+        チャートは横にスクロールできます。緑の点線＝TP1/TP2、赤＝SL
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-surface-border/40 bg-surface/30">
+        <div style={{ width: chartWidth, height: CHART_HEIGHT }}>
+          <ComposedChart
+            width={chartWidth}
+            height={CHART_HEIGHT}
+            data={chartData}
+            margin={{ top: 16, right: CHART_RIGHT_MARGIN, left: 4, bottom: 8 }}
+          >
             <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
             <XAxis
               dataKey="ts"
               stroke="#94a3b8"
-              tick={{ fontSize: 10 }}
-              interval={xTickInterval}
-              angle={chartData.length > 10 ? -30 : 0}
-              textAnchor={chartData.length > 10 ? "end" : "middle"}
-              height={chartData.length > 10 ? 56 : 30}
+              tick={{ fontSize: 9 }}
+              interval={0}
+              angle={-55}
+              textAnchor="end"
+              height={72}
+              tickMargin={4}
             />
             <YAxis
               stroke="#94a3b8"
               tick={{ fontSize: 11 }}
-              domain={["auto", "auto"]}
+              domain={yDomain}
+              width={52}
               tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
             />
             <Tooltip content={<ChartTooltip />} />
@@ -242,7 +293,7 @@ export function ScenarioPriceChart({
               y2={entryHigh}
               fill="#3b82f6"
               fillOpacity={0.18}
-              label={{ value: "エントリー帯", fill: "#93c5fd", fontSize: 11 }}
+              label={{ value: "エントリー帯", fill: "#93c5fd", fontSize: 10, position: "insideTopLeft" }}
             />
             <ReferenceLine
               x="いま"
@@ -252,25 +303,39 @@ export function ScenarioPriceChart({
             />
             {exit.take_profit.map((tp, i) => (
               <ReferenceLine
-                key={`tp-${i}`}
+                key={`tp-${i}-${tp}`}
                 y={tp}
                 stroke="#22c55e"
-                strokeDasharray="4 4"
-                label={{ value: `TP${i + 1}`, fill: "#86efac", fontSize: 10 }}
+                strokeWidth={1.5}
+                strokeDasharray="6 4"
+                ifOverflow="extendDomain"
+                label={{
+                  value: formatPriceLineLabel(`TP${i + 1}`, tp),
+                  fill: "#86efac",
+                  fontSize: 10,
+                  position: "right",
+                }}
               />
             ))}
             <ReferenceLine
               y={exit.stop_loss}
               stroke="#ef4444"
-              strokeDasharray="4 4"
-              label={{ value: "SL", fill: "#fca5a5", fontSize: 10 }}
+              strokeWidth={1.5}
+              strokeDasharray="6 4"
+              ifOverflow="extendDomain"
+              label={{
+                value: formatPriceLineLabel("SL", exit.stop_loss),
+                fill: "#fca5a5",
+                fontSize: 10,
+                position: "right",
+              }}
             />
             <Line
               type="monotone"
               dataKey="pastPrice"
               stroke="#60a5fa"
               strokeWidth={2}
-              dot={{ r: 3, fill: "#60a5fa" }}
+              dot={{ r: 2.5, fill: "#60a5fa" }}
               connectNulls={false}
               name="pastPrice"
             />
@@ -304,7 +369,7 @@ export function ScenarioPriceChart({
               name="futurePrice"
             />
           </ComposedChart>
-        </ResponsiveContainer>
+        </div>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-surface-border/60 pt-4 text-sm sm:grid-cols-4">
@@ -317,7 +382,9 @@ export function ScenarioPriceChart({
         <div>
           <dt className="text-xs text-content-muted">利確（TP）</dt>
           <dd className="font-english text-accent-green">
-            {exit.take_profit.map((p) => `$${p.toLocaleString()}`).join(" / ")}
+            {exit.take_profit.length
+              ? exit.take_profit.map((p) => `$${p.toLocaleString()}`).join(" / ")
+              : "—"}
           </dd>
         </div>
         <div>
@@ -331,7 +398,7 @@ export function ScenarioPriceChart({
       </dl>
 
       <p className="mt-3 text-xs text-content-muted">
-        青い実線＝過去7日間（4時間足）　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
+        青い実線＝過去7日間（4時間足・全足表示）　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
       </p>
     </section>
   );
