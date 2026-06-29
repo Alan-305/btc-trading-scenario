@@ -16,11 +16,10 @@ export function panYDomain(domain: YDomain, delta: number): YDomain {
 
 export function wheelZoomFactor(deltaY: number, options?: { pinch?: boolean }): number {
   if (options?.pinch) {
-    const step = Math.min(0.12, Math.abs(deltaY) * 0.01);
+    const step = Math.min(0.18, Math.abs(deltaY) * 0.012);
     return deltaY > 0 ? 1 - step : 1 + step;
   }
-  const step = Math.min(0.15, Math.abs(deltaY) / 120);
-  if (step < 0.002) return 1;
+  const step = Math.min(0.2, Math.max(0.04, Math.abs(deltaY) / 80));
   return deltaY > 0 ? 1 - step : 1 + step;
 }
 

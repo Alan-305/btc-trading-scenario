@@ -9,7 +9,7 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
-import { EntryStochasticPane, ENTRY_STOCH_HEIGHT, ENTRY_STOCH_XAXIS_HEIGHT } from "./EntryStochasticPane";
+import { EntryStochasticPane, ENTRY_STOCH_HEIGHT } from "./EntryStochasticPane";
 import { alignStochToChartRows } from "../../lib/align-stoch-history";
 import { buildEntryGuide } from "../../lib/entry-guide";
 import {
@@ -252,12 +252,15 @@ export function ScenarioPriceChart({
     () => chartYDomain(chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss),
     [chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss],
   );
+  const baseYDomainRef = useRef(baseYDomain);
+  baseYDomainRef.current = baseYDomain;
+
   const [yDomainOverride, setYDomainOverride] = useState<YDomain | null>(null);
   const yDomain = yDomainOverride ?? baseYDomain;
 
   useEffect(() => {
     setYDomainOverride(null);
-  }, [baseYDomain]);
+  }, [baseYDomain[0], baseYDomain[1]]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const pricePlotRef = useRef<HTMLDivElement>(null);
@@ -265,13 +268,15 @@ export function ScenarioPriceChart({
     null,
   );
 
-  const zoomPrice = useCallback(
-    (factor: number) => {
-      const anchor = (yDomain[0] + yDomain[1]) / 2;
-      setYDomainOverride(applyZoomFactor(yDomain, factor, anchor));
-    },
-    [yDomain],
-  );
+  const ZOOM_STEP = 1.22;
+
+  const zoomPrice = useCallback((factor: number) => {
+    setYDomainOverride((prev) => {
+      const current = prev ?? baseYDomainRef.current;
+      const anchor = (current[0] + current[1]) / 2;
+      return applyZoomFactor(current, factor, anchor);
+    });
+  }, []);
 
   const applyWheelZoom = useCallback(
     (deltaY: number, pinch = false) => {
@@ -283,8 +288,9 @@ export function ScenarioPriceChart({
   );
 
   useEffect(() => {
-    const el = pricePlotRef.current;
-    if (!el) return;
+    const plot = pricePlotRef.current;
+    const scroll = scrollRef.current;
+    if (!plot && !scroll) return;
 
     let lastGestureScale = 1;
 
@@ -314,14 +320,18 @@ export function ScenarioPriceChart({
       zoomPrice(ratio);
     };
 
-    el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("gesturestart", onGestureStart);
-    el.addEventListener("gesturechange", onGestureChange);
+    for (const el of [plot, scroll].filter(Boolean) as HTMLElement[]) {
+      el.addEventListener("wheel", onWheel, { passive: false });
+      el.addEventListener("gesturestart", onGestureStart);
+      el.addEventListener("gesturechange", onGestureChange);
+    }
 
     return () => {
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("gesturestart", onGestureStart);
-      el.removeEventListener("gesturechange", onGestureChange);
+      for (const el of [plot, scroll].filter(Boolean) as HTMLElement[]) {
+        el.removeEventListener("wheel", onWheel);
+        el.removeEventListener("gesturestart", onGestureStart);
+        el.removeEventListener("gesturechange", onGestureChange);
+      }
     };
   }, [applyWheelZoom, zoomPrice]);
 
@@ -361,7 +371,7 @@ export function ScenarioPriceChart({
     (Math.abs(yDomainOverride[0] - baseYDomain[0]) > 1 ||
       Math.abs(yDomainOverride[1] - baseYDomain[1]) > 1);
 
-  const totalHeight = PRICE_CHART_HEIGHT + ENTRY_STOCH_HEIGHT + ENTRY_STOCH_XAXIS_HEIGHT;
+  const totalHeight = PRICE_CHART_HEIGHT + ENTRY_STOCH_HEIGHT;
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -402,7 +412,7 @@ export function ScenarioPriceChart({
           <button
             type="button"
             aria-label="価格幅を拡大"
-            onClick={() => zoomPrice(1.12)}
+            onClick={() => zoomPrice(ZOOM_STEP)}
             className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-surface-border text-sm text-content-secondary hover:bg-surface-hover"
           >
             ＋
@@ -410,7 +420,7 @@ export function ScenarioPriceChart({
           <button
             type="button"
             aria-label="価格幅を縮小"
-            onClick={() => zoomPrice(1 / 1.12)}
+            onClick={() => zoomPrice(1 / ZOOM_STEP)}
             className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-surface-border text-sm text-content-secondary hover:bg-surface-hover"
           >
             －
@@ -435,10 +445,10 @@ export function ScenarioPriceChart({
           <div className="flex">
             <div
               ref={pricePlotRef}
-              className="touch-none"
               style={{ width: chartWidth, height: PRICE_CHART_HEIGHT }}
             >
               <ComposedChart
+                key={`price-y-${yDomain[0].toFixed(0)}-${yDomain[1].toFixed(0)}`}
                 width={chartWidth}
                 height={PRICE_CHART_HEIGHT}
                 data={chartData}
@@ -449,7 +459,10 @@ export function ScenarioPriceChart({
                 <YAxis
                   stroke="#94a3b8"
                   tick={{ fontSize: 11 }}
-                  domain={yDomain}
+                  domain={[yDomain[0], yDomain[1]]}
+                  allowDataOverflow
+                  type="number"
+                  scale="linear"
                   width={48}
                   tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
                 />
@@ -462,6 +475,7 @@ export function ScenarioPriceChart({
                   stroke={ENTRY_ZONE_STROKE}
                   strokeWidth={2}
                   strokeDasharray="4 3"
+                  ifOverflow="hidden"
                   label={{
                     value: "エントリー帯",
                     fill: "#e0f2fe",
@@ -474,6 +488,7 @@ export function ScenarioPriceChart({
                   x="いま"
                   stroke="#ffffff"
                   strokeWidth={2}
+                  ifOverflow="hidden"
                   label={{ value: "いま", fill: "#e2e8f0", fontSize: 10, position: "top" }}
                 />
                 {exit.take_profit.map((tp, i) => (
@@ -483,7 +498,7 @@ export function ScenarioPriceChart({
                     stroke="#22c55e"
                     strokeWidth={1.5}
                     strokeDasharray="6 4"
-                    ifOverflow="extendDomain"
+                    ifOverflow="hidden"
                     label={{
                       value: formatPriceLineLabel(`TP${i + 1}`, tp),
                       fill: "#86efac",
@@ -497,7 +512,7 @@ export function ScenarioPriceChart({
                   stroke="#ef4444"
                   strokeWidth={1.5}
                   strokeDasharray="6 4"
-                  ifOverflow="extendDomain"
+                  ifOverflow="hidden"
                   label={{
                     value: formatPriceLineLabel("SL", exit.stop_loss),
                     fill: "#fca5a5",
@@ -567,7 +582,7 @@ export function ScenarioPriceChart({
             <EntryStochasticPane data={stochRows} width={chartWidth} showXAxis />
             <div
               className="shrink-0 border-l border-surface-border/50 bg-surface/40"
-              style={{ width: Y_SCALE_WIDTH, height: ENTRY_STOCH_HEIGHT + ENTRY_STOCH_XAXIS_HEIGHT }}
+              style={{ width: Y_SCALE_WIDTH, height: ENTRY_STOCH_HEIGHT }}
               aria-hidden
             />
           </div>
