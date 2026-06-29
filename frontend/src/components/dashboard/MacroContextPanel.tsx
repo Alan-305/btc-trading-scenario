@@ -31,7 +31,7 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
     );
   }
 
-  if (!data || (!data.options && !data.etf_flows && !data.onchain && !data.usdt_dominance)) {
+  if (!data || (!data.options && !data.etf_flows && !data.onchain && !data.usdt_dominance && !data.equity_markets)) {
     return (
       <div id="macro-environment" className="rounded-xl border border-surface-border bg-surface-card p-5">
         <h3 className="font-japanese text-sm font-medium text-content-secondary">マクロ環境（ETF・オプション・オンチェーン）</h3>

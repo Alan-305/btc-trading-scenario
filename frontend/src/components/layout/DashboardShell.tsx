@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from "react";
 import {
-  DASHBOARD_NAV,
+  DASHBOARD_NAV_INVITE,
+  DASHBOARD_NAV_MAIN,
+  type DashboardNavItem,
   type DashboardSection,
   saveDashboardSection,
 } from "../../lib/dashboard-nav";
@@ -13,7 +15,18 @@ interface DashboardShellProps {
   headerActions: ReactNode;
   sidebarFooter?: ReactNode;
   userEmail?: string | null;
+  showInviteNav?: boolean;
   children: ReactNode;
+}
+
+function activeNavItem(
+  section: DashboardSection,
+  showInviteNav: boolean,
+): DashboardNavItem | undefined {
+  const main = DASHBOARD_NAV_MAIN.find((n) => n.id === section);
+  if (main) return main;
+  if (showInviteNav && section === DASHBOARD_NAV_INVITE.id) return DASHBOARD_NAV_INVITE;
+  return DASHBOARD_NAV_MAIN.find((n) => n.id === "overview");
 }
 
 function NavButton({
@@ -22,7 +35,7 @@ function NavButton({
   onClick,
   collapsed,
 }: {
-  item: (typeof DASHBOARD_NAV)[number];
+  item: DashboardNavItem;
   active: boolean;
   onClick: () => void;
   collapsed?: boolean;
@@ -52,10 +65,10 @@ function NavIcon({ id, active }: { id: DashboardSection; active: boolean }) {
   const color = active ? "text-accent-blue" : "text-content-muted";
   const paths: Record<DashboardSection, string> = {
     overview: "M4 6h16M4 12h16M4 18h10",
-    chart: "M4 18V6l6 4 6-4v12",
-    market: "M4 18h4v-6h4v6h4V8h4v10",
+    technical: "M4 18V6l6 4 6-4v12",
     context: "M12 3a9 9 0 100 18 9 9 0 000-18z",
-    journal: "M6 4h12v16H6z",
+    records: "M6 4h12v16H6z",
+    invite: "M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2M9 11a4 4 0 100-8 4 4 0 000 8m12 4v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
   };
   return (
     <svg className={`h-5 w-5 shrink-0 ${color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -72,6 +85,7 @@ export function DashboardShell({
   headerActions,
   sidebarFooter,
   userEmail,
+  showInviteNav = false,
   children,
 }: DashboardShellProps) {
   const selectSection = (section: DashboardSection) => {
@@ -89,9 +103,11 @@ export function DashboardShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileMenuOpen, onMobileMenuOpenChange]);
 
+  const currentNav = activeNavItem(activeSection, showInviteNav);
+
   const sidebar = (
     <nav className="flex flex-col gap-1 p-3" aria-label="ダッシュボードメニュー">
-      {DASHBOARD_NAV.map((item) => (
+      {DASHBOARD_NAV_MAIN.map((item) => (
         <NavButton
           key={item.id}
           item={item}
@@ -99,6 +115,19 @@ export function DashboardShell({
           onClick={() => selectSection(item.id)}
         />
       ))}
+      {showInviteNav ? (
+        <>
+          <div className="my-2 border-t border-surface-border/80" aria-hidden />
+          <p className="px-3 pb-1 font-japanese text-[10px] font-medium uppercase tracking-wide text-content-muted">
+            管理
+          </p>
+          <NavButton
+            item={DASHBOARD_NAV_INVITE}
+            active={activeSection === DASHBOARD_NAV_INVITE.id}
+            onClick={() => selectSection(DASHBOARD_NAV_INVITE.id)}
+          />
+        </>
+      ) : null}
     </nav>
   );
 
@@ -171,13 +200,13 @@ export function DashboardShell({
                 <div className="lg:hidden">
                   <p className="font-english text-sm font-semibold text-white">BTC Trading Scenario</p>
                   <p className="font-japanese text-[10px] text-content-muted">
-                    {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
+                    {currentNav?.label}
                   </p>
                 </div>
               )}
               {userEmail && (
                 <p className="mt-0.5 font-japanese text-[10px] text-content-muted lg:hidden">
-                  {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
+                  {currentNav?.label}
                 </p>
               )}
             </div>
@@ -188,10 +217,10 @@ export function DashboardShell({
         <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-4 hidden lg:block">
             <h2 className="font-japanese text-lg font-medium text-slate-100">
-              {DASHBOARD_NAV.find((n) => n.id === activeSection)?.label}
+              {currentNav?.label}
             </h2>
             <p className="mt-1 font-japanese text-xs text-content-muted">
-              {DASHBOARD_NAV.find((n) => n.id === activeSection)?.description}
+              {currentNav?.description}
             </p>
           </div>
           {children}

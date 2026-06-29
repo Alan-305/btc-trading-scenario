@@ -68,11 +68,34 @@ class UsdtDominanceSnapshot(BaseModel):
     timestamp: datetime | None = None
 
 
+class EquityIndexSnapshot(BaseModel):
+    market_id: Literal["us", "japan", "europe"]
+    name_ja: str
+    symbol: str
+    last_price: float
+    change_1d_pct: float | None = None
+    change_5d_pct: float | None = None
+    history: list[MacroSeriesPoint] = Field(default_factory=list)
+    stance: MacroStance = "neutral"
+    signal_ja: str = "様子見"
+    summary_ja: str = ""
+
+
+class GlobalEquitySnapshot(BaseModel):
+    markets: list[EquityIndexSnapshot] = Field(default_factory=list)
+    stance: MacroStance = "neutral"
+    signal_ja: str = "様子見"
+    summary_ja: str = ""
+    source: str = "yahoo"
+    timestamp: datetime | None = None
+
+
 class MacroContextSnapshot(BaseModel):
     options: BtcOptionsSnapshot | None = None
     etf_flows: BtcEtfFlowSnapshot | None = None
     onchain: OnChainSnapshot | None = None
     usdt_dominance: UsdtDominanceSnapshot | None = None
+    equity_markets: GlobalEquitySnapshot | None = None
     overall_stance: MacroStance = "neutral"
     overall_signal_ja: str = "様子見"
     overall_summary_ja: str = ""

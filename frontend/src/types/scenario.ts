@@ -50,6 +50,7 @@ export interface ScenarioDataSources {
   includes_etf_flows?: boolean;
   includes_onchain?: boolean;
   includes_usdt_dominance?: boolean;
+  includes_equity_markets?: boolean;
   personalized: boolean;
 }
 
@@ -231,11 +232,34 @@ export interface UsdtDominanceSnapshot {
   timestamp: string | null;
 }
 
+export interface EquityIndexSnapshot {
+  market_id: "us" | "japan" | "europe";
+  name_ja: string;
+  symbol: string;
+  last_price: number;
+  change_1d_pct: number | null;
+  change_5d_pct: number | null;
+  history: MacroSeriesPoint[];
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
+}
+
+export interface GlobalEquitySnapshot {
+  markets: EquityIndexSnapshot[];
+  stance?: MacroStance;
+  signal_ja?: string;
+  summary_ja?: string;
+  source: string;
+  timestamp: string | null;
+}
+
 export interface MacroContextSnapshot {
   options: BtcOptionsSnapshot | null;
   etf_flows: BtcEtfFlowSnapshot | null;
   onchain: OnChainSnapshot | null;
   usdt_dominance?: UsdtDominanceSnapshot | null;
+  equity_markets?: GlobalEquitySnapshot | null;
   overall_stance?: MacroStance;
   overall_signal_ja?: string;
   overall_summary_ja?: string;

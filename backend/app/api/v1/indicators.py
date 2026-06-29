@@ -8,6 +8,7 @@ from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
 from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
+from app.integrations.equity_indices import EquityIndicesClient
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.schemas.extended_market import MacroContextSnapshot
@@ -46,12 +47,20 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
     etf_client = BtcEtfFlowClient(http)
     onchain_client = OnChainMetricsClient(http)
     usdt_client = CoingeckoUsdtDominanceClient(http)
-    options, etf, onchain, usdt = await asyncio.gather(
+    equity_client = EquityIndicesClient(http)
+    options, etf, onchain, usdt, equity = await asyncio.gather(
         options_client.fetch_snapshot(),
         etf_client.fetch_snapshot(),
         onchain_client.fetch_snapshot(),
         usdt_client.fetch_snapshot(),
+        equity_client.fetch_snapshot(),
     )
     return enrich_macro_context(
-        MacroContextSnapshot(options=options, etf_flows=etf, onchain=onchain, usdt_dominance=usdt)
+        MacroContextSnapshot(
+            options=options,
+            etf_flows=etf,
+            onchain=onchain,
+            usdt_dominance=usdt,
+            equity_markets=equity,
+        )
     )

@@ -1,6 +1,12 @@
-export type DashboardSection = "overview" | "chart" | "market" | "context" | "journal";
+export type DashboardSection = "overview" | "technical" | "context" | "records" | "invite";
 
 export const DASHBOARD_SECTION_STORAGE_KEY = "btc-dashboard-section";
+
+const LEGACY_SECTION_MAP: Record<string, DashboardSection> = {
+  chart: "technical",
+  market: "technical",
+  journal: "records",
+};
 
 export interface DashboardNavItem {
   id: DashboardSection;
@@ -8,18 +14,40 @@ export interface DashboardNavItem {
   description: string;
 }
 
-export const DASHBOARD_NAV: DashboardNavItem[] = [
-  { id: "overview", label: "概要", description: "シナリオとエントリー判断" },
-  { id: "chart", label: "チャート", description: "ローソク足" },
-  { id: "market", label: "市場指標", description: "テクニカル・板・先物など" },
-  { id: "context", label: "環境", description: "マクロ・時間帯・調査メモ" },
-  { id: "journal", label: "記録", description: "日誌・的中率・保存" },
+export const DASHBOARD_NAV_MAIN: DashboardNavItem[] = [
+  { id: "overview", label: "シナリオ＆エントリー", description: "シナリオ・エントリー判断・世界時間" },
+  { id: "technical", label: "テクニカル指標", description: "ローソク足・ストキャス・板・先物など" },
+  { id: "context", label: "環境＆調査", description: "マクロ・株価指数・調査メモ" },
+  { id: "records", label: "記録＆データ", description: "日誌・的中率・保存シナリオ" },
 ];
+
+export const DASHBOARD_NAV_INVITE: DashboardNavItem = {
+  id: "invite",
+  label: "招待",
+  description: "メンバーへの招待リンク送信",
+};
+
+/** @deprecated Use DASHBOARD_NAV_MAIN */
+export const DASHBOARD_NAV = DASHBOARD_NAV_MAIN;
+
+const ALL_SECTIONS: DashboardSection[] = [
+  ...DASHBOARD_NAV_MAIN.map((n) => n.id),
+  DASHBOARD_NAV_INVITE.id,
+];
+
+export function normalizeDashboardSection(raw: string | null | undefined): DashboardSection | null {
+  if (!raw) return null;
+  const migrated = LEGACY_SECTION_MAP[raw] ?? raw;
+  if (ALL_SECTIONS.includes(migrated as DashboardSection)) {
+    return migrated as DashboardSection;
+  }
+  return null;
+}
 
 export function loadDashboardSection(): DashboardSection {
   try {
-    const raw = localStorage.getItem(DASHBOARD_SECTION_STORAGE_KEY);
-    if (DASHBOARD_NAV.some((n) => n.id === raw)) return raw as DashboardSection;
+    const normalized = normalizeDashboardSection(localStorage.getItem(DASHBOARD_SECTION_STORAGE_KEY));
+    if (normalized) return normalized;
   } catch {
     /* ignore */
   }

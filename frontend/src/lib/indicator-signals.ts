@@ -2,6 +2,7 @@ import type { RiskZonesResponse, TechnicalAnalysis } from "../types/market";
 import type { MarketSessionsResponse } from "../types/sessions";
 import type {
   CoinglassSnapshot,
+  GlobalEquitySnapshot,
   HeatmapCell,
   MacroStance,
   UsdtDominanceSnapshot,
@@ -265,6 +266,17 @@ export function exchangeSignal(divergence: Record<string, number>): IndicatorSig
     stance: "bullish",
     signalJa: "上昇支援",
     summaryJa: "取引所間の価格は概ね一致しており、参照価格の信頼性は高いです。",
+  };
+}
+
+export function equityMarketsSignal(data: GlobalEquitySnapshot | null | undefined): IndicatorSignal {
+  if (!data?.markets?.length) {
+    return { stance: "neutral", signalJa: "様子見", summaryJa: "世界株指数データがありません。" };
+  }
+  return {
+    stance: data.stance ?? "neutral",
+    signalJa: data.signal_ja ?? "様子見",
+    summaryJa: data.summary_ja ?? "米国・日本・欧州の主要指数を参照しています。",
   };
 }
 

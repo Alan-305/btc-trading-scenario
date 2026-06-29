@@ -5,6 +5,8 @@ from typing import Literal
 from app.schemas.extended_market import (
     BtcEtfFlowSnapshot,
     BtcOptionsSnapshot,
+    EquityIndexSnapshot,
+    GlobalEquitySnapshot,
     MacroContextSnapshot,
     MacroSeriesPoint,
     OnChainSnapshot,
@@ -43,6 +45,8 @@ def enrich_macro_context(snapshot: MacroContextSnapshot) -> MacroContextSnapshot
         snapshot.usdt_dominance.stance = stance
         snapshot.usdt_dominance.signal_ja = label
         snapshot.usdt_dominance.summary_ja = summary
+    if snapshot.equity_markets:
+        snapshot.equity_markets = _enrich_equity_markets(snapshot.equity_markets)
 
     overall_stance, overall_label, overall_summary = _analyze_overall(snapshot)
     snapshot.overall_stance = overall_stance
@@ -217,6 +221,103 @@ def _analyze_onchain(oc: OnChainSnapshot) -> tuple[MacroStance, str, str]:
     return stance, label, summary
 
 
+def enrich_equity_markets(equity: GlobalEquitySnapshot) -> GlobalEquitySnapshot:
+    return _enrich_equity_markets(equity)
+
+
+def _enrich_equity_markets(equity: GlobalEquitySnapshot) -> GlobalEquitySnapshot:
+    stances: list[MacroStance] = []
+    labels: list[str] = []
+    summaries: list[str] = []
+
+    for market in equity.markets:
+        stance, label, summary = _analyze_equity_index(market)
+        market.stance = stance
+        market.signal_ja = label
+        market.summary_ja = summary
+        stances.append(stance)
+        labels.append(f"{market.name_ja}は{label}")
+        summaries.append(summary)
+
+    if not stances:
+        return equity
+
+    bearish = stances.count("bearish") + stances.count("caution")
+    bullish = stances.count("bullish")
+    reversal = stances.count("reversal")
+
+    if reversal >= 1 and bearish <= bullish:
+        overall = "reversal"
+    elif bearish >= 2:
+        overall = "bearish"
+    elif bullish >= 2:
+        overall = "bullish"
+    elif reversal >= 1:
+        overall = "reversal"
+    elif bearish > bullish:
+        overall = "caution"
+    elif bullish > bearish:
+        overall = "bullish"
+    else:
+        overall = "neutral"
+
+    equity.stance = overall
+    equity.signal_ja = STANCE_LABEL[overall]
+    equity.summary_ja = (
+        f"世界株は{equity.signal_ja}です（{'・'.join(labels)}）。"
+        + "リスクオン/offの流れはBTCの方向感に影響しやすいです。"
+    )
+    return equity
+
+
+def _analyze_equity_index(market: EquityIndexSnapshot) -> tuple[MacroStance, str, str]:
+    parts: list[str] = []
+    bearish = 0
+    bullish = 0
+    reversal = False
+
+    ch1 = market.change_1d_pct
+    ch5 = market.change_5d_pct
+    if ch1 is not None:
+        if ch1 <= -1.5:
+            bearish += 2
+            parts.append(f"前日比{ch1:+.1f}%と急落気味です")
+        elif ch1 < -0.3:
+            bearish += 1
+            parts.append(f"前日比{ch1:+.1f}%と軟調です")
+        elif ch1 >= 1.5:
+            bullish += 2
+            parts.append(f"前日比{ch1:+.1f}%と強い上昇です")
+        elif ch1 > 0.3:
+            bullish += 1
+            parts.append(f"前日比{ch1:+.1f}%と堅調です")
+        else:
+            parts.append(f"前日比{ch1:+.1f}%で大きな変化はありません")
+
+    if ch5 is not None:
+        if ch5 <= -3:
+            bearish += 1
+            parts.append(f"5日で{ch5:+.1f}%と下落トレンドです")
+        elif ch5 >= 3:
+            bullish += 1
+            parts.append(f"5日で{ch5:+.1f}%と上昇トレンドです")
+        if ch1 is not None and ch5 < -1 and ch1 > 0.5:
+            reversal = True
+            parts.append("週間下落の中での反発が見えます")
+        elif ch1 is not None and ch5 > 1 and ch1 < -0.5:
+            reversal = True
+            parts.append("週間上昇の中での調整が入っています")
+
+    hist = [p.value for p in market.history]
+    if _has_reversal(hist):
+        reversal = True
+        parts.append("直近で方向転換の兆候があります")
+
+    stance, label = _resolve_stance(bullish, bearish, reversal_hint=reversal)
+    summary = "。".join(parts) + "。" if parts else f"{market.name_ja}のデータを取得しました。"
+    return stance, label, summary
+
+
 def _analyze_overall(snapshot: MacroContextSnapshot) -> tuple[MacroStance, str, str]:
     stances: list[MacroStance] = []
     labels: list[str] = []
@@ -227,6 +328,7 @@ def _analyze_overall(snapshot: MacroContextSnapshot) -> tuple[MacroStance, str, 
         (snapshot.options, "オプション"),
         (snapshot.onchain, "オンチェーン"),
         (snapshot.usdt_dominance, "USDT.D"),
+        (snapshot.equity_markets, "世界株"),
     ):
         if block and block.summary_ja:
             stances.append(block.stance)  # type: ignore[arg-type]

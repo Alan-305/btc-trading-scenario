@@ -232,6 +232,17 @@ class ScenarioInference:
                 elif change <= -0.5:
                     bullish_score += 1
 
+        if context.equity_markets:
+            stance = context.equity_markets.stance
+            if stance == "bullish":
+                bullish_score += 2
+            elif stance == "bearish":
+                bearish_score += 2
+            elif stance == "caution":
+                bearish_score += 1
+            elif stance == "reversal":
+                bullish_score += 1
+
         if ta and ta.stoch_last_cross == "gc":
             if ta.stoch_zone == "oversold":
                 bullish_score += 2
@@ -413,6 +424,8 @@ class ScenarioInference:
                 f" USDTドミナンスは {u.dominance_pct:.2f}%（{u.trend}）で、"
                 f"{'BTC逆風' if u.trend == 'rising' else 'BTC追い風' if u.trend == 'falling' else '中立'}材料です。"
             )
+        if context.equity_markets and context.equity_markets.summary_ja:
+            exit_rationale += f" {context.equity_markets.summary_ja}"
         if ta and ta.stoch_k is not None and ta.stoch_d is not None:
             cross = ""
             if ta.stoch_last_cross == "gc":

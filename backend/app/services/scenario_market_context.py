@@ -8,6 +8,7 @@ from app.schemas.scenario_context import ResearchContextItem
 from app.schemas.extended_market import (
     BtcEtfFlowSnapshot,
     BtcOptionsSnapshot,
+    GlobalEquitySnapshot,
     OnChainSnapshot,
     UsdtDominanceSnapshot,
 )
@@ -39,6 +40,7 @@ class ScenarioMarketContext:
     etf_flows: BtcEtfFlowSnapshot | None = None
     onchain: OnChainSnapshot | None = None
     usdt_dominance: UsdtDominanceSnapshot | None = None
+    equity_markets: GlobalEquitySnapshot | None = None
     research: list[ResearchContextItem] = field(default_factory=list)
 
     def to_writer_facts(
@@ -191,6 +193,24 @@ class ScenarioMarketContext:
                 "summary_ja": self.usdt_dominance.summary_ja,
                 "stance": self.usdt_dominance.stance,
                 "source": self.usdt_dominance.source,
+            }
+
+        if self.equity_markets:
+            facts["equity_markets"] = {
+                "overall_stance": self.equity_markets.stance,
+                "overall_signal_ja": self.equity_markets.signal_ja,
+                "summary_ja": self.equity_markets.summary_ja,
+                "indices": [
+                    {
+                        "market_id": m.market_id,
+                        "name_ja": m.name_ja,
+                        "change_1d_pct": m.change_1d_pct,
+                        "change_5d_pct": m.change_5d_pct,
+                        "stance": m.stance,
+                        "signal_ja": m.signal_ja,
+                    }
+                    for m in self.equity_markets.markets
+                ],
             }
 
         return facts

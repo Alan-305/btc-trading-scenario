@@ -14,6 +14,7 @@ import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
 import { IndicatorSignalHeader } from "../components/dashboard/IndicatorSignalHeader";
 import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
+import { EquityMarketsPanel } from "../components/dashboard/macro/EquityMarketsPanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
@@ -42,6 +43,7 @@ import {
   formatEntryChartCompact,
 } from "../lib/candle-interval";
 import { getMissingFirebaseEnvKeys, isFirebaseConfigured } from "../lib/firebase";
+import { isEmailAllowedByEnv } from "../lib/invite-access";
 import {
   saveScenarioSnapshot,
   subscribeRecentSnapshots,
@@ -59,6 +61,7 @@ import { subscribeJournalEntries } from "../lib/firestore-journal";
 import { subscribeResearchItems } from "../lib/firestore-research";
 import {
   coinglassSignal,
+  equityMarketsSignal,
   exchangeSignal,
   fearGreedSignal,
   heatmapSignal,
@@ -414,7 +417,7 @@ export function DashboardPage() {
       {
         id: "technical",
         label: "テクニカル",
-        section: "market",
+        section: "technical",
         signal: technicalSignal(technical),
       },
       {
@@ -430,9 +433,15 @@ export function DashboardPage() {
           : { stance: "neutral", signalJa: "様子見", summaryJa: "マクロデータを読み込み中です。" },
       },
       {
+        id: "equity-markets",
+        label: "世界株",
+        section: "context",
+        signal: equityMarketsSignal(macroContext?.equity_markets),
+      },
+      {
         id: "stochastic",
         label: "ストキャス",
-        section: "market",
+        section: "technical",
         signal: stochasticSignal(technical),
       },
       {
@@ -444,31 +453,31 @@ export function DashboardPage() {
       {
         id: "fear-greed",
         label: "Fear & Greed",
-        section: "market",
+        section: "technical",
         signal: fearGreedSignal(fgValue, sentiment?.fear_greed?.classification),
       },
       {
         id: "derivatives",
         label: "先物",
-        section: "market",
+        section: "technical",
         signal: coinglassSignal(sentiment?.coinglass ?? null),
       },
       {
         id: "heatmap",
         label: "板厚み",
-        section: "market",
+        section: "technical",
         signal: heatmapSignal(heatmap),
       },
       {
         id: "risk",
         label: "リキッド帯",
-        section: "market",
+        section: "technical",
         signal: riskZonesSignal(riskZones),
       },
       {
         id: "sessions",
         label: "世界時間",
-        section: "context",
+        section: "overview",
         signal: sessionsSignal(sessions),
       },
     ];
@@ -476,7 +485,7 @@ export function DashboardPage() {
       items.push({
         id: "exchange",
         label: "取引所乖離",
-        section: "market",
+        section: "technical",
         signal: exchangeSignal(snapshot.divergence_pct),
       });
     }
@@ -573,6 +582,33 @@ export function DashboardPage() {
     </section>
   );
 
+  const stochSection = (
+    <div>
+      <IndicatorSignalHeader signal={stochasticSignal(technical)} />
+      <div className="rounded-xl border border-surface-border bg-surface-card p-5">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="font-japanese text-sm font-medium text-content-secondary">
+            ストキャスティクス（14,3,3）
+          </h3>
+          <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
+        </div>
+        <StochasticChart
+          series={technical?.stoch_series ?? []}
+          k={technical?.stoch_k ?? null}
+          d={technical?.stoch_d ?? null}
+          lastCross={technical?.stoch_last_cross ?? null}
+        />
+        {technical?.stoch_summary_ja ? (
+          <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">
+            {technical.stoch_summary_ja}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const showInviteNav = Boolean(user?.email && isEmailAllowedByEnv(user.email));
+
   const renderSection = () => {
     switch (activeSection) {
       case "overview":
@@ -608,43 +644,27 @@ export function DashboardPage() {
                 stochSeries={entryTechnical?.stoch_series ?? []}
               />
             )}
+            {sessions && (
+              <div>
+                <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
+                <MarketSessionsPanel data={sessions} />
+              </div>
+            )}
             <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />
           </div>
         );
 
-      case "chart":
-        return candleSection;
-
-      case "market":
+      case "technical":
         return (
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div>
-                <IndicatorSignalHeader signal={stochasticSignal(technical)} />
-                <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="font-japanese text-sm font-medium text-content-secondary">
-                      ストキャスティクス（14,3,3）
-                    </h3>
-                    <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
-                  </div>
-                  <StochasticChart
-                    series={technical?.stoch_series ?? []}
-                    k={technical?.stoch_k ?? null}
-                    d={technical?.stoch_d ?? null}
-                    lastCross={technical?.stoch_last_cross ?? null}
-                  />
-                  {technical?.stoch_summary_ja ? (
-                    <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">
-                      {technical.stoch_summary_ja}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div>
-                <IndicatorSignalHeader signal={technicalSignal(technical)} />
-                <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
-              </div>
+            <div>
+              <IndicatorSignalHeader signal={technicalSignal(technical)} />
+              {candleSection}
+            </div>
+            {stochSection}
+            <div>
+              <IndicatorSignalHeader signal={technicalSignal(technical)} />
+              <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
@@ -694,44 +714,52 @@ export function DashboardPage() {
       case "context":
         return (
           <div className="space-y-6">
+            <div>
+              <IndicatorSignalHeader signal={equityMarketsSignal(macroContext?.equity_markets)} />
+              <EquityMarketsPanel data={macroContext?.equity_markets} loading={macroLoading} />
+            </div>
             <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
-            {sessions && (
-              <div>
-                <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
-                <MarketSessionsPanel data={sessions} />
-              </div>
-            )}
             {user && (
               <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
             )}
           </div>
         );
 
-      case "journal":
+      case "records":
         return (
           <div className="space-y-4">
-            {user && (
-              <AccuracyPanel
-                data={accuracy}
-                loading={accuracyLoading}
-                savedRecords={savedRecords}
-              />
-            )}
-            {user && (
-              <JournalAnalyticsPanel
-                aiAccuracy={accuracy}
-                journalEntries={journalEntries}
-                savedRecords={savedRecords}
-                loading={accuracyLoading || journalLoading}
-              />
-            )}
-            {user && <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />}
+            <section className="space-y-4">
+              <header>
+                <h3 className="font-japanese text-sm font-medium text-slate-300">シナリオ分析データ</h3>
+                <p className="mt-1 font-japanese text-xs text-content-muted">
+                  保存したシナリオの的中率と履歴です。
+                </p>
+              </header>
+              {user && (
+                <AccuracyPanel
+                  data={accuracy}
+                  loading={accuracyLoading}
+                  savedRecords={savedRecords}
+                />
+              )}
+              {user && (
+                <JournalAnalyticsPanel
+                  aiAccuracy={accuracy}
+                  journalEntries={journalEntries}
+                  savedRecords={savedRecords}
+                  loading={accuracyLoading || journalLoading}
+                />
+              )}
+              {user && <SavedSnapshotsPanel records={savedRecords} loading={historyLoading} />}
+            </section>
             {user && (
               <JournalPanel userId={user.uid} entries={journalEntries} loading={journalLoading} />
             )}
-            <InvitePanel userEmail={user?.email} />
           </div>
         );
+
+      case "invite":
+        return <InvitePanel userEmail={user?.email} />;
 
       default:
         return null;
@@ -776,6 +804,7 @@ export function DashboardPage() {
       onMobileMenuOpenChange={setMobileMenuOpen}
       headerActions={headerActions}
       userEmail={user?.email ?? null}
+      showInviteNav={showInviteNav}
       sidebarFooter={
         firebaseReady ? (
           <AuthButton

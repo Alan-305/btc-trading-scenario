@@ -8,6 +8,7 @@ from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
 from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
+from app.integrations.equity_indices import EquityIndicesClient
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.llm.scenario_writer import ScenarioWriter
@@ -31,7 +32,7 @@ from app.services.risk_zones import RiskZoneEstimator
 from app.services.scenario_context import reference_price_from_snapshot
 from app.services.scenario_horizons import build_scenario_horizons
 from app.services.scenario_market_context import ScenarioMarketContext, summarize_heatmap
-from app.services.macro_analysis import enrich_usdt_dominance
+from app.services.macro_analysis import enrich_equity_markets, enrich_usdt_dominance
 from app.services.technical_analysis import TechnicalAnalysisService
 from app.services.volume_profile import OrderbookHeatmapService
 
@@ -55,6 +56,7 @@ class ScenarioBuilder:
         etf_flows: BtcEtfFlowClient | None = None,
         onchain: OnChainMetricsClient | None = None,
         usdt_dominance: CoingeckoUsdtDominanceClient | None = None,
+        equity_indices: EquityIndicesClient | None = None,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -72,6 +74,7 @@ class ScenarioBuilder:
         self.etf_flows = etf_flows
         self.onchain = onchain
         self.usdt_dominance = usdt_dominance
+        self.equity_indices = equity_indices
 
     async def _collect_market_context(
         self,
@@ -103,6 +106,8 @@ class ScenarioBuilder:
         onchain = await self.onchain.fetch_snapshot() if self.onchain else None
         usdt_raw = await self.usdt_dominance.fetch_snapshot() if self.usdt_dominance else None
         usdt = enrich_usdt_dominance(usdt_raw) if usdt_raw else None
+        equity_raw = await self.equity_indices.fetch_snapshot() if self.equity_indices else None
+        equity = enrich_equity_markets(equity_raw) if equity_raw else None
 
         return ScenarioMarketContext(
             snapshot=snapshot,
@@ -118,6 +123,7 @@ class ScenarioBuilder:
             etf_flows=etf,
             onchain=onchain,
             usdt_dominance=usdt,
+            equity_markets=equity,
             research=research or [],
         )
 
@@ -274,6 +280,7 @@ class ScenarioBuilder:
             includes_etf_flows=context.etf_flows is not None,
             includes_onchain=context.onchain is not None,
             includes_usdt_dominance=context.usdt_dominance is not None,
+            includes_equity_markets=context.equity_markets is not None,
             personalized=len(context.research) > 0,
         )
 
