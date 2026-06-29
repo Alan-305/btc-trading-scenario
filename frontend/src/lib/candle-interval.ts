@@ -22,3 +22,23 @@ export function pastTimeLabel(stepsAgo: number, interval: CandleInterval): strin
   const hours = stepsAgo * candleIntervalHours(interval);
   return `-${hours}時間前`;
 }
+
+/** エントリー判断チャート：集計ウィンドウ（7日）と揃えた4時間足 */
+export const ENTRY_EVAL_DAYS = 7;
+export const ENTRY_CHART_INTERVAL: CandleInterval = "4h";
+export const ENTRY_CHART_BAR_COUNT =
+  (ENTRY_EVAL_DAYS * 24) / candleIntervalHours(ENTRY_CHART_INTERVAL);
+
+export function formatEntryChartLabel(isoTs: string): string {
+  const date = new Date(isoTs);
+  if (Number.isNaN(date.getTime())) return isoTs;
+  return date.toLocaleString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+  });
+}
+
+export function entryChartPeriodHint(): string {
+  return `${ENTRY_EVAL_DAYS}日間（4時間足）`;
+}

@@ -34,7 +34,10 @@ import {
   type CandleInterval,
   CANDLE_INTERVAL_OPTIONS,
   candleIntervalLabel,
-  pastTimeLabel,
+  ENTRY_CHART_BAR_COUNT,
+  ENTRY_CHART_INTERVAL,
+  entryChartPeriodHint,
+  formatEntryChartLabel,
 } from "../lib/candle-interval";
 import { getMissingFirebaseEnvKeys, isFirebaseConfigured } from "../lib/firebase";
 import {
@@ -105,6 +108,7 @@ export function DashboardPage() {
   const [macroError, setMacroError] = useState<string | null>(null);
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
   const [candles, setCandles] = useState<CandlesResponse | null>(null);
+  const [entryChartCandles, setEntryChartCandles] = useState<CandlesResponse | null>(null);
   const [technical, setTechnical] = useState<TechnicalAnalysis | null>(null);
   const [riskZones, setRiskZones] = useState<RiskZonesResponse | null>(null);
   const [accuracy, setAccuracy] = useState<AccuracySummary | null>(null);
@@ -132,6 +136,15 @@ export function DashboardPage() {
       setTechnical(ta);
     } finally {
       setChartLoading(false);
+    }
+  }, []);
+
+  const loadEntryChart = useCallback(async () => {
+    try {
+      const data = await api.getCandles(ENTRY_CHART_INTERVAL, ENTRY_CHART_BAR_COUNT);
+      setEntryChartCandles(data);
+    } catch {
+      setEntryChartCandles(null);
     }
   }, []);
 
@@ -192,9 +205,10 @@ export function DashboardPage() {
   const handleRefresh = useCallback(() => {
     void load(true);
     void loadChart(candleInterval);
+    void loadEntryChart();
     void loadHeatmap(heatmapExchange);
     void loadMacro();
-  }, [load, loadChart, candleInterval, loadHeatmap, heatmapExchange, loadMacro]);
+  }, [load, loadChart, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange, loadMacro]);
 
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {
@@ -216,6 +230,7 @@ export function DashboardPage() {
       setSnapshot(null);
       setSentiment(null);
       setCandles(null);
+      setEntryChartCandles(null);
       setTechnical(null);
       setRiskZones(null);
       setError(null);
@@ -223,7 +238,7 @@ export function DashboardPage() {
       return;
     }
     skipIntervalChartLoad.current = true;
-    void Promise.all([load(), loadChart(candleInterval)]);
+    void Promise.all([load(), loadChart(candleInterval), loadEntryChart()]);
     const id = setInterval(() => load(), 60_000);
     const clockId = setInterval(() => {
       api.getMarketSessions().then(setSessions).catch(() => {});
@@ -352,19 +367,13 @@ export function DashboardPage() {
     snapshot?.tickers.find((t) => t.exchange === "whitebit") ?? snapshot?.tickers[0];
   const price = baselinePrice ? parseFloat(baselinePrice.last_price) : 0;
 
-  const history = candles?.candles.length
-    ? candles.candles.slice(-5).map((c, i, arr) => ({
-        ts: pastTimeLabel(arr.length - i, candleInterval),
+  const entryHistory = entryChartCandles?.candles.length
+    ? entryChartCandles.candles.map((c) => ({
+        ts: formatEntryChartLabel(c.ts),
         price: c.close,
         type: "history" as const,
       }))
-    : baselinePrice
-      ? Array.from({ length: 11 }, (_, i) => ({
-          ts: `-${(11 - i) * 4}時間前`,
-          price: price * (1 + Math.sin(i) * 0.005),
-          type: "history" as const,
-        }))
-      : [];
+    : [];
 
   const fgValue = sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null;
 
@@ -532,16 +541,16 @@ export function DashboardPage() {
                 onHorizonChange={setActiveHorizonId}
               />
             ) : null}
-            {openedAt && price > 0 && activeHorizon && scenario && (
+            {openedAt && price > 0 && activeHorizon && scenario && entryHistory.length > 0 && (
               <ScenarioPriceChart
-                history={history}
+                history={entryHistory}
                 currentPrice={price}
                 openedAt={openedAt}
                 forecast={activeHorizon.forecast}
                 entry={activeHorizon.entry}
                 exit={activeHorizon.exit}
                 horizonId={activeHorizon.id}
-                periodHint={activeHorizon.period_hint}
+                periodHint={entryChartPeriodHint()}
                 indicators={scenario.indicators}
               />
             )}

@@ -36,6 +36,10 @@ const STATUS_BADGE: Record<string, string> = {
   wait_rally: "bg-accent-amber/20 text-amber-200",
   passed: "bg-surface-elevated text-content-primary",
   neutral: "bg-surface-elevated text-content-secondary",
+  watch: "bg-surface-elevated text-content-secondary",
+  near_tp: "bg-accent-green/20 text-accent-green",
+  near_sl: "bg-accent-red/20 text-accent-red",
+  trend_reversal: "bg-accent-amber/25 text-amber-100",
 };
 
 interface ChartRow {
@@ -82,7 +86,7 @@ function buildChartRows(
   forecast: ForecastPoint[],
   horizonId: ScenarioHorizonId,
 ): ChartRow[] {
-  const past = history.slice(-5).map((h) => ({
+  const past = history.map((h) => ({
     ts: h.ts,
     kind: "past" as const,
     pastPrice: h.price,
@@ -153,7 +157,7 @@ export function ScenarioPriceChart({
   entry,
   exit,
   horizonId = "today",
-  periodHint = "約6時間",
+  periodHint = "7日間（4時間足）",
   indicators,
 }: ScenarioPriceChartProps) {
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
@@ -169,11 +173,16 @@ export function ScenarioPriceChart({
       etfTrend: indicators?.etf_trend,
       putCallRatio: indicators?.put_call_ratio,
       onchainActivity: indicators?.onchain_activity_trend,
+      taTrend: indicators?.ta_trend,
+      rsi14: indicators?.rsi_14,
+      fearGreed: indicators?.fear_greed,
+      fundingRate: indicators?.funding_rate,
     },
   );
 
   const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
+  const xTickInterval = chartData.length > 14 ? Math.floor(chartData.length / 7) : 0;
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -212,11 +221,11 @@ export function ScenarioPriceChart({
             <XAxis
               dataKey="ts"
               stroke="#94a3b8"
-              tick={{ fontSize: 11 }}
-              interval={0}
-              angle={chartData.length > 10 ? -25 : 0}
+              tick={{ fontSize: 10 }}
+              interval={xTickInterval}
+              angle={chartData.length > 10 ? -30 : 0}
               textAnchor={chartData.length > 10 ? "end" : "middle"}
-              height={chartData.length > 10 ? 50 : 30}
+              height={chartData.length > 10 ? 56 : 30}
             />
             <YAxis
               stroke="#94a3b8"
@@ -319,7 +328,7 @@ export function ScenarioPriceChart({
       </dl>
 
       <p className="mt-3 text-xs text-content-muted">
-        青い実線＝過去の実績　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
+        青い実線＝過去7日間（4時間足）　紫の点線＝選択中の期間の目安（白丸＝いま）　青い帯＝エントリー候補
       </p>
     </section>
   );
