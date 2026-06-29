@@ -83,5 +83,5 @@ def test_long_sl_uses_history_liquidation_zone():
         heatmap=None,
         divergence_pct={},
     )
-    _, sl = compute_exit_levels(100_000, "long", ctx.technical, ctx)
+    _, sl = compute_exit_levels(99_500, 100_000, "long", ctx.technical, ctx)
     assert sl <= 97_200 * 0.995 + 1

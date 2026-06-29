@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from app.schemas.candles import TechnicalAnalysisResponse
+from app.schemas.candles import RiskZone, RiskZonesResponse, TechnicalAnalysisResponse
 from app.schemas.market import MarketSnapshot, NormalizedTicker, OrderbookHeatmapCell
 from app.services.scenario_market_context import HeatmapSummary, ScenarioMarketContext, summarize_heatmap
-from app.services.trade_levels import compute_entry_zone, compute_exit_levels, resolve_atr_pct
+from app.services.trade_levels import MIN_RR, MAX_SL_ATR_MULT, compute_entry_zone, compute_trade_exits, entry_reference, resolve_atr_pct, reward_risk_ratio
 
 
 def _ta(atr: float | None = 2000.0, support: float | None = 98_000, resistance: float | None = 102_000):
@@ -18,7 +18,7 @@ def _ta(atr: float | None = 2000.0, support: float | None = 98_000, resistance: 
     )
 
 
-def _context(heatmap: HeatmapSummary | None = None) -> ScenarioMarketContext:
+def _context(heatmap: HeatmapSummary | None = None, **kwargs) -> ScenarioMarketContext:
     now = datetime.now(timezone.utc)
     snap = MarketSnapshot(
         tickers=[
@@ -32,7 +32,7 @@ def _context(heatmap: HeatmapSummary | None = None) -> ScenarioMarketContext:
         orderbooks=[],
         collected_at=now,
     )
-    return ScenarioMarketContext(
+    base = dict(
         snapshot=snap,
         reference_price=100_000.0,
         fear_greed=None,
@@ -43,6 +43,8 @@ def _context(heatmap: HeatmapSummary | None = None) -> ScenarioMarketContext:
         heatmap=heatmap,
         divergence_pct={},
     )
+    base.update(kwargs)
+    return ScenarioMarketContext(**base)
 
 
 def test_resolve_atr_pct_from_ta():
@@ -64,13 +66,16 @@ def test_summarize_heatmap_returns_multiple_bid_clusters():
     assert summary.strongest_bid_support_usd == summary.bid_support_levels[0]
 
 
-def test_long_exit_uses_atr_not_fixed_three_percent():
+def test_long_exit_enforces_min_rr_from_entry():
     ctx = _context()
-    tp, sl = compute_exit_levels(100_000, "long", ctx.technical, ctx)
-    assert sl > 97_000
-    assert sl < 99_500
-    assert tp[0] > 100_500
-    assert tp[0] - 100_000 >= (100_000 - sl) * 1.5 - 1
+    low, high = compute_entry_zone(100_000, "long", ctx.technical, None, confidence=0.7)
+    entry_ref = entry_reference(low, high, 100_000)
+    tp, sl = compute_trade_exits(low, high, 100_000, "long", ctx.technical, ctx)
+    rr = reward_risk_ratio(entry_ref, "long", tp, sl)
+    assert rr is not None
+    assert rr >= MIN_RR - 0.01
+    assert sl < entry_ref
+    assert tp[0] > entry_ref
 
 
 def test_long_entry_uses_bid_cluster():
@@ -84,11 +89,46 @@ def test_long_entry_uses_bid_cluster():
     assert high <= 100_800
 
 
-def test_long_tp_capped_near_ask_cluster():
-    heatmap = HeatmapSummary(
-        ask_resistance_levels=[100_800, 101_500],
-        bid_support_levels=[99_000],
+def test_short_exit_enforces_min_rr_despite_near_support():
+    """Regression: nearby support must not collapse TP while SL stays wide."""
+    ctx = _context(
+        heatmap=HeatmapSummary(
+            bid_support_levels=[59_747, 58_504],
+            ask_resistance_levels=[60_900],
+        ),
+        technical=_ta(atr=1_500, support=59_747, resistance=60_925),
     )
-    ctx = _context(heatmap)
-    tp, _ = compute_exit_levels(100_000, "long", _ta(atr=800), ctx)
-    assert tp[0] <= 100_800 * 0.998 + 1
+    spot = 60_000.0
+    low, high = compute_entry_zone(spot, "short", ctx.technical, ctx.heatmap, confidence=0.7)
+    entry_ref = entry_reference(low, high, spot)
+    tp, sl = compute_trade_exits(low, high, spot, "short", ctx.technical, ctx)
+    rr = reward_risk_ratio(entry_ref, "short", tp, sl)
+    assert rr is not None
+    assert rr >= MIN_RR - 0.01
+    assert sl <= entry_ref + spot * 0.025 * 2.05
+    assert entry_ref - tp[0] >= (sl - entry_ref) * MIN_RR - 5
+
+
+def test_short_exit_caps_liquidation_stop_within_max_risk():
+    ctx = _context(
+        risk_zones=RiskZonesResponse(
+            reference_price=60_000.0,
+            short_squeeze=RiskZone(
+                zone_low=62_000,
+                zone_high=63_175,
+                label="squeeze",
+                rationale="test",
+                confidence=0.7,
+            ),
+        ),
+        technical=_ta(atr=1_500, support=58_388, resistance=60_925),
+    )
+    spot = 60_000.0
+    low, high = compute_entry_zone(spot, "short", ctx.technical, None, confidence=0.7)
+    entry_ref = entry_reference(low, high, spot)
+    tp, sl = compute_trade_exits(low, high, spot, "short", ctx.technical, ctx)
+    max_sl = entry_ref + spot * resolve_atr_pct(spot, ctx.technical) * MAX_SL_ATR_MULT
+    assert sl <= max_sl + 1
+    rr = reward_risk_ratio(entry_ref, "short", tp, sl)
+    assert rr is not None
+    assert rr >= MIN_RR - 0.01

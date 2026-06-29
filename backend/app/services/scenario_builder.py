@@ -195,14 +195,28 @@ class ScenarioBuilder:
             if context.research
             else ""
         )
+        diff = abs(branches.bullish_score - branches.bearish_score)
+        if diff <= 2:
+            lead = (
+                f"いまは材料が拮抗しており（上昇 {branches.bullish_score}・下降 {branches.bearish_score}）、"
+                f"新規エントリーは見送りが無難です。"
+            )
+        elif branches.bearish_score > branches.bullish_score:
+            lead = (
+                f"下降材料が優勢です（上昇 {branches.bullish_score}・下降 {branches.bearish_score}）。"
+                f"いまはすぐに飛び乗らず、下落シナリオのエントリー帯を待ちましょう。"
+            )
+        else:
+            lead = (
+                f"上昇材料が優勢です（上昇 {branches.bullish_score}・下降 {branches.bearish_score}）。"
+                f"いまはすぐに飛び乗らず、上昇シナリオのエントリー帯を待ちましょう。"
+            )
         scenario_text = (
-            f"いまは材料が拮抗しており（上昇 {branches.bullish_score}・下降 {branches.bearish_score}）、"
-            f"新規エントリーは見送りが無難です。"
+            f"{lead}"
             f" {low:,.0f}ドル〜{high:,.0f}ドルのレンジ内では様子見し、"
             f" {resistance:,.0f}ドルを上抜ければ上昇シナリオ、"
             f" {support:,.0f}ドルを下抜ければ下落シナリオを検討してください。"
             f"{research_note}"
-            f" どちらかに方向がはっきりするまで待つのが基本です。"
         )
         return WatchScenario(
             confidence=watch.confidence,

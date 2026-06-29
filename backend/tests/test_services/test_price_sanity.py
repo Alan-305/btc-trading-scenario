@@ -19,9 +19,10 @@ def test_is_plausible_usd_price_rejects_jpy_scale():
 
 def test_clamp_exit_levels_short_caps_runaway_stop():
     price = 60_000.0
-    tp, sl = clamp_exit_levels(price, "short", [58_000, 57_000], 9_600_000)
-    assert sl <= price * 1.12
-    assert sl > price
+    entry = 60_238.0
+    tp, sl = clamp_exit_levels(entry, price, "short", [58_000, 57_000], 9_600_000)
+    assert sl <= entry * 1.08
+    assert sl > entry
 
 
 def test_risk_zone_ignores_jpy_heatmap_resistance():

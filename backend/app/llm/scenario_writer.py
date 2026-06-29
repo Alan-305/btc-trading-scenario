@@ -212,6 +212,9 @@ def _clean_scenario_text(text: str) -> str:
     for prefix in ("シナリオ:", "シナリオ：", "出力:", "出力："):
         if cleaned.startswith(prefix):
             cleaned = cleaned[len(prefix) :].strip()
+    # LLM sometimes prefixes yen-style 万 onto USD levels (e.g. 5万58,504.78ドル).
+    cleaned = re.sub(r"(\d)万([\d,]+(?:\.\d+)?)\s*ドル", r"\2ドル", cleaned)
+    cleaned = re.sub(r"5万(?=[\d,])", "", cleaned)
     return cleaned.strip()
 
 

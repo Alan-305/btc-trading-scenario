@@ -172,3 +172,11 @@ async def test_scenario_writer_falls_back_when_gemini_fails():
         market_context=_writer_context(fear_greed=60, funding_rate=None),
     )
     assert "上昇" in text
+
+
+def test_clean_scenario_text_strips_erroneous_man_prefix():
+    from app.llm.scenario_writer import _clean_scenario_text
+
+    cleaned = _clean_scenario_text("5万58,504.78ドル台のロング清算が下落を招く可能性があります。")
+    assert "5万" not in cleaned
+    assert "58,504.78ドル" in cleaned

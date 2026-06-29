@@ -46,23 +46,28 @@ def clamp_level(level: float, reference: float, min_ratio: float, max_ratio: flo
 
 
 def clamp_exit_levels(
-    price: float,
+    entry_ref: float,
+    spot_price: float,
     side: TradeSide,
     take_profit: list[float],
     stop_loss: float,
 ) -> tuple[list[float], float]:
-    """Keep scenario exit levels within a realistic swing-trade band around spot USD."""
-    if price <= 0:
+    """Keep scenario exit levels within a realistic swing-trade band."""
+    ref = entry_ref if entry_ref > 0 else spot_price
+    if ref <= 0:
         return take_profit, stop_loss
 
     if side == "short":
-        stop_loss = clamp_level(stop_loss, price, 1.005, 1.12)
-        take_profit = [clamp_level(tp, price, 0.88, 0.998) for tp in take_profit]
+        stop_loss = clamp_level(stop_loss, ref, 1.003, 1.08)
+        take_profit = sorted(
+            {clamp_level(tp, ref, 0.90, 0.999) for tp in take_profit if tp < ref},
+            reverse=True,
+        )
     elif side == "long":
-        stop_loss = clamp_level(stop_loss, price, 0.88, 0.995)
-        take_profit = [clamp_level(tp, price, 1.002, 1.12) for tp in take_profit]
+        stop_loss = clamp_level(stop_loss, ref, 0.92, 0.997)
+        take_profit = sorted({clamp_level(tp, ref, 1.003, 1.10) for tp in take_profit if tp > ref})
     else:
-        stop_loss = clamp_level(stop_loss, price, 0.95, 1.05)
-        take_profit = [clamp_level(tp, price, 0.98, 1.02) for tp in take_profit]
+        stop_loss = clamp_level(stop_loss, ref, 0.95, 1.05)
+        take_profit = [clamp_level(tp, ref, 0.98, 1.02) for tp in take_profit]
 
     return take_profit, stop_loss

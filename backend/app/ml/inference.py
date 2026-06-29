@@ -6,8 +6,7 @@ from app.ml.features import FeatureEngine
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot
 from app.schemas.scenario import MacroTrend, TradeSide
 from app.services.scenario_market_context import ScenarioMarketContext
-from app.services.price_sanity import clamp_exit_levels
-from app.services.trade_levels import compute_entry_zone, compute_exit_levels, resolve_atr_pct
+from app.services.trade_levels import compute_entry_zone, compute_trade_exits, resolve_atr_pct
 
 
 @dataclass
@@ -259,8 +258,9 @@ class ScenarioInference:
         entry_low, entry_high = compute_entry_zone(
             price, side, ta, context.heatmap, confidence=confidence
         )
-        take_profit, stop_loss = compute_exit_levels(price, side, ta, context)
-        take_profit, stop_loss = clamp_exit_levels(price, side, take_profit, stop_loss)
+        take_profit, stop_loss = compute_trade_exits(
+            entry_low, entry_high, price, side, ta, context
+        )
 
         direction = 1 if macro_trend == "bullish" else -1
         forecast_prices = [
@@ -311,9 +311,19 @@ class ScenarioInference:
         closeness = 1 - min(1.0, diff / (total + 1))
         confidence = round(max(0.4, min(0.88, 0.45 + closeness * 0.4)), 2)
 
+        if diff <= 2:
+            stance = "拮抗"
+            action = "新規エントリーを見送り、ブレイクを待ちましょう"
+        elif bearish_score > bullish_score:
+            stance = "下降材料優勢"
+            action = "下落シナリオのエントリー帯まで戻りを待ちましょう"
+        else:
+            stance = "上昇材料優勢"
+            action = "上昇シナリオのエントリー帯まで押し目を待ちましょう"
+
         rationale = (
-            f"上昇材料スコア {bullish_score}・下降材料スコア {bearish_score} で方向が拮抗しています。"
-            f"レンジ ${min(range_low, range_high):,.0f}〜${max(range_low, range_high):,.0f} では新規エントリーを見送り、"
+            f"上昇材料スコア {bullish_score}・下降材料スコア {bearish_score}（{stance}）。"
+            f"レンジ ${min(range_low, range_high):,.0f}〜${max(range_low, range_high):,.0f} では{action}。"
             f"上抜け・下抜けで各シナリオを検討してください。"
         )
 
