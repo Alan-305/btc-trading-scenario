@@ -40,6 +40,7 @@ class RedisCache:
     FEAR_GREED_KEY = "indicators:fear_greed"
     COINGLASS_KEY = "indicators:coinglass"
     SCENARIO_KEY = "scenario:latest"
+    MACRO_EVENTS_KEY = "indicators:macro_events"
 
     def __init__(self, redis_url: str | None = None, default_ttl: int | None = None):
         settings = get_settings()
@@ -92,6 +93,7 @@ class AppCache:
     FEAR_GREED_KEY = RedisCache.FEAR_GREED_KEY
     COINGLASS_KEY = RedisCache.COINGLASS_KEY
     SCENARIO_KEY = RedisCache.SCENARIO_KEY
+    MACRO_EVENTS_KEY = RedisCache.MACRO_EVENTS_KEY
 
     def __init__(self) -> None:
         settings = get_settings()

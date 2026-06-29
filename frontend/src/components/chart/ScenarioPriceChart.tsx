@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
   ComposedChart,
   Line,
@@ -9,30 +9,28 @@ import {
   ReferenceArea,
   ReferenceLine,
 } from "recharts";
+import { ChartViewportFrame } from "./ChartViewportFrame";
 import { EntryStochasticPane, ENTRY_STOCH_HEIGHT } from "./EntryStochasticPane";
 import { alignStochToChartRows } from "../../lib/align-stoch-history";
 import { alignMacroEventsToChartRows } from "../../lib/align-macro-events";
 import { macroEventMarkerLabel } from "../dashboard/EconomicCalendarPanel";
 import { buildEntryGuide } from "../../lib/entry-guide";
+import { findMtfGate } from "../../lib/mtf-entry-gate";
 import { upcomingHighImpactEvents } from "../../lib/align-macro-events";
-import {
-  applyZoomFactor,
-  dragZoomFactor,
-  panYDomain,
-  wheelZoomFactor,
-  zoomYDomain,
-  type YDomain,
-} from "../../lib/chart-y-zoom";
 import type { StochSeriesPoint } from "../../types/market";
 import type { MacroEvent } from "../../types/macro-events";
 import type {
   EntryZone,
   ExitStrategy,
   ForecastPoint,
+  HoldScenarioContext,
+  HorizonMode,
+  MtfEntryGate,
   ScenarioHorizonId,
   ScenarioIndicators,
   TradeSide,
 } from "../../types/scenario";
+import { isHodlHorizon } from "../../lib/scenario-horizons";
 
 interface PricePoint {
   ts: string;
@@ -56,11 +54,11 @@ const STATUS_BADGE: Record<string, string> = {
   near_tp: "bg-accent-green/20 text-accent-green",
   near_sl: "bg-accent-red/20 text-accent-red",
   trend_reversal: "bg-accent-amber/25 text-amber-100",
+  wait_timing: "bg-accent-amber/20 text-amber-200",
 };
 
-const CHART_POINT_WIDTH = 44;
+const BASE_POINT_WIDTH = 44;
 const PRICE_CHART_HEIGHT = 280;
-const Y_SCALE_WIDTH = 44;
 const CHART_LABEL_MARGIN = 72;
 const CHART_LEFT = 56;
 
@@ -83,11 +81,14 @@ interface ScenarioPriceChartProps {
   entry: EntryZone;
   exit: ExitStrategy;
   horizonId?: ScenarioHorizonId;
+  horizonMode?: HorizonMode;
+  holdContext?: HoldScenarioContext | null;
   periodHint?: string;
   indicators?: ScenarioIndicators;
   branchLabel?: string;
   stochSeries?: StochSeriesPoint[];
   macroEvents?: MacroEvent[];
+  mtfGates?: MtfEntryGate[];
 }
 
 function formatOpenedAt(d: Date): string {
@@ -116,7 +117,9 @@ function formatFutureLabel(ts: string, horizonId: ScenarioHorizonId, index: numb
 
   if (horizonId === "today") return `+${index + 1}時間`;
   if (horizonId === "week") return `+${index + 1}日`;
-  if (horizonId === "month") return `+${index + 1}週`;
+  if (horizonId === "hodl") {
+    return date.toLocaleDateString("ja-JP", { year: "numeric", month: "short" });
+  }
   return date.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
 }
 
@@ -218,19 +221,24 @@ export function ScenarioPriceChart({
   entry,
   exit,
   horizonId = "today",
+  horizonMode = "swing",
+  holdContext = null,
   periodHint = "7日間（4時間足）",
   indicators,
   branchLabel,
   stochSeries = [],
   macroEvents = [],
+  mtfGates = [],
 }: ScenarioPriceChartProps) {
+  const isHodl = isHodlHorizon(horizonId, horizonMode);
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
   const entryHigh = Math.max(entry.zone_low, entry.zone_high);
   const nextMacro = upcomingHighImpactEvents(macroEvents, 48)[0];
   const macroEventWithinHours = nextMacro
     ? (new Date(nextMacro.scheduled_at).getTime() - Date.now()) / (60 * 60 * 1000)
     : null;
-  const guide = buildEntryGuide(
+  const mtfGate = findMtfGate(mtfGates, entry.side);
+  const swingGuide = buildEntryGuide(
     currentPrice,
     entry.zone_low,
     entry.zone_high,
@@ -249,11 +257,27 @@ export function ScenarioPriceChart({
       stochCross: indicators?.stoch_last_cross,
       stochK: indicators?.stoch_k,
       macroEventWithinHours,
+      mtfEntryBlocked: mtfGate?.entry_blocked ?? indicators?.mtf_entry_blocked,
+      mtfEntryTimingReady: mtfGate?.entry_timing_ready ?? indicators?.mtf_entry_timing_ready,
+      mtfNearHtfBarrier: mtfGate?.near_htf_barrier ?? indicators?.mtf_near_htf_barrier,
+      mtfGateSummary: mtfGate?.gate_summary_ja ?? indicators?.mtf_summary_ja,
+      mtfCaution: mtfGate?.caution_ja,
     },
   );
+  const guide = isHodl
+    ? {
+        status: "in_zone" as const,
+        headline: "ガチホ・積み増し視点",
+        detail: holdContext?.cycle_phase_ja ?? "半減期サイクル上の参考局面です。",
+        action:
+          "損切りは設定しません。積み増し帯と長期参考上値を確認し、余裕資金で分割購入を検討してください。",
+        distanceUsd: null,
+        distancePct: null,
+        direction: null,
+      }
+    : swingGuide;
 
   const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
-  const chartWidth = Math.max(chartData.length * CHART_POINT_WIDTH, 360);
   const stochRows = useMemo(
     () => alignStochToChartRows(chartData, stochSeries),
     [chartData, stochSeries],
@@ -263,130 +287,194 @@ export function ScenarioPriceChart({
     [chartData, macroEvents],
   );
 
-  const baseYDomain = useMemo(
-    () => chartYDomain(chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss),
-    [chartData, entryLow, entryHigh, exit.take_profit, exit.stop_loss],
+  const peakLevels = useMemo(
+    () =>
+      isHodl && holdContext
+        ? holdContext.peak_targets.flatMap((p) => [p.price_low, p.price_high])
+        : [],
+    [isHodl, holdContext],
   );
-  const baseYDomainRef = useRef(baseYDomain);
-  baseYDomainRef.current = baseYDomain;
-
-  const [yDomainOverride, setYDomainOverride] = useState<YDomain | null>(null);
-  const yDomain = yDomainOverride ?? baseYDomain;
-
-  useEffect(() => {
-    setYDomainOverride(null);
-  }, [baseYDomain[0], baseYDomain[1]]);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const pricePlotRef = useRef<HTMLDivElement>(null);
-  const yDragRef = useRef<{ startY: number; startDomain: YDomain; mode: "zoom" | "pan" } | null>(
-    null,
+  const buyZoneLevels = useMemo(
+    () =>
+      isHodl && holdContext
+        ? holdContext.buy_zones.flatMap((z) => [z.zone_low, z.zone_high])
+        : [],
+    [isHodl, holdContext],
   );
 
-  const ZOOM_STEP = 1.22;
-
-  const zoomPrice = useCallback((factor: number) => {
-    setYDomainOverride((prev) => {
-      const current = prev ?? baseYDomainRef.current;
-      const anchor = (current[0] + current[1]) / 2;
-      return applyZoomFactor(current, factor, anchor);
-    });
-  }, []);
-
-  const applyWheelZoom = useCallback(
-    (deltaY: number, pinch = false) => {
-      const factor = wheelZoomFactor(deltaY, { pinch });
-      if (Math.abs(factor - 1) < 0.001) return;
-      zoomPrice(factor);
-    },
-    [zoomPrice],
-  );
-
-  useEffect(() => {
-    const plot = pricePlotRef.current;
-    const scroll = scrollRef.current;
-    if (!plot && !scroll) return;
-
-    let lastGestureScale = 1;
-
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        applyWheelZoom(e.deltaY, true);
-        return;
-      }
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        applyWheelZoom(e.deltaY);
-      }
-    };
-
-    const onGestureStart = (e: Event) => {
-      e.preventDefault();
-      lastGestureScale = (e as unknown as { scale: number }).scale;
-    };
-
-    const onGestureChange = (e: Event) => {
-      e.preventDefault();
-      const ge = e as unknown as { scale: number };
-      const ratio = ge.scale / lastGestureScale;
-      lastGestureScale = ge.scale;
-      if (Math.abs(ratio - 1) < 0.002) return;
-      zoomPrice(ratio);
-    };
-
-    for (const el of [plot, scroll].filter(Boolean) as HTMLElement[]) {
-      el.addEventListener("wheel", onWheel, { passive: false });
-      el.addEventListener("gesturestart", onGestureStart);
-      el.addEventListener("gesturechange", onGestureChange);
-    }
-
-    return () => {
-      for (const el of [plot, scroll].filter(Boolean) as HTMLElement[]) {
-        el.removeEventListener("wheel", onWheel);
-        el.removeEventListener("gesturestart", onGestureStart);
-        el.removeEventListener("gesturechange", onGestureChange);
-      }
-    };
-  }, [applyWheelZoom, zoomPrice]);
-
-  const onYScalePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    yDragRef.current = {
-      startY: e.clientY,
-      startDomain: yDomain,
-      mode: e.shiftKey ? "pan" : "zoom",
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const onYScalePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const drag = yDragRef.current;
-    if (!drag) return;
-    const dy = e.clientY - drag.startY;
-    if (drag.mode === "pan") {
-      const span = drag.startDomain[1] - drag.startDomain[0];
-      const delta = (-dy / PRICE_CHART_HEIGHT) * span;
-      setYDomainOverride(panYDomain(drag.startDomain, delta));
-      return;
-    }
-    const factor = dragZoomFactor(dy, PRICE_CHART_HEIGHT);
-    const anchor = (drag.startDomain[0] + drag.startDomain[1]) / 2;
-    setYDomainOverride(zoomYDomain(drag.startDomain, factor, anchor));
-  };
-
-  const onYScalePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    yDragRef.current = null;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  };
+  const baseYDomain = useMemo(() => {
+    const sl = isHodl ? 0 : exit.stop_loss;
+    const tps = isHodl ? peakLevels : exit.take_profit;
+    const domain = chartYDomain(chartData, entryLow, entryHigh, tps, sl);
+    if (!buyZoneLevels.length) return domain;
+    const all = [...buyZoneLevels, ...peakLevels, currentPrice, domain[0], domain[1]];
+    const min = Math.min(...all);
+    const max = Math.max(...all);
+    const pad = (max - min) * 0.06 || currentPrice * 0.02;
+    return [Math.floor(min - pad), Math.ceil(max + pad)] as [number, number];
+  }, [
+    chartData,
+    entryLow,
+    entryHigh,
+    exit.take_profit,
+    exit.stop_loss,
+    isHodl,
+    peakLevels,
+    buyZoneLevels,
+    currentPrice,
+  ]);
 
   const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
-  const isZoomed =
-    yDomainOverride != null &&
-    (Math.abs(yDomainOverride[0] - baseYDomain[0]) > 1 ||
-      Math.abs(yDomainOverride[1] - baseYDomain[1]) > 1);
 
-  const totalHeight = PRICE_CHART_HEIGHT + ENTRY_STOCH_HEIGHT;
+  const renderPriceChart = (contentWidth: number, yDomain: [number, number]) => (
+    <ComposedChart
+      width={contentWidth}
+      height={PRICE_CHART_HEIGHT}
+      data={chartData}
+      margin={{ top: 16, right: CHART_LABEL_MARGIN, left: CHART_LEFT, bottom: 4 }}
+    >
+      <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
+      <XAxis dataKey="ts" hide />
+      <YAxis
+        stroke="#94a3b8"
+        tick={{ fontSize: 11 }}
+        domain={[yDomain[0], yDomain[1]]}
+        allowDataOverflow
+        type="number"
+        scale="linear"
+        width={48}
+        tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
+      />
+      <Tooltip content={<ChartTooltip />} />
+      <ReferenceArea
+        y1={entryLow}
+        y2={entryHigh}
+        fill={ENTRY_ZONE_FILL}
+        fillOpacity={0.42}
+        stroke={ENTRY_ZONE_STROKE}
+        strokeWidth={2}
+        strokeDasharray="4 3"
+        ifOverflow="hidden"
+        label={{
+          value: isHodl ? "積み増し帯" : "エントリー帯",
+          fill: "#e0f2fe",
+          fontSize: 11,
+          fontWeight: 600,
+          position: "insideTopLeft",
+        }}
+      />
+      {macroMarkers.map((marker) => (
+        <ReferenceLine
+          key={`${marker.ts}-${marker.events[0]?.event_id}`}
+          x={marker.ts}
+          stroke={marker.impact === "high" ? "#f87171" : "#fbbf24"}
+          strokeWidth={1.5}
+          strokeDasharray="3 3"
+          ifOverflow="hidden"
+          label={{
+            value: macroEventMarkerLabel(marker.events),
+            fill: marker.impact === "high" ? "#fca5a5" : "#fde68a",
+            fontSize: 9,
+            fontWeight: 600,
+            position: "top",
+          }}
+        />
+      ))}
+      {exit.take_profit.map((tp, i) => (
+        <ReferenceLine
+          key={`tp-${i}-${tp}`}
+          y={tp}
+          stroke="#22c55e"
+          strokeWidth={1.5}
+          strokeDasharray="6 4"
+          ifOverflow="hidden"
+          label={{
+            value: formatPriceLineLabel(isHodl ? `参考上値${i + 1}` : `TP${i + 1}`, tp),
+            fill: "#86efac",
+            fontSize: 10,
+            position: "right",
+          }}
+        />
+      ))}
+      {!isHodl && exit.stop_loss > 0 ? (
+        <ReferenceLine
+          y={exit.stop_loss}
+          stroke="#ef4444"
+          strokeWidth={1.5}
+          strokeDasharray="6 4"
+          ifOverflow="hidden"
+          label={{
+            value: formatPriceLineLabel("SL", exit.stop_loss),
+            fill: "#fca5a5",
+            fontSize: 10,
+            position: "right",
+          }}
+        />
+      ) : null}
+      {isHodl && holdContext
+        ? holdContext.buy_zones.slice(1).map((zone) => (
+            <ReferenceArea
+              key={zone.label}
+              y1={zone.zone_low}
+              y2={zone.zone_high}
+              fill="#38bdf8"
+              fillOpacity={0.15}
+              stroke="#7dd3fc"
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              ifOverflow="hidden"
+            />
+          ))
+        : null}
+      <ReferenceLine
+        x="いま"
+        stroke="#ffffff"
+        strokeWidth={2}
+        ifOverflow="hidden"
+        label={{ value: "いま", fill: "#e2e8f0", fontSize: 10, position: "top" }}
+      />
+      <Line
+        type="monotone"
+        dataKey="pastPrice"
+        stroke="#60a5fa"
+        strokeWidth={2}
+        dot={{ r: 2.5, fill: "#60a5fa" }}
+        connectNulls={false}
+        isAnimationActive={false}
+        name="pastPrice"
+      />
+      <Line
+        type="monotone"
+        dataKey="futurePrice"
+        stroke="#a78bfa"
+        strokeWidth={2}
+        strokeDasharray="6 4"
+        isAnimationActive={false}
+        dot={(props) => {
+          const { cx, cy, payload } = props as {
+            cx: number;
+            cy: number;
+            payload: ChartRow;
+          };
+          if (payload?.kind !== "now" && payload?.kind !== "future") return <g key="empty" />;
+          const isNow = payload.kind === "now";
+          return (
+            <circle
+              key={payload.ts}
+              cx={cx}
+              cy={cy}
+              r={isNow ? 6 : 4}
+              fill={isNow ? "#fff" : "#a78bfa"}
+              stroke={isNow ? "#a78bfa" : "none"}
+              strokeWidth={isNow ? 2 : 0}
+            />
+          );
+        }}
+        connectNulls={false}
+        name="futurePrice"
+      />
+    </ComposedChart>
+  );
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -419,243 +507,79 @@ export function ScenarioPriceChart({
         </div>
       </div>
 
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] text-content-muted">
-          横スクロール＝時間軸。価格エリア上で縦スワイプ／ピンチで価格幅調整（トラックパッド対応）
-        </p>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label="価格幅を拡大"
-            onClick={() => zoomPrice(ZOOM_STEP)}
-            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-surface-border text-sm text-content-secondary hover:bg-surface-hover"
-          >
-            ＋
-          </button>
-          <button
-            type="button"
-            aria-label="価格幅を縮小"
-            onClick={() => zoomPrice(1 / ZOOM_STEP)}
-            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-md border border-surface-border text-sm text-content-secondary hover:bg-surface-hover"
-          >
-            －
-          </button>
-          {isZoomed ? (
-            <button
-              type="button"
-              onClick={() => setYDomainOverride(null)}
-              className="min-h-[32px] rounded-md border border-surface-border px-2.5 py-1 text-[10px] text-content-secondary transition hover:bg-surface-hover"
-            >
-              価格幅リセット
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div
-        ref={scrollRef}
-        className="overflow-x-auto rounded-lg border border-surface-border/40 bg-surface/30"
+      <ChartViewportFrame
+        pointCount={chartData.length}
+        basePointWidth={BASE_POINT_WIDTH}
+        baseYDomain={baseYDomain}
+        plotHeight={PRICE_CHART_HEIGHT}
+        plotLeftMargin={CHART_LEFT}
+        bottomHeight={isHodl ? 44 : ENTRY_STOCH_HEIGHT}
+        bottom={
+          !isHodl
+            ? (w) => <EntryStochasticPane data={stochRows} width={w} showXAxis />
+            : () => (
+                <div className="px-4 py-3 font-japanese text-[10px] text-content-muted">
+                  ガチホ表示ではストキャスは省略（スイングは「本日」「今週」タブを参照）
+                </div>
+              )
+        }
       >
-        <div style={{ width: chartWidth + Y_SCALE_WIDTH, minHeight: totalHeight }}>
-          <div className="flex">
-            <div
-              ref={pricePlotRef}
-              style={{ width: chartWidth, height: PRICE_CHART_HEIGHT }}
-            >
-              <ComposedChart
-                key={`price-y-${yDomain[0].toFixed(0)}-${yDomain[1].toFixed(0)}`}
-                width={chartWidth}
-                height={PRICE_CHART_HEIGHT}
-                data={chartData}
-                margin={{ top: 16, right: CHART_LABEL_MARGIN, left: CHART_LEFT, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#2a2a2a" />
-                <XAxis dataKey="ts" hide />
-                <YAxis
-                  stroke="#94a3b8"
-                  tick={{ fontSize: 11 }}
-                  domain={[yDomain[0], yDomain[1]]}
-                  allowDataOverflow
-                  type="number"
-                  scale="linear"
-                  width={48}
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <ReferenceArea
-                  y1={entryLow}
-                  y2={entryHigh}
-                  fill={ENTRY_ZONE_FILL}
-                  fillOpacity={0.42}
-                  stroke={ENTRY_ZONE_STROKE}
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  ifOverflow="hidden"
-                  label={{
-                    value: "エントリー帯",
-                    fill: "#e0f2fe",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    position: "insideTopLeft",
-                  }}
-                />
-                <ReferenceLine
-                  x="いま"
-                  stroke="#ffffff"
-                  strokeWidth={2}
-                  ifOverflow="hidden"
-                  label={{ value: "いま", fill: "#e2e8f0", fontSize: 10, position: "top" }}
-                />
-                {macroMarkers.map((marker) => (
-                  <ReferenceLine
-                    key={`${marker.ts}-${marker.events[0]?.event_id}`}
-                    x={marker.ts}
-                    stroke={marker.impact === "high" ? "#f87171" : "#fbbf24"}
-                    strokeWidth={1.5}
-                    strokeDasharray="3 3"
-                    ifOverflow="hidden"
-                    label={{
-                      value: macroEventMarkerLabel(marker.events),
-                      fill: marker.impact === "high" ? "#fca5a5" : "#fde68a",
-                      fontSize: 9,
-                      fontWeight: 600,
-                      position: "top",
-                    }}
-                  />
-                ))}
-                {exit.take_profit.map((tp, i) => (
-                  <ReferenceLine
-                    key={`tp-${i}-${tp}`}
-                    y={tp}
-                    stroke="#22c55e"
-                    strokeWidth={1.5}
-                    strokeDasharray="6 4"
-                    ifOverflow="hidden"
-                    label={{
-                      value: formatPriceLineLabel(`TP${i + 1}`, tp),
-                      fill: "#86efac",
-                      fontSize: 10,
-                      position: "right",
-                    }}
-                  />
-                ))}
-                <ReferenceLine
-                  y={exit.stop_loss}
-                  stroke="#ef4444"
-                  strokeWidth={1.5}
-                  strokeDasharray="6 4"
-                  ifOverflow="hidden"
-                  label={{
-                    value: formatPriceLineLabel("SL", exit.stop_loss),
-                    fill: "#fca5a5",
-                    fontSize: 10,
-                    position: "right",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="pastPrice"
-                  stroke="#60a5fa"
-                  strokeWidth={2}
-                  dot={{ r: 2.5, fill: "#60a5fa" }}
-                  connectNulls={false}
-                  name="pastPrice"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="futurePrice"
-                  stroke="#a78bfa"
-                  strokeWidth={2}
-                  strokeDasharray="6 4"
-                  dot={(props) => {
-                    const { cx, cy, payload } = props as {
-                      cx: number;
-                      cy: number;
-                      payload: ChartRow;
-                    };
-                    if (payload?.kind !== "now" && payload?.kind !== "future") return <g key="empty" />;
-                    const isNow = payload.kind === "now";
-                    return (
-                      <circle
-                        key={payload.ts}
-                        cx={cx}
-                        cy={cy}
-                        r={isNow ? 6 : 4}
-                        fill={isNow ? "#fff" : "#a78bfa"}
-                        stroke={isNow ? "#a78bfa" : "none"}
-                        strokeWidth={isNow ? 2 : 0}
-                      />
-                    );
-                  }}
-                  connectNulls={false}
-                  name="futurePrice"
-                />
-              </ComposedChart>
-            </div>
-            <div
-              role="slider"
-              aria-label="価格軸の拡大縮小"
-              className="flex shrink-0 cursor-ns-resize select-none flex-col items-center justify-center border-l border-surface-border/50 bg-surface/60 text-[9px] leading-tight text-content-muted"
-              style={{ width: Y_SCALE_WIDTH, height: PRICE_CHART_HEIGHT }}
-              onPointerDown={onYScalePointerDown}
-              onPointerMove={onYScalePointerMove}
-              onPointerUp={onYScalePointerUp}
-              onPointerCancel={onYScalePointerUp}
-              title="ドラッグで価格幅を調整（Shift+ドラッグで移動）"
-            >
-              <span className="font-japanese text-[9px]" style={{ writingMode: "vertical-rl" }}>
-                価格幅
-              </span>
-              <span className="mt-1">↕</span>
-            </div>
-          </div>
-
-          <div className="relative flex">
-            <EntryStochasticPane data={stochRows} width={chartWidth} showXAxis />
-            <div
-              className="shrink-0 border-l border-surface-border/50 bg-surface/40"
-              style={{ width: Y_SCALE_WIDTH, height: ENTRY_STOCH_HEIGHT }}
-              aria-hidden
-            />
-          </div>
-        </div>
-      </div>
+        {({ contentWidth, yDomain }) => renderPriceChart(contentWidth, yDomain)}
+      </ChartViewportFrame>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-surface-border/60 pt-4 text-sm sm:grid-cols-4">
         <div>
-          <dt className="text-xs text-content-muted">エントリー帯</dt>
+          <dt className="text-xs text-content-muted">{isHodl ? "積み増し帯" : "エントリー帯"}</dt>
           <dd className="font-english text-slate-200">
             ${entryLow.toLocaleString()} – ${entryHigh.toLocaleString()}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-content-muted">利確（TP）</dt>
+          <dt className="text-xs text-content-muted">{isHodl ? "参考上値" : "利確（TP）"}</dt>
           <dd className="font-english text-accent-green">
             {exit.take_profit.length
               ? exit.take_profit.map((p) => `$${p.toLocaleString()}`).join(" / ")
               : "—"}
           </dd>
         </div>
-        <div>
-          <dt className="text-xs text-content-muted">損切り（SL）</dt>
-          <dd className="font-english text-accent-red">${exit.stop_loss.toLocaleString()}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-content-muted">ストキャス</dt>
-          <dd className="font-english text-slate-300">
-            {indicators?.stoch_k != null && indicators?.stoch_d != null
-              ? `%K ${indicators.stoch_k.toFixed(0)} / %D ${indicators.stoch_d.toFixed(0)}${
-                  indicators.stoch_last_cross
-                    ? ` · 直近${indicators.stoch_last_cross === "gc" ? "GC" : "DC"}`
-                    : ""
-                }`
-              : "—"}
-          </dd>
-        </div>
+        {!isHodl ? (
+          <div>
+            <dt className="text-xs text-content-muted">損切り（SL）</dt>
+            <dd className="font-english text-accent-red">${exit.stop_loss.toLocaleString()}</dd>
+          </div>
+        ) : (
+          <div>
+            <dt className="text-xs text-content-muted">損切り</dt>
+            <dd className="font-japanese text-content-muted">設定なし（ガチホ）</dd>
+          </div>
+        )}
+        {!isHodl ? (
+          <div>
+            <dt className="text-xs text-content-muted">ストキャス</dt>
+            <dd className="font-english text-slate-300">
+              {indicators?.stoch_k != null && indicators?.stoch_d != null
+                ? `%K ${indicators.stoch_k.toFixed(0)} / %D ${indicators.stoch_d.toFixed(0)}${
+                    indicators.stoch_last_cross
+                      ? ` · 直近${indicators.stoch_last_cross === "gc" ? "GC" : "DC"}`
+                      : ""
+                  }`
+                : "—"}
+            </dd>
+          </div>
+        ) : (
+          <div>
+            <dt className="text-xs text-content-muted">次の半減期</dt>
+            <dd className="font-japanese text-slate-300">
+              {holdContext?.next_halving_label ?? "—"}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <p className="mt-3 text-xs text-content-muted">
-        上段＝価格（水色帯＝エントリー候補）　下段＝同じ4時間足のストキャス（GC/DCは丸印）　横スクロールで時間軸が連動します
+        {isHodl
+          ? "上段＝価格の長期目安（水色帯＝積み増し候補・緑線＝サイクル参考上値）　損切りは表示しません"
+          : "上段＝価格（水色帯＝エントリー候補）　下段＝ストキャス　ドラッグで移動・ホイールでズーム（TradingView風）"}
       </p>
     </section>
   );

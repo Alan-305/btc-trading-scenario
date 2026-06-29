@@ -15,6 +15,11 @@ from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.schemas.macro_events import MacroEventsResponse
 from app.schemas.extended_market import MacroContextSnapshot
 from app.schemas.market import SentimentIndicators
+from app.services.macro_events_cache import (
+    is_live_macro_response,
+    merge_with_last_good,
+    should_bypass_short_cache,
+)
 from app.services.macro_analysis import enrich_macro_context
 from app.storage.redis_cache import AppCache
 
@@ -72,6 +77,30 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
 async def macro_events(
     days: int = 7,
     http: CollectorHttpClient = Depends(get_http_client),
+    cache: AppCache = Depends(get_redis_cache),
 ):
+    days = max(1, min(days, 30))
+    cache_key = f"{AppCache.MACRO_EVENTS_KEY}:{days}"
+    last_good_key = f"{AppCache.MACRO_EVENTS_KEY}:last_good:{days}"
+
+    cached_raw = await cache.get_json(cache_key)
+    cached = MacroEventsResponse.model_validate(cached_raw) if cached_raw else None
+    if cached and not should_bypass_short_cache(cached):
+        return cached
+
+    last_good_raw = await cache.get_json(last_good_key)
+    last_good = MacroEventsResponse.model_validate(last_good_raw) if last_good_raw else None
+
     service = MacroEventsService(http)
-    return await service.fetch(days=days)
+    fresh = await service.fetch(days=days)
+    response = merge_with_last_good(fresh, last_good)
+
+    if is_live_macro_response(fresh):
+        payload = fresh.model_dump(mode="json")
+        await cache.set_json(cache_key, payload, ttl=3600)
+        await cache.set_json(last_good_key, payload, ttl=86400)
+        return fresh
+
+    ttl = 1800 if is_live_macro_response(response) else 300
+    await cache.set_json(cache_key, response.model_dump(mode="json"), ttl=ttl)
+    return response

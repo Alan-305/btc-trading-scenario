@@ -6,6 +6,7 @@ from app.ml.features import FeatureEngine
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot
 from app.schemas.scenario import MacroTrend, TradeSide
 from app.services.scenario_market_context import ScenarioMarketContext
+from app.services.multi_timeframe import evaluate_mtf_entry_gate, layer_by_interval
 from app.services.trade_levels import compute_entry_zone, compute_trade_exits, resolve_atr_pct
 
 
@@ -258,6 +259,27 @@ class ScenarioInference:
         elif ta and ta.stoch_zone == "overbought":
             bearish_score += 1
 
+        if context.mtf:
+            layers = layer_by_interval(context.mtf)
+            weekly = layers.get("1w")
+            daily = layers.get("1d")
+            hourly = layers.get("1h")
+            if weekly:
+                if weekly.trend == "bullish":
+                    bullish_score += 2
+                elif weekly.trend == "bearish":
+                    bearish_score += 2
+            if daily:
+                if daily.trend == "bullish":
+                    bullish_score += 1
+                elif daily.trend == "bearish":
+                    bearish_score += 1
+            if hourly:
+                if hourly.stoch_last_cross == "gc":
+                    bullish_score += 1
+                elif hourly.stoch_last_cross == "dc":
+                    bearish_score += 1
+
         return bullish_score, bearish_score
 
     def _pick_primary_trend(self, bullish_score: int, bearish_score: int) -> MacroTrend:
@@ -295,11 +317,20 @@ class ScenarioInference:
             confidence = round(confidence * 0.88, 2)
 
         entry_low, entry_high = compute_entry_zone(
-            price, side, ta, context.heatmap, confidence=confidence
+            price, side, ta, context.heatmap, confidence=confidence, mtf=context.mtf
         )
         take_profit, stop_loss = compute_trade_exits(
-            entry_low, entry_high, price, side, ta, context
+            entry_low, entry_high, price, side, ta, context, mtf=context.mtf
         )
+
+        gate = evaluate_mtf_entry_gate(side, price, context.mtf)
+        if gate:
+            if gate.entry_blocked:
+                confidence = round(confidence * 0.82, 2)
+            elif gate.htf_aligned:
+                confidence = round(min(0.85, confidence * 1.08), 2)
+            if gate.near_htf_barrier:
+                confidence = round(confidence * 0.9, 2)
 
         direction = 1 if macro_trend == "bullish" else -1
         forecast_prices = [
@@ -310,11 +341,18 @@ class ScenarioInference:
         if context.research:
             research_note = f"登録調査メモ {len(context.research)} 件も方向判断に反映。"
 
+        mtf_note = ""
+        if gate:
+            mtf_note = f" {gate.gate_summary_ja}"
+            if gate.caution_ja:
+                mtf_note += gate.caution_ja
+
         trend_ja = "上昇" if macro_trend == "bullish" else "下降"
         entry_rationale = (
             f"【{trend_ja}シナリオ】基準価格 {price:,.0f} 付近（{feat.reference_exchange}）。"
             f"スプレッド {feat.spread_pct:.3f}%、{feat.orderbook_imbalance_detail}・"
-            f"テクニカル・板クラスターを前提にした{('ロング' if side == 'long' else 'ショート')}向けエントリー帯です。{research_note}"
+            f"MTF（週足→日足→4H→1H）・板クラスターを前提にした"
+            f"{('ロング' if side == 'long' else 'ショート')}向けエントリー帯です。{research_note}{mtf_note}"
         )
         exit_rationale = self._exit_rationale(price, ta, context)
 

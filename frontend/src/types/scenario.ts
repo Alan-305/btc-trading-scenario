@@ -37,6 +37,40 @@ export interface ScenarioIndicators {
   stoch_k?: number | null;
   stoch_d?: number | null;
   stoch_last_cross?: "gc" | "dc" | null;
+  mtf_summary_ja?: string | null;
+  mtf_htf_aligned?: boolean | null;
+  mtf_entry_blocked?: boolean | null;
+  mtf_entry_timing_ready?: boolean | null;
+  mtf_near_htf_barrier?: boolean | null;
+}
+
+export type MtfInterval = "1w" | "1d" | "4h" | "1h";
+export type MtfTrend = "bullish" | "bearish" | "range";
+
+export interface MtfTimeframeLayer {
+  interval: MtfInterval;
+  label_ja: string;
+  trend: MtfTrend;
+  support: number | null;
+  resistance: number | null;
+  stoch_last_cross?: "gc" | "dc" | null;
+  stoch_zone?: "oversold" | "overbought" | "neutral" | null;
+  summary_ja: string;
+}
+
+export interface MtfEntryGate {
+  side: TradeSide;
+  htf_aligned: boolean;
+  entry_blocked: boolean;
+  entry_timing_ready: boolean;
+  near_htf_barrier: boolean;
+  gate_summary_ja: string;
+  caution_ja: string | null;
+}
+
+export interface MtfAnalysis {
+  layers: MtfTimeframeLayer[];
+  summary_ja: string;
 }
 
 export interface ScenarioDataSources {
@@ -51,16 +85,47 @@ export interface ScenarioDataSources {
   includes_onchain?: boolean;
   includes_usdt_dominance?: boolean;
   includes_equity_markets?: boolean;
+  includes_mtf?: boolean;
   personalized: boolean;
 }
 
-export type ScenarioHorizonId = "today" | "week" | "month" | "halving";
+export type ScenarioHorizonId = "today" | "week" | "hodl";
+export type HorizonMode = "swing" | "hodl";
 export type TradeBranch = "bullish" | "bearish";
+
+export interface HoldBuyZone {
+  label: string;
+  zone_low: number;
+  zone_high: number;
+  rationale: string;
+}
+
+export interface CyclePeakTarget {
+  cycle_label: string;
+  peak_window: string;
+  price_low: number;
+  price_high: number;
+  note_ja: string;
+}
+
+export interface HoldScenarioContext {
+  cycle_phase_ja: string;
+  days_since_halving: number;
+  days_to_next_halving: number;
+  last_halving_label: string;
+  next_halving_label: string;
+  cycle_window_note_ja: string;
+  buy_zones: HoldBuyZone[];
+  peak_targets: CyclePeakTarget[];
+  research_notes: string[];
+}
 
 export interface ScenarioHorizonBundle {
   id: ScenarioHorizonId;
   label: string;
   period_hint: string;
+  horizon_mode?: HorizonMode;
+  hold_context?: HoldScenarioContext | null;
   entry: EntryZone;
   exit: ExitStrategy;
   forecast: ForecastPoint[];
@@ -99,6 +164,8 @@ export interface ScenarioResponse {
   bearish?: DirectionalScenario | null;
   watch?: WatchScenario | null;
   indicators: ScenarioIndicators;
+  mtf?: MtfAnalysis | null;
+  mtf_gates?: MtfEntryGate[];
   data_sources?: ScenarioDataSources | null;
   generated_at: string;
   disclaimer: string;

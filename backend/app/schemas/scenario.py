@@ -5,12 +5,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.mtf import MtfAnalysis, MtfEntryGate
 from app.schemas.scenario_context import ScenarioDataSources
 
 
 MacroTrend = Literal["bullish", "bearish", "range"]
 TradeSide = Literal["long", "short", "neutral"]
-ScenarioHorizonId = Literal["today", "week", "month", "halving"]
+ScenarioHorizonId = Literal["today", "week", "hodl"]
+HorizonMode = Literal["swing", "hodl"]
 
 
 class EntryZone(BaseModel):
@@ -49,12 +51,46 @@ class ScenarioIndicators(BaseModel):
     stoch_k: float | None = None
     stoch_d: float | None = None
     stoch_last_cross: str | None = None
+    mtf_summary_ja: str | None = None
+    mtf_htf_aligned: bool | None = None
+    mtf_entry_blocked: bool | None = None
+    mtf_entry_timing_ready: bool | None = None
+    mtf_near_htf_barrier: bool | None = None
+
+
+class HoldBuyZone(BaseModel):
+    label: str
+    zone_low: float
+    zone_high: float
+    rationale: str
+
+
+class CyclePeakTarget(BaseModel):
+    cycle_label: str
+    peak_window: str
+    price_low: float
+    price_high: float
+    note_ja: str
+
+
+class HoldScenarioContext(BaseModel):
+    cycle_phase_ja: str
+    days_since_halving: int
+    days_to_next_halving: int
+    last_halving_label: str
+    next_halving_label: str
+    cycle_window_note_ja: str
+    buy_zones: list[HoldBuyZone] = Field(default_factory=list)
+    peak_targets: list[CyclePeakTarget] = Field(default_factory=list)
+    research_notes: list[str] = Field(default_factory=list)
 
 
 class ScenarioHorizonBundle(BaseModel):
     id: ScenarioHorizonId
     label: str
     period_hint: str
+    horizon_mode: HorizonMode = "swing"
+    hold_context: HoldScenarioContext | None = None
     entry: EntryZone
     exit: ExitStrategy
     forecast: list[ForecastPoint]
@@ -93,6 +129,8 @@ class ScenarioResponse(BaseModel):
     bearish: DirectionalScenario | None = None
     watch: WatchScenario | None = None
     indicators: ScenarioIndicators
+    mtf: MtfAnalysis | None = None
+    mtf_gates: list[MtfEntryGate] = Field(default_factory=list)
     data_sources: ScenarioDataSources | None = None
     generated_at: datetime
     disclaimer: str = "本情報は参考情報であり、投資助言ではありません。"

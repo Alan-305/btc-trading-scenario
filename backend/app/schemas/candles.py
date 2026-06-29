@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-CandleInterval = Literal["1h", "4h", "1d"]
+CandleInterval = Literal["1h", "4h", "1d", "1w"]
 
 
 class Candle(BaseModel):

@@ -83,6 +83,7 @@ def get_scenario_builder(
         usdt_dominance=CoingeckoUsdtDominanceClient(http),
         equity_indices=EquityIndicesClient(http),
         liquidation_feed=LiquidationFeed(OkxLiquidationClient(http)),
+        http=http,
     )
 
 

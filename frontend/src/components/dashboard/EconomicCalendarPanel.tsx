@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { MacroEvent, MacroEventsResponse } from "../../types/macro-events";
 
 const IMPACT_STYLE: Record<
@@ -21,6 +22,8 @@ const IMPACT_STYLE: Record<
   },
 };
 
+const COLLAPSED_VISIBLE = 5;
+
 function formatEventTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -33,8 +36,43 @@ function formatEventTime(iso: string): string {
   });
 }
 
+function formatDayKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  });
+}
+
 function eventLabel(ev: MacroEvent): string {
   return ev.name_ja || ev.name;
+}
+
+function MacroEventRow({ ev }: { ev: MacroEvent }) {
+  const style = IMPACT_STYLE[ev.impact];
+  return (
+    <li className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-surface-border/60 bg-surface-elevated/40 px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex flex-wrap items-center gap-2">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} aria-hidden />
+          <span className="font-japanese text-xs font-medium text-slate-200">{eventLabel(ev)}</span>
+          <span className={`rounded px-1.5 py-0.5 font-japanese text-[10px] ${style.badge}`}>
+            {ev.country}・{style.label}
+          </span>
+        </div>
+        <p className="font-japanese text-[10px] text-content-muted">{formatEventTime(ev.scheduled_at)}</p>
+        {(ev.estimate || ev.previous) && (
+          <p className="mt-1 font-japanese text-[10px] text-content-muted">
+            {ev.previous ? `前回 ${ev.previous}` : ""}
+            {ev.estimate ? `${ev.previous ? " / " : ""}予想 ${ev.estimate}` : ""}
+            {ev.actual ? ` / 結果 ${ev.actual}` : ""}
+          </p>
+        )}
+      </div>
+    </li>
+  );
 }
 
 interface EconomicCalendarPanelProps {
@@ -43,6 +81,34 @@ interface EconomicCalendarPanelProps {
 }
 
 export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const upcoming = useMemo(() => {
+    const events = data?.events ?? [];
+    return events
+      .filter((ev) => new Date(ev.scheduled_at).getTime() >= Date.now() - 3 * 60 * 60 * 1000)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+  }, [data?.events]);
+
+  const visibleEvents = useMemo(
+    () => (expanded ? upcoming : upcoming.slice(0, COLLAPSED_VISIBLE)),
+    [expanded, upcoming],
+  );
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, MacroEvent[]>();
+    for (const ev of visibleEvents) {
+      const key = formatDayKey(ev.scheduled_at);
+      const list = map.get(key) ?? [];
+      list.push(ev);
+      map.set(key, list);
+    }
+    return Array.from(map.entries());
+  }, [visibleEvents]);
+
+  const hiddenCount = Math.max(0, upcoming.length - COLLAPSED_VISIBLE);
+  const needsCollapse = upcoming.length > COLLAPSED_VISIBLE;
+
   if (loading && !data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -51,9 +117,6 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
       </div>
     );
   }
-
-  const events = data?.events ?? [];
-  const upcoming = events.filter((ev) => new Date(ev.scheduled_at).getTime() >= Date.now() - 3 * 60 * 60 * 1000);
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -67,6 +130,7 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
               ? "Forex Factory"
               : "FOMC静的"}
           ）— 高インパクトはエントリーチャートにも表示
+          {upcoming.length > 0 ? ` · 予定 ${upcoming.length} 件` : ""}
         </p>
       </header>
 
@@ -79,35 +143,36 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
       {upcoming.length === 0 ? (
         <p className="text-sm text-content-muted">直近の予定イベントはありません。</p>
       ) : (
-        <ul className="space-y-2">
-          {upcoming.slice(0, 12).map((ev) => {
-            const style = IMPACT_STYLE[ev.impact];
-            return (
-              <li
-                key={ev.event_id}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-surface-border/60 bg-surface-elevated/40 px-3 py-2.5"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} aria-hidden />
-                    <span className="font-japanese text-xs font-medium text-slate-200">{eventLabel(ev)}</span>
-                    <span className={`rounded px-1.5 py-0.5 font-japanese text-[10px] ${style.badge}`}>
-                      {ev.country}・{style.label}
-                    </span>
-                  </div>
-                  <p className="font-japanese text-[10px] text-content-muted">{formatEventTime(ev.scheduled_at)}</p>
-                  {(ev.estimate || ev.previous) && (
-                    <p className="mt-1 font-japanese text-[10px] text-content-muted">
-                      {ev.previous ? `前回 ${ev.previous}` : ""}
-                      {ev.estimate ? `${ev.previous ? " / " : ""}予想 ${ev.estimate}` : ""}
-                      {ev.actual ? ` / 結果 ${ev.actual}` : ""}
-                    </p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-3">
+          {grouped.map(([dayLabel, dayEvents], index) => (
+            <details
+              key={dayLabel}
+              className="group rounded-lg border border-surface-border/60 bg-surface-elevated/20"
+              open={expanded || index === 0}
+            >
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="font-japanese text-xs font-medium text-slate-200">{dayLabel}</span>
+                <span className="font-japanese text-[10px] text-content-muted">{dayEvents.length} 件</span>
+              </summary>
+              <ul className="space-y-2 border-t border-surface-border/40 px-2 pb-2 pt-2">
+                {dayEvents.map((ev) => (
+                  <MacroEventRow key={ev.event_id} ev={ev} />
+                ))}
+              </ul>
+            </details>
+          ))}
+
+          {needsCollapse ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((prev) => !prev)}
+              className="min-h-[44px] w-full rounded-lg border border-surface-border px-3 py-2 font-japanese text-xs text-content-secondary transition hover:border-content-muted hover:text-slate-200"
+              aria-expanded={expanded}
+            >
+              {expanded ? "折りたたむ" : `さらに表示（あと ${hiddenCount} 件）`}
+            </button>
+          ) : null}
+        </div>
       )}
 
       <div className="mt-3 flex flex-wrap gap-3 font-japanese text-[10px] text-content-muted">

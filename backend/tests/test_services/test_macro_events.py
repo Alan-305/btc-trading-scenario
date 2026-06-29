@@ -33,3 +33,22 @@ def test_forex_factory_us_high_impact_parsed():
     assert ev.country == "US"
     assert ev.impact == "high"
     assert ev.source == "forex_factory"
+
+
+def test_forex_factory_csv_row_parsed():
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    row = {
+        "title": "Non-Farm Employment Change",
+        "country": "USD",
+        "date": "07-02-2026",
+        "time": "12:30pm",
+        "impact": "High",
+        "forecast": "180K",
+        "previous": "200K",
+    }
+    ev = _parse_row(row, 0, start, end)
+    assert ev is not None
+    assert ev.country == "US"
+    assert ev.scheduled_at.hour == 16
+    assert ev.scheduled_at.minute == 30

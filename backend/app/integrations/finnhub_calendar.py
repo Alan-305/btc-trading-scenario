@@ -70,6 +70,8 @@ class MacroEventsService:
             )
 
         static_events = static_us_macro_events(start, end)
+        if not static_events:
+            static_events = static_us_macro_events(now, now + timedelta(days=60))
         if not key:
             note = "経済カレンダーフィードを取得できませんでした。FOMC日程のみ表示しています。"
         elif finnhub_error:
@@ -79,12 +81,14 @@ class MacroEventsService:
             )
         else:
             note = "経済カレンダーの取得に失敗したため、FOMC日程のみ表示しています。"
+        if not static_events and key:
+            note = "経済イベントを取得できませんでした。"
         return MacroEventsResponse(
             events=static_events,
             source="static_fomc",
             window_days=days,
             fetched_at=now,
-            note_ja=note if static_events or not key else "経済イベントを取得できませんでした。",
+            note_ja=note,
         )
 
     async def _fetch_finnhub(self, start: datetime, end: datetime, api_key: str) -> list[MacroEvent]:

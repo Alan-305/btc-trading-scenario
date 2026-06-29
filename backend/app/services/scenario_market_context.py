@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from app.schemas.candles import RiskZonesResponse, TechnicalAnalysisResponse
 from app.schemas.market import CoinglassSnapshot, FearGreedIndex, MarketSnapshot, OrderbookHeatmapCell
+from app.schemas.mtf import MtfAnalysis
 from app.schemas.scenario_context import ResearchContextItem
 from app.schemas.extended_market import (
     BtcEtfFlowSnapshot,
@@ -42,6 +43,7 @@ class ScenarioMarketContext:
     usdt_dominance: UsdtDominanceSnapshot | None = None
     equity_markets: GlobalEquitySnapshot | None = None
     research: list[ResearchContextItem] = field(default_factory=list)
+    mtf: MtfAnalysis | None = None
 
     def to_writer_facts(
         self,
@@ -108,6 +110,22 @@ class ScenarioMarketContext:
                     "summary_ja": self.technical.stoch_summary_ja,
                     "stance": self.technical.stoch_stance,
                 }
+
+        if self.mtf:
+            facts["multi_timeframe"] = {
+                "summary_ja": self.mtf.summary_ja,
+                "layers": [
+                    {
+                        "interval": layer.interval,
+                        "label_ja": layer.label_ja,
+                        "trend": layer.trend,
+                        "support_usd": layer.support,
+                        "resistance_usd": layer.resistance,
+                        "summary_ja": layer.summary_ja,
+                    }
+                    for layer in self.mtf.layers
+                ],
+            }
 
         if self.risk_zones:
             rz: dict = {"reference_price_usd": self.risk_zones.reference_price}

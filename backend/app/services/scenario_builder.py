@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from app.integrations.alternative_me import AlternativeMeClient
+from app.collectors.http_client import CollectorHttpClient
+from app.integrations.finnhub_calendar import MacroEventsService
 from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
 from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
@@ -24,6 +25,7 @@ from app.schemas.scenario import (
     WatchScenario,
 )
 from app.schemas.scenario_context import ResearchContextItem, ScenarioDataSources
+from app.schemas.mtf import MtfEntryGate
 from app.services.divergence import DivergenceService
 from app.services.market_aggregator import MarketAggregator
 from app.services.market_sessions import MarketSessionsService
@@ -33,6 +35,7 @@ from app.services.scenario_context import reference_price_from_snapshot
 from app.services.scenario_horizons import build_scenario_horizons
 from app.services.scenario_market_context import ScenarioMarketContext, summarize_heatmap
 from app.services.macro_analysis import enrich_equity_markets, enrich_usdt_dominance
+from app.services.multi_timeframe import build_mtf_analysis, evaluate_mtf_entry_gate
 from app.services.technical_analysis import TechnicalAnalysisService
 from app.services.volume_profile import OrderbookHeatmapService
 
@@ -57,6 +60,7 @@ class ScenarioBuilder:
         onchain: OnChainMetricsClient | None = None,
         usdt_dominance: CoingeckoUsdtDominanceClient | None = None,
         equity_indices: EquityIndicesClient | None = None,
+        http: CollectorHttpClient | None = None,
     ):
         self.aggregator = aggregator
         self.divergence = divergence
@@ -75,6 +79,16 @@ class ScenarioBuilder:
         self.onchain = onchain
         self.usdt_dominance = usdt_dominance
         self.equity_indices = equity_indices
+        self.http = http
+
+    async def _fetch_macro_events(self):
+        if not self.http:
+            return []
+        try:
+            resp = await MacroEventsService(self.http).fetch(days=7)
+            return resp.events
+        except Exception:
+            return []
 
     async def _collect_market_context(
         self,
@@ -86,12 +100,27 @@ class ScenarioBuilder:
         cg = await self.coinglass.fetch_snapshot()
 
         technical = None
+        mtf = None
         if self.klines:
             try:
-                candles = await self.klines.fetch(interval="4h", limit=250)
-                technical = self.technical.analyze(candles, interval="4h")
+                intervals = ("1w", "1d", "4h", "1h")
+                limits = {"1w": 250, "1d": 250, "4h": 250, "1h": 250}
+                candle_results = await asyncio.gather(
+                    *[self.klines.fetch(interval=iv, limit=limits[iv]) for iv in intervals],
+                    return_exceptions=True,
+                )
+                analyses: dict = {}
+                for iv, result in zip(intervals, candle_results, strict=True):
+                    if isinstance(result, Exception) or not result:
+                        continue
+                    analyses[iv] = (result, self.technical.analyze(result, interval=iv))
+                if "4h" in analyses:
+                    technical = analyses["4h"][1]
+                if analyses:
+                    mtf = build_mtf_analysis(analyses)
             except Exception:
                 technical = None
+                mtf = None
 
         heatmap_cells = self.heatmap.compute(snapshot.orderbooks, reference_price=ref_price)
         heatmap_summary = summarize_heatmap(heatmap_cells, ref_price)
@@ -125,6 +154,7 @@ class ScenarioBuilder:
             usdt_dominance=usdt,
             equity_markets=equity,
             research=research or [],
+            mtf=mtf,
         )
 
     async def _build_directional(
@@ -167,6 +197,13 @@ class ScenarioBuilder:
             if context.sessions and context.sessions.entry_hint
             else None
         )
+        macro_events = await self._fetch_macro_events()
+        research_notes = [
+            item.title.strip()
+            for item in context.research
+            if getattr(item, "title", None) and str(item.title).strip()
+        ][:5]
+        support = context.technical.support if context.technical else None
 
         horizons = build_scenario_horizons(
             price=context.reference_price,
@@ -181,6 +218,9 @@ class ScenarioBuilder:
             today_forecast=forecast,
             research_count=len(context.research),
             session_summary=session_summary,
+            macro_events=macro_events,
+            support=support,
+            research_notes=research_notes or None,
         )
 
         return DirectionalScenario(
@@ -241,10 +281,18 @@ class ScenarioBuilder:
             rationale=watch.rationale,
         )
 
-    def _build_indicators(self, context: ScenarioMarketContext) -> ScenarioIndicators:
+    def _build_indicators(
+        self,
+        context: ScenarioMarketContext,
+        *,
+        primary_side: str = "neutral",
+        primary_price: float = 0.0,
+    ) -> ScenarioIndicators:
         ta_trend = context.technical.trend if context.technical else None
         if ta_trend == "neutral":
             ta_trend = "range"
+
+        gate = evaluate_mtf_entry_gate(primary_side, primary_price, context.mtf)  # type: ignore[arg-type]
 
         return ScenarioIndicators(
             fear_greed=context.fear_greed.value if context.fear_greed else None,
@@ -266,7 +314,23 @@ class ScenarioBuilder:
             stoch_k=context.technical.stoch_k if context.technical else None,
             stoch_d=context.technical.stoch_d if context.technical else None,
             stoch_last_cross=context.technical.stoch_last_cross if context.technical else None,
+            mtf_summary_ja=context.mtf.summary_ja if context.mtf else None,
+            mtf_htf_aligned=gate.htf_aligned if gate else None,
+            mtf_entry_blocked=gate.entry_blocked if gate else None,
+            mtf_entry_timing_ready=gate.entry_timing_ready if gate else None,
+            mtf_near_htf_barrier=gate.near_htf_barrier if gate else None,
         )
+
+    def _build_mtf_gates(self, context: ScenarioMarketContext) -> list[MtfEntryGate]:
+        gates: list[MtfEntryGate] = []
+        price = context.reference_price
+        if not context.mtf or price <= 0:
+            return gates
+        for side in ("long", "short"):
+            gate = evaluate_mtf_entry_gate(side, price, context.mtf)  # type: ignore[arg-type]
+            if gate:
+                gates.append(gate)
+        return gates
 
     def _build_data_sources(self, context: ScenarioMarketContext) -> ScenarioDataSources:
         return ScenarioDataSources(
@@ -281,6 +345,7 @@ class ScenarioBuilder:
             includes_onchain=context.onchain is not None,
             includes_usdt_dominance=context.usdt_dominance is not None,
             includes_equity_markets=context.equity_markets is not None,
+            includes_mtf=context.mtf is not None,
             personalized=len(context.research) > 0,
         )
 
@@ -345,7 +410,13 @@ class ScenarioBuilder:
             bullish=bullish_bundle,
             bearish=bearish_bundle,
             watch=watch_bundle,
-            indicators=self._build_indicators(context),
+            indicators=self._build_indicators(
+                context,
+                primary_side=entry.side,
+                primary_price=context.reference_price,
+            ),
+            mtf=context.mtf,
+            mtf_gates=self._build_mtf_gates(context),
             data_sources=self._build_data_sources(context),
             generated_at=now,
         )

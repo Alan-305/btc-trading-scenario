@@ -1,3 +1,4 @@
+import { candleIntervalHours, formatEntryChartCompact, type CandleInterval } from "./candle-interval";
 import type { StochSeriesPoint } from "../types/market";
 
 export interface AlignedStochRow {
@@ -26,6 +27,32 @@ function findClosestStoch(
     }
   }
   return best;
+}
+
+/** Align stoch series to candle timestamps (technical chart). */
+export function alignStochToCandles(
+  candles: { ts: string }[],
+  series: StochSeriesPoint[],
+  interval: CandleInterval,
+): AlignedStochRow[] {
+  const toleranceMs = candleIntervalHours(interval) * 60 * 60 * 1000;
+  return candles.map((candle) => {
+    const label = formatEntryChartCompact(candle.ts);
+    const targetMs = new Date(candle.ts).getTime();
+    if (Number.isNaN(targetMs)) {
+      return { ts: label, k: null, d: null, cross: null };
+    }
+    const pt = findClosestStoch(series, targetMs, toleranceMs);
+    if (!pt) {
+      return { ts: label, k: null, d: null, cross: null };
+    }
+    return {
+      ts: label,
+      k: pt.k,
+      d: pt.d,
+      cross: pt.cross,
+    };
+  });
 }
 
 /** Align stoch series to entry chart rows (same `ts` labels). */

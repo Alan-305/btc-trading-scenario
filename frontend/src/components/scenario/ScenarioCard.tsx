@@ -9,6 +9,9 @@ import {
   resolveDirectionalScenario,
   resolveHorizons,
 } from "../../lib/scenario-branches";
+import { isHodlHorizon } from "../../lib/scenario-horizons";
+import { HoldScenarioPanel } from "./HoldScenarioPanel";
+import { MtfSummaryPanel } from "./MtfSummaryPanel";
 
 const BRANCH_LABEL: Record<TradeBranch, { text: string; color: string }> = {
   bullish: { text: "上昇シナリオ", color: "text-accent-green" },
@@ -36,6 +39,7 @@ export function ScenarioCard({
   const branchMeta = BRANCH_LABEL[activeBranch];
   const recommended = recommendedBranch(scenario);
   const watchPrimary = isWatchRecommended(scenario);
+  const isHodl = isHodlHorizon(active.id, active.horizon_mode);
 
   if (!directional || !active) {
     return null;
@@ -88,20 +92,22 @@ export function ScenarioCard({
             onClick={() => onHorizonChange(h.id)}
             className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-medium transition ${
               h.id === active.id
-                ? "bg-accent-blue text-white"
+                ? h.id === "hodl"
+                  ? "bg-violet-600 text-white"
+                  : "bg-accent-blue text-white"
                 : "border border-surface-border text-content-secondary hover:border-content-muted"
             }`}
           >
-            {h.id === "today"
-              ? "本日"
-              : h.id === "week"
-                ? "今週"
-                : h.id === "month"
-                  ? "今月"
-                  : "半減期"}
+            {h.id === "today" ? "本日" : h.id === "week" ? "今週" : "ガチホ"}
           </button>
         ))}
       </div>
+
+      {isHodl && active.hold_context ? (
+        <HoldScenarioPanel context={active.hold_context} />
+      ) : null}
+
+      {!isHodl && scenario.mtf ? <MtfSummaryPanel mtf={scenario.mtf} /> : null}
 
       <p className="whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {active.scenario_text_ja}
@@ -117,6 +123,7 @@ export function ScenarioCard({
           {scenario.data_sources.includes_options ? "・オプション" : ""}
           {scenario.data_sources.includes_etf_flows ? "・ETF" : ""}
           {scenario.data_sources.includes_onchain ? "・オンチェーン" : ""}
+          {scenario.data_sources.includes_mtf ? "・MTF" : ""}
           {scenario.data_sources.research_items_used > 0
             ? `・調査メモ ${scenario.data_sources.research_items_used} 件`
             : ""}

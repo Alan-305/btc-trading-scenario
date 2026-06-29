@@ -6,7 +6,7 @@ import { JournalAnalyticsPanel } from "../components/journal/JournalAnalyticsPan
 import { JournalPanel } from "../components/journal/JournalPanel";
 import { LoginForm } from "../components/auth/LoginForm";
 import { LoginSetupHelp } from "../components/auth/LoginSetupHelp";
-import { CandlestickChart } from "../components/chart/CandlestickChart";
+import { TechnicalLinkedChart } from "../components/chart/TechnicalLinkedChart";
 import { ScenarioPriceChart } from "../components/chart/ScenarioPriceChart";
 import { AccuracyPanel } from "../components/dashboard/AccuracyPanel";
 import { CoinglassPanel } from "../components/dashboard/CoinglassPanel";
@@ -19,7 +19,6 @@ import { EquityMarketsPanel } from "../components/dashboard/macro/EquityMarketsP
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
-import { StochasticChart } from "../components/dashboard/StochasticChart";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { DashboardShell } from "../components/layout/DashboardShell";
@@ -33,11 +32,11 @@ import {
   type DashboardSection,
   loadDashboardSection,
 } from "../lib/dashboard-nav";
+import { normalizeHorizonId } from "../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../lib/external-links";
 import {
   type CandleInterval,
   CANDLE_INTERVAL_OPTIONS,
-  candleIntervalLabel,
   ENTRY_CHART_BAR_COUNT,
   ENTRY_CHART_INTERVAL,
   entryChartPeriodHint,
@@ -149,7 +148,10 @@ export function DashboardPage() {
   const activeDirectional = scenario
     ? resolveDirectionalScenario(scenario, activeBranch)
     : null;
-  const activeHorizon = resolveActiveHorizon(activeDirectional, activeHorizonId);
+  const activeHorizon = resolveActiveHorizon(
+    activeDirectional,
+    normalizeHorizonId(activeHorizonId),
+  );
 
   useEffect(() => {
     if (!scenario) return;
@@ -206,7 +208,10 @@ export function DashboardPage() {
     try {
       const [macro, events] = await Promise.all([
         api.getMacroContext(),
-        api.getMacroEvents(7).catch(() => null),
+        api.getMacroEvents(7).catch((eventError) => {
+          console.warn("macro-events fetch failed", eventError);
+          return null;
+        }),
       ]);
       setMacroContext(macro);
       setMacroEvents(events);
@@ -550,9 +555,7 @@ export function DashboardPage() {
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-sm font-medium text-content-secondary">
-            {candleIntervalLabel(candleInterval)}ローソク足
-          </h2>
+          <h2 className="font-english text-sm font-medium text-slate-200">₿BTCUSDT</h2>
           <label className="flex items-center gap-2 text-xs text-content-muted">
             <span>足</span>
             <select
@@ -572,15 +575,41 @@ export function DashboardPage() {
         </div>
         <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
       </div>
+      <IndicatorSignalHeader signal={stochasticSignal(technical)} />
+      <div className="mb-3 flex flex-wrap items-baseline gap-3">
+        <p className="font-english text-sm text-slate-200">
+          %K{" "}
+          <span className="font-semibold text-cyan-300">
+            {technical?.stoch_k?.toFixed(1) ?? "—"}
+          </span>
+          <span className="mx-2 text-content-muted">/</span>
+          %D{" "}
+          <span className="font-semibold text-orange-300">
+            {technical?.stoch_d?.toFixed(1) ?? "—"}
+          </span>
+        </p>
+        {technical?.stoch_last_cross ? (
+          <span
+            className={`rounded-full px-2 py-0.5 font-japanese text-[10px] font-medium ${
+              technical.stoch_last_cross === "gc"
+                ? "bg-accent-green/15 text-accent-green"
+                : "bg-accent-red/15 text-accent-red"
+            }`}
+          >
+            直近{technical.stoch_last_cross === "gc" ? "GC" : "DC"}
+          </span>
+        ) : null}
+      </div>
       {chartLoading && !candles?.candles?.length ? (
         <div className="flex h-80 items-center justify-center rounded-lg border border-dashed border-surface-border/60 text-sm text-content-muted">
           チャート読み込み中…
         </div>
       ) : (
-        <CandlestickChart
+        <TechnicalLinkedChart
           candles={candles?.candles ?? []}
           interval={candleInterval}
           overlays={technical?.overlay_series ?? []}
+          stochSeries={technical?.stoch_series ?? []}
           support={technical?.support}
           resistance={technical?.resistance}
           longLiqLow={riskZones?.long_liquidation?.zone_low}
@@ -589,32 +618,12 @@ export function DashboardPage() {
           shortSqHigh={riskZones?.short_squeeze?.zone_high}
         />
       )}
+      {technical?.stoch_summary_ja ? (
+        <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">
+          {technical.stoch_summary_ja}
+        </p>
+      ) : null}
     </section>
-  );
-
-  const stochSection = (
-    <div>
-      <IndicatorSignalHeader signal={stochasticSignal(technical)} />
-      <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="font-japanese text-sm font-medium text-content-secondary">
-            ストキャスティクス（14,3,3）
-          </h3>
-          <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
-        </div>
-        <StochasticChart
-          series={technical?.stoch_series ?? []}
-          k={technical?.stoch_k ?? null}
-          d={technical?.stoch_d ?? null}
-          lastCross={technical?.stoch_last_cross ?? null}
-        />
-        {technical?.stoch_summary_ja ? (
-          <p className="mt-3 font-japanese text-xs leading-relaxed text-content-muted">
-            {technical.stoch_summary_ja}
-          </p>
-        ) : null}
-      </div>
-    </div>
   );
 
   const showInviteNav = Boolean(user?.email && isEmailAllowedByEnv(user.email));
@@ -648,11 +657,18 @@ export function DashboardPage() {
                 entry={activeHorizon.entry}
                 exit={activeHorizon.exit}
                 horizonId={activeHorizon.id}
-                periodHint={entryChartPeriodHint()}
+                horizonMode={activeHorizon.horizon_mode}
+                holdContext={activeHorizon.hold_context}
+                periodHint={
+                  activeHorizon.id === "hodl"
+                    ? activeHorizon.period_hint
+                    : entryChartPeriodHint()
+                }
                 indicators={scenario.indicators}
                 branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
                 stochSeries={entryTechnical?.stoch_series ?? []}
                 macroEvents={macroEvents?.events ?? []}
+                mtfGates={scenario.mtf_gates}
               />
             )}
             <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
@@ -673,7 +689,6 @@ export function DashboardPage() {
               <IndicatorSignalHeader signal={technicalSignal(technical)} />
               {candleSection}
             </div>
-            {stochSection}
             <div>
               <IndicatorSignalHeader signal={technicalSignal(technical)} />
               <TechnicalAnalysisPanel data={technical} interval={candleInterval} />

@@ -32,5 +32,20 @@ class CollectorHttpClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_text(
+        self,
+        url: str,
+        *,
+        headers: dict | None = None,
+        rate_limit_key: str | None = None,
+    ) -> str:
+        """Single-attempt fetch for rate-limited public feeds (no retry backoff)."""
+        if rate_limit_key:
+            await self._rate_limiters.get(rate_limit_key).acquire()
+
+        resp = await self._client.get(url, headers=headers)
+        resp.raise_for_status()
+        return resp.text
+
     async def aclose(self) -> None:
         await self._client.aclose()

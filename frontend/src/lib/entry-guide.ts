@@ -9,7 +9,8 @@ export type EntryStatus =
   | "near_tp"
   | "near_sl"
   | "watch"
-  | "trend_reversal";
+  | "trend_reversal"
+  | "wait_timing";
 
 export interface EntryGuide {
   status: EntryStatus;
@@ -34,6 +35,11 @@ export interface MacroHints {
   stochK?: number | null;
   stochZone?: string | null;
   macroEventWithinHours?: number | null;
+  mtfEntryBlocked?: boolean | null;
+  mtfEntryTimingReady?: boolean | null;
+  mtfNearHtfBarrier?: boolean | null;
+  mtfGateSummary?: string | null;
+  mtfCaution?: string | null;
 }
 
 const NEAR_TP_PCT = 1.5;
@@ -82,21 +88,6 @@ export function buildEntryGuide(
     };
   }
 
-  const reversalSignals = collectReversalSignals(side, currentPrice, entryMid, macro);
-  if (reversalSignals.length >= 2) {
-    return {
-      status: "trend_reversal",
-      headline: "トレンド転換の兆し⚠️",
-      detail: reversalSignals.join("。") + "。",
-      action:
-        "新規エントリーは控え、保有中なら利確・損切りの再確認を。状況が落ち着くまで様子見も選択肢です。" +
-        macroNote,
-      distanceUsd: null,
-      distancePct: null,
-      direction: side === "long" ? "down" : "up",
-    };
-  }
-
   const slProximity = slDistance(side, currentPrice, stopLoss);
   if (slProximity && slProximity.pct <= NEAR_SL_PCT) {
     return {
@@ -131,9 +122,82 @@ export function buildEntryGuide(
 
   const inZone = currentPrice >= low && currentPrice <= high;
   const zoneDistance = distanceToZone(side, currentPrice, low, high);
+  const reversalSignals = collectReversalSignals(side, currentPrice, entryMid, macro);
+
+  if (inZone) {
+    if (macro?.mtfEntryBlocked) {
+      return {
+        status: "watch",
+        headline: "上位足が逆方向のため様子見",
+        detail:
+          `$${low.toLocaleString()} 〜 $${high.toLocaleString()} の帯内ですが、` +
+          (macro.mtfGateSummary ?? "週足・日足がエントリー方向と一致していません。"),
+        action:
+          "新規エントリーは見送り、上位足の方向が揃うか、日足・4時間足で再整理されるのを待ちましょう。" +
+          macroNote,
+        distanceUsd: 0,
+        distancePct: 0,
+        direction: null,
+      };
+    }
+
+    if (macro?.mtfEntryTimingReady === false) {
+      return {
+        status: "wait_timing",
+        headline: "帯内ですが1時間足の確認待ち",
+        detail:
+          `エントリー帯には入っています。${macro.mtfGateSummary ?? "1時間足でタイミングを確認してください。"}`,
+        action:
+          (side === "long"
+            ? "1時間足でGCや押し目完了のサインを待ってから、ロングを検討しましょう。"
+            : "1時間足でDCや戻り売りのサインを待ってから、ショートを検討しましょう。") + macroNote,
+        distanceUsd: 0,
+        distancePct: 0,
+        direction: null,
+      };
+    }
+
+    const cautionParts: string[] = [];
+    if (reversalSignals.length > 0) {
+      cautionParts.push(reversalSignals.join("・"));
+    }
+    if (macro?.mtfNearHtfBarrier) {
+      cautionParts.push(macro.mtfCaution ?? "週足の主要水準が近い");
+    }
+    const caution = cautionParts.length > 0 ? ` ただし ${cautionParts.join("・")} のため、サイズは控えめに。` : "";
+    return {
+      status: "in_zone",
+      headline: "エントリー帯に入りました",
+      detail: `$${low.toLocaleString()} 〜 $${high.toLocaleString()} の範囲にいます。${caution}`,
+      action:
+        (side === "long"
+          ? "ロングの新規エントリーを検討しましょう。"
+          : side === "short"
+            ? "ショートの新規エントリーを検討しましょう。"
+            : "新規エントリーを検討しましょう。") +
+        " SL・TPは下の目安を参照し、自分のルールでサイズを決めてください。" +
+        macroNote,
+      distanceUsd: 0,
+      distancePct: 0,
+      direction: null,
+    };
+  }
+
+  if (reversalSignals.length >= 2) {
+    return {
+      status: "trend_reversal",
+      headline: "トレンド転換の兆し⚠️",
+      detail: reversalSignals.join("。") + "。",
+      action:
+        "新規エントリーは控え、保有中なら利確・損切りの再確認を。状況が落ち着くまで様子見も選択肢です。" +
+        macroNote,
+      distanceUsd: null,
+      distancePct: null,
+      direction: side === "long" ? "down" : "up",
+    };
+  }
 
   if (
-    !inZone &&
     zoneDistance.pct != null &&
     zoneDistance.pct > WATCH_ZONE_DISTANCE_PCT &&
     (reversalSignals.length >= 1 || macro?.taTrend === "range")
@@ -149,34 +213,6 @@ export function buildEntryGuide(
       distanceUsd: zoneDistance.usd,
       distancePct: zoneDistance.pct,
       direction: zoneDistance.direction,
-    };
-  }
-
-  if (inZone) {
-    if (reversalSignals.length === 1) {
-      return {
-        status: "watch",
-        headline: "今は様子見してください",
-        detail: `エントリー帯内ですが、${reversalSignals[0]}。`,
-        action:
-          "帯内でも材料がぶつかっています。エントリーするならサイズを抑え、SL・TPを厳守してください。" +
-          macroNote,
-        distanceUsd: 0,
-        distancePct: 0,
-        direction: null,
-      };
-    }
-    return {
-      status: "in_zone",
-      headline: "いまがエントリー候補の価格帯です",
-      detail: `$${low.toLocaleString()} 〜 $${high.toLocaleString()} の範囲に入っています。`,
-      action:
-        (side === "long"
-          ? "ロングを検討するなら、この帯でエントリー。SL・TPは下の目安を参照してください。"
-          : "ショートを検討するなら、この帯でエントリー。SL・TPは下の目安を参照してください。") + macroNote,
-      distanceUsd: 0,
-      distancePct: 0,
-      direction: null,
     };
   }
 

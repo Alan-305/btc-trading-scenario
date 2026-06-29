@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { YDomain } from "../../lib/chart-viewport";
 import type { Candle, OverlayPoint } from "../../types/market";
 
 interface CandlestickChartProps {
@@ -11,16 +12,16 @@ interface CandlestickChartProps {
   longLiqHigh?: number | null;
   shortSqLow?: number | null;
   shortSqHigh?: number | null;
+  /** Full scrollable content width (viewport mode). */
+  contentWidth?: number;
+  pointWidth?: number;
+  yDomain?: YDomain;
+  plotLeftMargin?: number;
 }
 
-const W = 800;
-const PRICE_TOP = 16;
-const PRICE_H = 260;
-const VOL_GAP = 10;
-const VOL_H = 56;
-const DATE_TOP = PRICE_TOP + PRICE_H + VOL_GAP + VOL_H + 6;
-const PAD = { left: 8, right: 56 };
-const H = DATE_TOP + 22;
+const DEFAULT_W = 800;
+const CHART_LEFT = 56;
+const PAD_RIGHT = 56;
 
 function formatDate(ts: string): string {
   const d = new Date(ts);
@@ -63,6 +64,13 @@ function buildBandPath(
   return `${forward} ${backward} Z`;
 }
 
+const PRICE_TOP = 16;
+const PRICE_H = 260;
+const VOL_GAP = 10;
+const VOL_H = 56;
+const DATE_TOP = PRICE_TOP + PRICE_H + VOL_GAP + VOL_H + 6;
+const H = DATE_TOP + 22;
+
 export function CandlestickChart({
   candles,
   interval = "4h",
@@ -73,11 +81,22 @@ export function CandlestickChart({
   longLiqHigh,
   shortSqLow,
   shortSqHigh,
+  contentWidth,
+  pointWidth = 44,
+  yDomain: yDomainProp,
+  plotLeftMargin = CHART_LEFT,
 }: CandlestickChartProps) {
   const [hovered, setHovered] = useState<Candle | null>(null);
 
   const intervalTag = interval === "1d" ? "1D" : interval.toUpperCase();
-  const slice = useMemo(() => candles.slice(-60), [candles]);
+  const viewportMode = contentWidth != null;
+  const slice = useMemo(
+    () => (viewportMode ? candles : candles.slice(-60)),
+    [candles, viewportMode],
+  );
+  const W = viewportMode ? contentWidth : DEFAULT_W;
+  const PAD_LEFT = viewportMode ? plotLeftMargin : 8;
+  const PAD = { left: PAD_LEFT, right: PAD_RIGHT };
   const overlayByTs = useMemo(
     () => new Map(overlays.map((o) => [o.ts, o])),
     [overlays],
@@ -91,8 +110,10 @@ export function CandlestickChart({
     );
   }
 
-  const chartW = W - PAD.left - PAD.right;
-  const slot = chartW / slice.length;
+  const chartW = viewportMode
+    ? Math.max(slice.length * pointWidth, contentWidth - PAD.left - PAD.right)
+    : W - PAD.left - PAD.right;
+  const slot = chartW / Math.max(slice.length, 1);
   const bodyW = Math.max(3, slot * 0.55);
 
   const overlayPrices: number[] = [];
@@ -108,8 +129,10 @@ export function CandlestickChart({
   const highs = slice.map((c) => c.high);
   const zoneLows = [support, longLiqLow, shortSqLow].filter((v): v is number => v != null);
   const zoneHighs = [resistance, longLiqHigh, shortSqHigh].filter((v): v is number => v != null);
-  const minP = Math.min(...lows, ...zoneLows, ...overlayPrices) * 0.998;
-  const maxP = Math.max(...highs, ...zoneHighs, ...overlayPrices) * 1.002;
+  const autoMin = Math.min(...lows, ...zoneLows, ...overlayPrices) * 0.998;
+  const autoMax = Math.max(...highs, ...zoneHighs, ...overlayPrices) * 1.002;
+  const minP = yDomainProp ? yDomainProp[0] : autoMin;
+  const maxP = yDomainProp ? yDomainProp[1] : autoMax;
   const range = maxP - minP || 1;
   const maxVol = Math.max(...slice.map((c) => c.volume), 1);
 
@@ -162,13 +185,13 @@ export function CandlestickChart({
         </div>
       )}
 
-      <div className="h-80 w-full">
+      <div className={viewportMode ? "w-full" : "h-80 w-full"}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          width="100%"
-          height="100%"
-          preserveAspectRatio="none"
-          className="block"
+          width={viewportMode ? W : "100%"}
+          height={viewportMode ? H : "100%"}
+          preserveAspectRatio={viewportMode ? "xMinYMid meet" : "none"}
+          className="block pointer-events-none"
         >
           {yTicks.map((tick) => (
             <g key={tick}>
@@ -304,7 +327,7 @@ export function CandlestickChart({
                 key={c.ts}
                 onMouseEnter={() => setHovered(c)}
                 onMouseLeave={() => setHovered(null)}
-                style={{ cursor: "crosshair" }}
+                style={{ cursor: "crosshair", pointerEvents: "all" }}
               >
                 <rect
                   x={PAD.left + i * slot}
@@ -334,31 +357,35 @@ export function CandlestickChart({
             );
           })}
 
-          <text
-            x={PAD.left}
-            y={PRICE_TOP + PRICE_H + VOL_GAP + VOL_H + 12}
-            fill="#64748b"
-            fontSize="9"
-          >
-            出来高
-          </text>
-
-          {dateLabelIndices.map(({ i, day }) => {
-            const cx = PAD.left + i * slot + slot / 2;
-            return (
+          {!viewportMode ? (
+            <>
               <text
-                key={`${day}-${i}`}
-                x={cx}
-                y={DATE_TOP + 12}
-                fill="#94a3b8"
+                x={PAD.left}
+                y={PRICE_TOP + PRICE_H + VOL_GAP + VOL_H + 12}
+                fill="#64748b"
                 fontSize="9"
-                textAnchor="middle"
-                className="font-english"
               >
-                {day}
+                出来高
               </text>
-            );
-          })}
+
+              {dateLabelIndices.map(({ i, day }) => {
+                const cx = PAD.left + i * slot + slot / 2;
+                return (
+                  <text
+                    key={`${day}-${i}`}
+                    x={cx}
+                    y={DATE_TOP + 12}
+                    fill="#94a3b8"
+                    fontSize="9"
+                    textAnchor="middle"
+                    className="font-english"
+                  >
+                    {day}
+                  </text>
+                );
+              })}
+            </>
+          ) : null}
         </svg>
       </div>
 

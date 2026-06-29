@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from app.schemas.candles import TechnicalAnalysisResponse
 from app.schemas.scenario import TradeSide
+from app.schemas.mtf import MtfAnalysis
 from app.services.price_sanity import is_plausible_usd_price
 from app.services.scenario_market_context import HeatmapSummary, ScenarioMarketContext
+from app.services.multi_timeframe import layer_by_interval
 
 DEFAULT_ATR_PCT = 0.025
 MIN_RR = 1.5
@@ -56,6 +58,7 @@ def compute_entry_zone(
     heatmap: HeatmapSummary | None,
     *,
     confidence: float,
+    mtf: MtfAnalysis | None = None,
 ) -> tuple[float, float]:
     atr_pct = resolve_atr_pct(price, ta)
     band = max(0.004, atr_pct * 0.45 * (1.15 if confidence < 0.5 else 1.0))
@@ -82,6 +85,7 @@ def compute_entry_zone(
             secondary = bid_levels[1]
             if secondary < price and secondary > entry_low:
                 entry_low = round(min(entry_low, secondary * 1.001), 2)
+        entry_low, entry_high = _apply_mtf_long_entry(price, mtf, entry_low, entry_high)
     elif side == "short":
         entry_low = round(price * (1 - band * 0.35), 2)
         entry_high = round(price * (1 + band), 2)
@@ -97,6 +101,7 @@ def compute_entry_zone(
             secondary = ask_levels[1]
             if secondary > price and secondary < entry_high:
                 entry_high = round(max(entry_high, secondary * 0.999), 2)
+        entry_low, entry_high = _apply_mtf_short_entry(price, mtf, entry_low, entry_high)
     else:
         if ta and ta.support and ta.resistance:
             entry_low = round(ta.support, 2)
@@ -114,6 +119,8 @@ def compute_exit_levels(
     side: TradeSide,
     ta: TechnicalAnalysisResponse | None,
     context: ScenarioMarketContext,
+    *,
+    mtf: MtfAnalysis | None = None,
 ) -> tuple[list[float], float]:
     """Derive TP/SL from entry fill reference, not spot alone."""
     atr_pct = resolve_atr_pct(spot_price, ta)
@@ -134,6 +141,13 @@ def compute_exit_levels(
         resistances: list[float] = []
         if ta and ta.resistance:
             resistances.append(ta.resistance)
+        mtf_layers = layer_by_interval(mtf) if mtf else {}
+        weekly = mtf_layers.get("1w")
+        daily = mtf_layers.get("1d")
+        if weekly and weekly.resistance:
+            resistances.append(weekly.resistance)
+        if daily and daily.resistance:
+            resistances.append(daily.resistance)
         resistances.extend(
             lvl
             for lvl in ask_levels
@@ -158,6 +172,13 @@ def compute_exit_levels(
         supports: list[float] = []
         if ta and ta.support:
             supports.append(ta.support)
+        mtf_layers = layer_by_interval(mtf) if mtf else {}
+        weekly = mtf_layers.get("1w")
+        daily = mtf_layers.get("1d")
+        if weekly and weekly.support:
+            supports.append(weekly.support)
+        if daily and daily.support:
+            supports.append(daily.support)
         supports.extend(
             lvl
             for lvl in bid_levels
@@ -289,14 +310,56 @@ def compute_trade_exits(
     side: TradeSide,
     ta: TechnicalAnalysisResponse | None,
     context: ScenarioMarketContext,
+    *,
+    mtf: MtfAnalysis | None = None,
 ) -> tuple[list[float], float]:
     """Entry-aware TP/SL with enforced minimum reward/risk."""
     from app.services.price_sanity import clamp_exit_levels
 
     entry_ref = entry_reference(entry_low, entry_high, spot_price)
-    take_profit, stop_loss = compute_exit_levels(entry_ref, spot_price, side, ta, context)
+    take_profit, stop_loss = compute_exit_levels(
+        entry_ref, spot_price, side, ta, context, mtf=mtf
+    )
     take_profit, stop_loss = clamp_exit_levels(entry_ref, spot_price, side, take_profit, stop_loss)
     if not take_profit:
-        return compute_exit_levels(entry_ref, spot_price, side, ta, context)
+        return compute_exit_levels(entry_ref, spot_price, side, ta, context, mtf=mtf)
     max_risk = entry_ref * resolve_atr_pct(spot_price, ta) * MAX_SL_ATR_MULT
     return _finalize_exits(entry_ref, side, take_profit, stop_loss, max_risk)
+
+
+def _apply_mtf_long_entry(
+    price: float,
+    mtf: MtfAnalysis | None,
+    entry_low: float,
+    entry_high: float,
+) -> tuple[float, float]:
+    if not mtf:
+        return entry_low, entry_high
+    layers = layer_by_interval(mtf)
+    daily = layers.get("1d")
+    weekly = layers.get("1w")
+    if daily and daily.support and daily.support < price:
+        entry_low = round(min(entry_low, daily.support * 1.001), 2)
+        entry_high = round(max(entry_high, min(daily.support * 1.01, price * 1.008)), 2)
+    if weekly and weekly.resistance and price >= weekly.resistance * 0.985:
+        entry_high = round(min(entry_high, price * 1.002), 2)
+    return entry_low, entry_high
+
+
+def _apply_mtf_short_entry(
+    price: float,
+    mtf: MtfAnalysis | None,
+    entry_low: float,
+    entry_high: float,
+) -> tuple[float, float]:
+    if not mtf:
+        return entry_low, entry_high
+    layers = layer_by_interval(mtf)
+    daily = layers.get("1d")
+    weekly = layers.get("1w")
+    if daily and daily.resistance and daily.resistance > price:
+        entry_high = round(min(entry_high, daily.resistance * 1.001), 2)
+        entry_low = round(max(entry_low, max(daily.resistance * 0.99, price * 0.995)), 2)
+    if weekly and weekly.support and price <= weekly.support * 1.015:
+        entry_low = round(max(entry_low, price * 0.998), 2)
+    return entry_low, entry_high

@@ -27,4 +27,5 @@ class ScenarioDataSources(BaseModel):
     includes_onchain: bool = False
     includes_usdt_dominance: bool = False
     includes_equity_markets: bool = False
+    includes_mtf: bool = False
     personalized: bool = False
