@@ -11,7 +11,10 @@ import {
 } from "recharts";
 import { EntryStochasticPane, ENTRY_STOCH_HEIGHT } from "./EntryStochasticPane";
 import { alignStochToChartRows } from "../../lib/align-stoch-history";
+import { alignMacroEventsToChartRows } from "../../lib/align-macro-events";
+import { macroEventMarkerLabel } from "../dashboard/EconomicCalendarPanel";
 import { buildEntryGuide } from "../../lib/entry-guide";
+import { upcomingHighImpactEvents } from "../../lib/align-macro-events";
 import {
   applyZoomFactor,
   dragZoomFactor,
@@ -21,6 +24,7 @@ import {
   type YDomain,
 } from "../../lib/chart-y-zoom";
 import type { StochSeriesPoint } from "../../types/market";
+import type { MacroEvent } from "../../types/macro-events";
 import type {
   EntryZone,
   ExitStrategy,
@@ -83,6 +87,7 @@ interface ScenarioPriceChartProps {
   indicators?: ScenarioIndicators;
   branchLabel?: string;
   stochSeries?: StochSeriesPoint[];
+  macroEvents?: MacroEvent[];
 }
 
 function formatOpenedAt(d: Date): string {
@@ -217,9 +222,14 @@ export function ScenarioPriceChart({
   indicators,
   branchLabel,
   stochSeries = [],
+  macroEvents = [],
 }: ScenarioPriceChartProps) {
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
   const entryHigh = Math.max(entry.zone_low, entry.zone_high);
+  const nextMacro = upcomingHighImpactEvents(macroEvents, 48)[0];
+  const macroEventWithinHours = nextMacro
+    ? (new Date(nextMacro.scheduled_at).getTime() - Date.now()) / (60 * 60 * 1000)
+    : null;
   const guide = buildEntryGuide(
     currentPrice,
     entry.zone_low,
@@ -238,6 +248,7 @@ export function ScenarioPriceChart({
       usdtDominanceTrend: indicators?.usdt_dominance_trend,
       stochCross: indicators?.stoch_last_cross,
       stochK: indicators?.stoch_k,
+      macroEventWithinHours,
     },
   );
 
@@ -246,6 +257,10 @@ export function ScenarioPriceChart({
   const stochRows = useMemo(
     () => alignStochToChartRows(chartData, stochSeries),
     [chartData, stochSeries],
+  );
+  const macroMarkers = useMemo(
+    () => alignMacroEventsToChartRows(chartData, macroEvents),
+    [chartData, macroEvents],
   );
 
   const baseYDomain = useMemo(
@@ -491,6 +506,23 @@ export function ScenarioPriceChart({
                   ifOverflow="hidden"
                   label={{ value: "いま", fill: "#e2e8f0", fontSize: 10, position: "top" }}
                 />
+                {macroMarkers.map((marker) => (
+                  <ReferenceLine
+                    key={`${marker.ts}-${marker.events[0]?.event_id}`}
+                    x={marker.ts}
+                    stroke={marker.impact === "high" ? "#f87171" : "#fbbf24"}
+                    strokeWidth={1.5}
+                    strokeDasharray="3 3"
+                    ifOverflow="hidden"
+                    label={{
+                      value: macroEventMarkerLabel(marker.events),
+                      fill: marker.impact === "high" ? "#fca5a5" : "#fde68a",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      position: "top",
+                    }}
+                  />
+                ))}
                 {exit.take_profit.map((tp, i) => (
                   <ReferenceLine
                     key={`tp-${i}-${tp}`}

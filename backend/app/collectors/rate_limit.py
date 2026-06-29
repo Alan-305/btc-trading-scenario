@@ -28,6 +28,7 @@ EXCHANGE_RATE_LIMITS: dict[str, float] = {
     "coinbase": 5.0,
     "deribit": 5.0,
     "yahoo": 2.0,
+    "finnhub": 1.0,
     "blockchain": 1.0,
     "mempool": 2.0,
     "coinglass": 2.0,

@@ -73,6 +73,10 @@ export const api = {
     postJson<ScenarioResponse>("/api/v1/scenario", { research }),
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
   getMacroContext: () => fetchJson<MacroContextSnapshot>("/api/v1/indicators/macro"),
+  getMacroEvents: (days = 7) =>
+    fetchJson<import("../types/macro-events").MacroEventsResponse>(
+      `/api/v1/indicators/macro-events?days=${days}`,
+    ),
   getHeatmap: (exchange: HeatmapExchange = "all") => {
     const q =
       exchange && exchange !== "all"

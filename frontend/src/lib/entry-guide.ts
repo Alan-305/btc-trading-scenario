@@ -33,6 +33,7 @@ export interface MacroHints {
   stochCross?: "gc" | "dc" | null;
   stochK?: number | null;
   stochZone?: string | null;
+  macroEventWithinHours?: number | null;
 }
 
 const NEAR_TP_PCT = 1.5;
@@ -53,6 +54,21 @@ export function buildEntryGuide(
   const high = Math.max(entryLow, entryHigh);
   const entryMid = (low + high) / 2;
   const macroNote = formatMacroNote(macro);
+
+  if (macro?.macroEventWithinHours != null && macro.macroEventWithinHours <= 6) {
+    const h = Math.max(0, Math.round(macro.macroEventWithinHours));
+    return {
+      status: "watch",
+      headline: "重要指標の前後は様子見",
+      detail: `高インパクトの経済指標まで約${h}時間です。ボラティリティが急拡大しやすい時間帯です。`,
+      action:
+        "新規エントリーは控えめに。保有中ならサイズ縮小や指標後の値動き確認を優先してください。" +
+        macroNote,
+      distanceUsd: null,
+      distancePct: null,
+      direction: null,
+    };
+  }
 
   if (side === "neutral" || currentPrice <= 0) {
     return {

@@ -14,6 +14,7 @@ import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
 import { IndicatorSignalHeader } from "../components/dashboard/IndicatorSignalHeader";
 import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
+import { EconomicCalendarPanel } from "../components/dashboard/EconomicCalendarPanel";
 import { EquityMarketsPanel } from "../components/dashboard/macro/EquityMarketsPanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
@@ -71,6 +72,7 @@ import {
   technicalSignal,
   usdtDominanceSignal,
 } from "../lib/indicator-signals";
+import type { MacroEventsResponse } from "../types/macro-events";
 import type { JournalEntry } from "../types/journal";
 import type { ResearchItem } from "../types/research";
 import type {
@@ -121,6 +123,8 @@ export function DashboardPage() {
   const [macroContext, setMacroContext] = useState<MacroContextSnapshot | null>(null);
   const [macroLoading, setMacroLoading] = useState(false);
   const [macroError, setMacroError] = useState<string | null>(null);
+  const [macroEvents, setMacroEvents] = useState<MacroEventsResponse | null>(null);
+  const [macroEventsLoading, setMacroEventsLoading] = useState(false);
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
   const [candles, setCandles] = useState<CandlesResponse | null>(null);
   const [entryChartCandles, setEntryChartCandles] = useState<CandlesResponse | null>(null);
@@ -197,15 +201,21 @@ export function DashboardPage() {
 
   const loadMacro = useCallback(async () => {
     setMacroLoading(true);
+    setMacroEventsLoading(true);
     setMacroError(null);
     try {
-      const macro = await api.getMacroContext();
+      const [macro, events] = await Promise.all([
+        api.getMacroContext(),
+        api.getMacroEvents(7).catch(() => null),
+      ]);
       setMacroContext(macro);
+      setMacroEvents(events);
     } catch (e) {
       setMacroContext(null);
       setMacroError(e instanceof Error ? e.message : "マクロデータの取得に失敗しました");
     } finally {
       setMacroLoading(false);
+      setMacroEventsLoading(false);
     }
   }, []);
 
@@ -642,8 +652,10 @@ export function DashboardPage() {
                 indicators={scenario.indicators}
                 branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
                 stochSeries={entryTechnical?.stoch_series ?? []}
+                macroEvents={macroEvents?.events ?? []}
               />
             )}
+            <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
             {sessions && (
               <div>
                 <IndicatorSignalHeader signal={sessionsSignal(sessions)} />

@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     resend_from_email: str = ""
     app_public_url: str = "https://nexus-btc-trading.web.app"
 
+    finnhub_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

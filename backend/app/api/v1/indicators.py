@@ -9,8 +9,10 @@ from app.integrations.btc_etf_flows import BtcEtfFlowClient
 from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.equity_indices import EquityIndicesClient
+from app.integrations.finnhub_calendar import MacroEventsService
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
+from app.schemas.macro_events import MacroEventsResponse
 from app.schemas.extended_market import MacroContextSnapshot
 from app.schemas.market import SentimentIndicators
 from app.services.macro_analysis import enrich_macro_context
@@ -64,3 +66,12 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
             equity_markets=equity,
         )
     )
+
+
+@router.get("/macro-events", response_model=MacroEventsResponse)
+async def macro_events(
+    days: int = 7,
+    http: CollectorHttpClient = Depends(get_http_client),
+):
+    service = MacroEventsService(http)
+    return await service.fetch(days=days)

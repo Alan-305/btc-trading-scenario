@@ -64,6 +64,7 @@ read_env() {
 echo "==> Secrets (from .env where present)"
 GEMINI_KEY="$(read_env GEMINI_API_KEY)"
 COINGLASS_KEY="$(read_env COINGLASS_API_KEY)"
+FINNHUB_KEY="$(read_env FINNHUB_API_KEY)"
 INTERNAL_TOKEN="$(read_env INTERNAL_COLLECT_TOKEN)"
 
 if [[ -z "$GEMINI_KEY" ]]; then
@@ -78,6 +79,7 @@ fi
 
 upsert_secret "GEMINI_API_KEY" "$GEMINI_KEY"
 upsert_optional_secret "COINGLASS_API_KEY" "$COINGLASS_KEY"
+upsert_optional_secret "FINNHUB_API_KEY" "$FINNHUB_KEY"
 upsert_secret "INTERNAL_COLLECT_TOKEN" "$INTERNAL_TOKEN"
 
 echo "==> Firebase web config (for Cloud Build frontend)"
@@ -134,7 +136,7 @@ upsert_secret "FIREBASE_WEB_CONFIG" "$FIREBASE_JSON"
 echo "==> Cloud Build service account: Secret Manager access"
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 CB_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
-for SECRET in GEMINI_API_KEY COINGLASS_API_KEY INTERNAL_COLLECT_TOKEN FIREBASE_WEB_CONFIG; do
+for SECRET in GEMINI_API_KEY COINGLASS_API_KEY FINNHUB_API_KEY INTERNAL_COLLECT_TOKEN FIREBASE_WEB_CONFIG; do
   gcloud secrets add-iam-policy-binding "$SECRET" \
     --member="serviceAccount:${CB_SA}" \
     --role="roles/secretmanager.secretAccessor" \
@@ -142,7 +144,7 @@ for SECRET in GEMINI_API_KEY COINGLASS_API_KEY INTERNAL_COLLECT_TOKEN FIREBASE_W
 done
 
 RUN_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
-for SECRET in GEMINI_API_KEY COINGLASS_API_KEY INTERNAL_COLLECT_TOKEN FIREBASE_WEB_CONFIG; do
+for SECRET in GEMINI_API_KEY COINGLASS_API_KEY FINNHUB_API_KEY INTERNAL_COLLECT_TOKEN FIREBASE_WEB_CONFIG; do
   gcloud secrets add-iam-policy-binding "$SECRET" \
     --member="serviceAccount:${RUN_SA}" \
     --role="roles/secretmanager.secretAccessor" \
