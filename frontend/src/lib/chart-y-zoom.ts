@@ -14,8 +14,20 @@ export function panYDomain(domain: YDomain, delta: number): YDomain {
   return [domain[0] + delta, domain[1] + delta];
 }
 
-export function wheelZoomFactor(deltaY: number): number {
-  return deltaY > 0 ? 0.92 : 1.08;
+export function wheelZoomFactor(deltaY: number, options?: { pinch?: boolean }): number {
+  if (options?.pinch) {
+    const step = Math.min(0.12, Math.abs(deltaY) * 0.01);
+    return deltaY > 0 ? 1 - step : 1 + step;
+  }
+  const step = Math.min(0.15, Math.abs(deltaY) / 120);
+  if (step < 0.002) return 1;
+  return deltaY > 0 ? 1 - step : 1 + step;
+}
+
+/** Apply multiplicative zoom factor to domain (factor > 1 zooms in). */
+export function applyZoomFactor(domain: YDomain, factor: number, anchor: number): YDomain {
+  if (Math.abs(factor - 1) < 0.001) return domain;
+  return zoomYDomain(domain, factor, anchor);
 }
 
 /** Drag up on price scale = zoom in (TradingView-like). */

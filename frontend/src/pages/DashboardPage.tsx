@@ -121,6 +121,7 @@ export function DashboardPage() {
   const [sessions, setSessions] = useState<MarketSessionsResponse | null>(null);
   const [candles, setCandles] = useState<CandlesResponse | null>(null);
   const [entryChartCandles, setEntryChartCandles] = useState<CandlesResponse | null>(null);
+  const [entryTechnical, setEntryTechnical] = useState<TechnicalAnalysis | null>(null);
   const [technical, setTechnical] = useState<TechnicalAnalysis | null>(null);
   const [riskZones, setRiskZones] = useState<RiskZonesResponse | null>(null);
   const [accuracy, setAccuracy] = useState<AccuracySummary | null>(null);
@@ -165,10 +166,15 @@ export function DashboardPage() {
 
   const loadEntryChart = useCallback(async () => {
     try {
-      const data = await api.getCandles(ENTRY_CHART_INTERVAL, ENTRY_CHART_BAR_COUNT);
-      setEntryChartCandles(data);
+      const [candles, ta] = await Promise.all([
+        api.getCandles(ENTRY_CHART_INTERVAL, ENTRY_CHART_BAR_COUNT),
+        api.getTechnical(ENTRY_CHART_INTERVAL).catch(() => null),
+      ]);
+      setEntryChartCandles(candles);
+      setEntryTechnical(ta);
     } catch {
       setEntryChartCandles(null);
+      setEntryTechnical(null);
     }
   }, []);
 
@@ -255,6 +261,7 @@ export function DashboardPage() {
       setSentiment(null);
       setCandles(null);
       setEntryChartCandles(null);
+      setEntryTechnical(null);
       setTechnical(null);
       setRiskZones(null);
       setError(null);
@@ -394,6 +401,7 @@ export function DashboardPage() {
   const entryHistory = entryChartCandles?.candles.length
     ? entryChartCandles.candles.map((c) => ({
         ts: formatEntryChartCompact(c.ts),
+        isoTs: c.ts,
         price: c.close,
         type: "history" as const,
       }))
@@ -597,6 +605,7 @@ export function DashboardPage() {
                 periodHint={entryChartPeriodHint()}
                 indicators={scenario.indicators}
                 branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
+                stochSeries={entryTechnical?.stoch_series ?? []}
               />
             )}
             <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />
