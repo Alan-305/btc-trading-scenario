@@ -144,6 +144,7 @@ export function DashboardPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
   const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
+  const hasInitializedScenarioSelection = useRef(false);
 
   const activeDirectional = scenario
     ? resolveDirectionalScenario(scenario, activeBranch)
@@ -154,10 +155,16 @@ export function DashboardPage() {
   );
 
   useEffect(() => {
-    if (!scenario) return;
-    setActiveBranch(recommendedBranch(scenario));
-    setActiveHorizonId("today");
-  }, [scenario?.generated_at]);
+    if (!scenario) {
+      hasInitializedScenarioSelection.current = false;
+      return;
+    }
+    if (!hasInitializedScenarioSelection.current) {
+      hasInitializedScenarioSelection.current = true;
+      setActiveBranch(recommendedBranch(scenario));
+      setActiveHorizonId("today");
+    }
+  }, [scenario]);
 
   const loadChart = useCallback(async (interval: CandleInterval) => {
     setChartLoading(true);
@@ -238,6 +245,11 @@ export function DashboardPage() {
       ]);
       setSnapshot(snap);
       setScenario(scen);
+      if (refresh) {
+        setActiveBranch(recommendedBranch(scen));
+        setActiveHorizonId("today");
+        hasInitializedScenarioSelection.current = true;
+      }
       setSentiment(sent);
       setSessions(sess);
       setRiskZones(zones);

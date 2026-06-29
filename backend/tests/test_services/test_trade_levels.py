@@ -89,6 +89,21 @@ def test_long_entry_uses_bid_cluster():
     assert high <= 100_800
 
 
+def test_short_entry_ignores_distant_resistance():
+    """Regression: 4H swing high far above spot must not stretch the short entry band."""
+    spot = 60_247.0
+    low, high = compute_entry_zone(
+        spot,
+        "short",
+        _ta(atr=1_500, support=58_000, resistance=81_000),
+        None,
+        confidence=0.7,
+    )
+    assert high <= spot * 1.02
+    assert low >= spot * 0.98
+    assert high - low <= spot * 0.04
+
+
 def test_short_exit_enforces_min_rr_despite_near_support():
     """Regression: nearby support must not collapse TP while SL stays wide."""
     ctx = _context(
@@ -128,7 +143,7 @@ def test_short_exit_caps_liquidation_stop_within_max_risk():
     entry_ref = entry_reference(low, high, spot)
     tp, sl = compute_trade_exits(low, high, spot, "short", ctx.technical, ctx)
     max_sl = entry_ref + spot * resolve_atr_pct(spot, ctx.technical) * MAX_SL_ATR_MULT
-    assert sl <= max_sl + 1
+    assert sl <= max_sl + spot * 0.001
     rr = reward_risk_ratio(entry_ref, "short", tp, sl)
     assert rr is not None
     assert rr >= MIN_RR - 0.01

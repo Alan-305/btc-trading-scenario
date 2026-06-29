@@ -73,7 +73,9 @@ def compute_entry_zone(
     if side == "long":
         entry_low = round(price * (1 - band), 2)
         entry_high = round(price * (1 + band * 0.35), 2)
-        if ta and ta.support:
+        if ta and ta.support and is_plausible_usd_price(
+            ta.support, price, min_ratio=0.97, max_ratio=1.0
+        ):
             entry_low = round(min(entry_low, ta.support * 1.001), 2)
             entry_high = round(max(entry_high, min(ta.support * 1.008, price * 1.01)), 2)
         for level in bid_levels:
@@ -89,13 +91,15 @@ def compute_entry_zone(
     elif side == "short":
         entry_low = round(price * (1 - band * 0.35), 2)
         entry_high = round(price * (1 + band), 2)
-        if ta and ta.resistance:
+        if ta and ta.resistance and is_plausible_usd_price(
+            ta.resistance, price, min_ratio=1.0, max_ratio=1.03
+        ):
             entry_high = round(min(entry_high, max(ta.resistance * 1.002, price * 1.005)), 2)
-            entry_low = round(max(entry_low, ta.resistance * 0.992), 2)
+            entry_low = round(max(entry_low, min(ta.resistance * 0.992, price * 0.998)), 2)
         for level in ask_levels:
-            if level > price and is_plausible_usd_price(level, price, min_ratio=1.0, max_ratio=1.15):
+            if level > price and is_plausible_usd_price(level, price, min_ratio=1.0, max_ratio=1.03):
                 entry_high = round(min(entry_high, level * 1.002), 2)
-                entry_low = round(max(entry_low, max(level * 0.988, price * 0.995)), 2)
+                entry_low = round(max(entry_low, min(level * 0.992, price * 0.998)), 2)
                 break
         if len(ask_levels) >= 2:
             secondary = ask_levels[1]
