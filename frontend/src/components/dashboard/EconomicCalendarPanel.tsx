@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { MacroEvent, MacroEventsResponse } from "../../types/macro-events";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
@@ -87,12 +88,17 @@ function MacroEventRow({ ev }: { ev: MacroEvent }) {
   );
 }
 
-interface EconomicCalendarPanelProps {
+interface EconomicCalendarPanelProps extends DataRefreshProps {
   data: MacroEventsResponse | null;
   loading?: boolean;
 }
 
-export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelProps) {
+export function EconomicCalendarPanel({
+  data,
+  loading,
+  onRefresh,
+  refreshing,
+}: EconomicCalendarPanelProps) {
   const [expanded, setExpanded] = useState(false);
 
   const upcoming = useMemo(() => {
@@ -136,6 +142,9 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
           title="経済指標カレンダー"
           sourceHref={EXTERNAL_LINKS.finnhub}
           sourceLabel="Finnhub"
+          onRefresh={onRefresh}
+          refreshing={refreshing || loading}
+          refreshLabel="経済カレンダーを更新"
         />
         <p className="mt-3 text-sm text-content-muted">読み込み中…</p>
       </div>
@@ -152,6 +161,9 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
         sourceHref={sourceLink.href}
         sourceLabel={sourceLink.label}
         updatedAt={data?.fetched_at}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="経済カレンダーを更新"
         className="mb-4"
       />
 

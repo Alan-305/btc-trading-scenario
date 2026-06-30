@@ -1,9 +1,10 @@
 import type { NormalizedTicker } from "../../types/scenario";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXCHANGE_URLS, EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 import { ExternalLink } from "../ui/ExternalLink";
 
-interface ExchangeDivergenceProps {
+interface ExchangeDivergenceProps extends DataRefreshProps {
   tickers: NormalizedTicker[];
   divergence: Record<string, number>;
   collectedAt?: string | null;
@@ -17,7 +18,13 @@ const EXCHANGE_LABEL: Record<string, string> = {
   coinbase: "Coinbase",
 };
 
-export function ExchangeDivergence({ tickers, divergence, collectedAt }: ExchangeDivergenceProps) {
+export function ExchangeDivergence({
+  tickers,
+  divergence,
+  collectedAt,
+  onRefresh,
+  refreshing,
+}: ExchangeDivergenceProps) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
       <DataPanelMeta
@@ -26,6 +33,9 @@ export function ExchangeDivergence({ tickers, divergence, collectedAt }: Exchang
         sourceHref={EXTERNAL_LINKS.whitebit}
         sourceLabel="WhiteBIT"
         updatedAt={collectedAt}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="取引所価格を更新"
       />
       <ul className="space-y-2">
         {tickers.map((t) => {

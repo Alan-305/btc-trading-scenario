@@ -5,6 +5,7 @@ import type {
   MarketHourState,
   MarketStatusCode,
 } from "../../types/sessions";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
@@ -37,7 +38,7 @@ const MARKET_LABEL: Record<string, string> = {
 
 const SESSION_ORDER = ["asia", "europe", "us"];
 
-interface MarketSessionsPanelProps {
+interface MarketSessionsPanelProps extends DataRefreshProps {
   data: MarketSessionsResponse;
 }
 
@@ -132,7 +133,7 @@ function timelineTooltip(h: MarketSessionsResponse["timeline_jst"][number]): str
   return `${parts.join(" · ")} (${marketDetail})`;
 }
 
-export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
+export function MarketSessionsPanel({ data, onRefresh, refreshing }: MarketSessionsPanelProps) {
   const orderedSessions = SESSION_ORDER.map(
     (id) => data.sessions.find((s) => s.id === id)!,
   ).filter(Boolean);
@@ -145,6 +146,9 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
         sourceHref={EXTERNAL_LINKS.yahooFinance}
         sourceLabel="Yahoo Finance"
         updatedAt={data.generated_at}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="市場時間帯を更新"
         className="mb-4"
       />
 

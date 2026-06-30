@@ -7,11 +7,12 @@ import {
   type AccuracyPeriodSummary,
 } from "../../lib/accuracy-periods";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
-import { DataUpdatedAt } from "../ui/DataPanelMeta";
+import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
 import { ExternalLink } from "../ui/ExternalLink";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 
-interface AccuracyPanelProps {
+interface AccuracyPanelProps extends DataRefreshProps {
   data: AccuracySummary | null;
   loading: boolean;
   savedRecords?: SavedSnapshotRecord[];
@@ -72,6 +73,8 @@ export function AccuracyPanel({
   loading,
   savedRecords = [],
   priceUpdatedAt,
+  onRefresh,
+  refreshing,
 }: AccuracyPanelProps) {
   const periods = useMemo(
     () => (data ? buildAccuracyPeriodSummaries(data, savedRecords) : []),
@@ -110,6 +113,15 @@ export function AccuracyPanel({
       title="AI分析の的中率"
       subtitle="各保存は保存日時から7日間で評価（1時間足の高安値で判定）"
       summary={headerSummary}
+      headerActions={
+        <DataSourceActions
+          sourceHref={EXTERNAL_LINKS.whitebit}
+          sourceLabel="WhiteBIT"
+          onRefresh={onRefresh}
+          refreshing={refreshing || loading}
+          refreshLabel="的中率を再計算"
+        />
+      }
     >
       <div className="space-y-3">
         {periods.map((row) => (

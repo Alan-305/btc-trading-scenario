@@ -73,9 +73,10 @@ export const api = {
     postJson<ScenarioResponse>("/api/v1/scenario", { research }),
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
   getMacroContext: () => fetchJson<MacroContextSnapshot>("/api/v1/indicators/macro"),
-  getMacroEvents: (days = 7) =>
+  getMacroEvents: (days = 7, refresh = false) =>
     fetchJson<import("../types/macro-events").MacroEventsResponse>(
       `/api/v1/indicators/macro-events?days=${days}`,
+      refresh,
     ),
   getHeatmap: (exchange: HeatmapExchange = "all") => {
     const q =
@@ -88,10 +89,13 @@ export const api = {
   },
   getMarketSessions: () =>
     fetchJson<import("../types/sessions").MarketSessionsResponse>("/api/v1/market/sessions"),
-  getCandles: (interval = "4h", limit = 250) =>
-    fetchJson<CandlesResponse>(`/api/v1/market/candles?interval=${interval}&limit=${limit}`),
-  getTechnical: (interval = "4h") =>
-    fetchJson<TechnicalAnalysis>(`/api/v1/market/technical?interval=${interval}`),
+  getCandles: (interval = "4h", limit = 250, refresh = false) =>
+    fetchJson<CandlesResponse>(
+      `/api/v1/market/candles?interval=${interval}&limit=${limit}`,
+      refresh,
+    ),
+  getTechnical: (interval = "4h", refresh = false) =>
+    fetchJson<TechnicalAnalysis>(`/api/v1/market/technical?interval=${interval}`, refresh),
   getRiskZones: () => fetchJson<RiskZonesResponse>("/api/v1/market/risk-zones"),
   evaluatePredictions: (predictions: SavedPredictionInput[]) =>
     postJson<AccuracySummary>("/api/v1/scenario/evaluate", predictions),

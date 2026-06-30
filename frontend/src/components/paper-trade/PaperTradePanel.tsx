@@ -18,8 +18,9 @@ import {
 import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { formatDataUpdatedAt } from "../../lib/format-data-updated";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataSourceActions } from "../ui/DataPanelMeta";
 import { TakeProfitTargetPicker } from "./TakeProfitTargetPicker";
 
 const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
@@ -29,7 +30,7 @@ const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
   { id: "all", label: "すべて" },
 ];
 
-interface PaperTradePanelProps {
+interface PaperTradePanelProps extends DataRefreshProps {
   uid: string;
   trades: PaperTrade[];
   currentPrice: number;
@@ -342,6 +343,8 @@ export function PaperTradePanel({
   trades,
   currentPrice,
   priceUpdatedAt,
+  onRefresh,
+  refreshing,
 }: PaperTradePanelProps) {
   const [period, setPeriod] = useState<PaperTradePeriod>("month");
   const [bulkMode, setBulkMode] = useState(false);
@@ -423,9 +426,14 @@ export function PaperTradePanel({
         <p className="font-japanese text-xs leading-relaxed text-content-muted">
           取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約5分以内に約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。シナリオ分析はアプリを開いたときのみ更新されます。実際の取引所注文は行いません。
         </p>
-        <ExternalLink href={EXTERNAL_LINKS.whitebit} className="shrink-0 text-xs">
-          WhiteBIT
-        </ExternalLink>
+        <DataSourceActions
+          sourceHref={EXTERNAL_LINKS.whitebit}
+          sourceLabel="WhiteBIT"
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          refreshLabel="参照価格を更新"
+          className="shrink-0"
+        />
       </div>
       {currentPrice > 0 ? (
         <p className="mb-4 font-japanese text-[10px] text-content-muted">

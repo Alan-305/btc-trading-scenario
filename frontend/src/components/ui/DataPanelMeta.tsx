@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { formatDataUpdatedAt } from "../../lib/format-data-updated";
+import { DataRefreshButton } from "./DataRefreshButton";
 import { ExternalLink } from "./ExternalLink";
 
-interface DataPanelMetaProps {
+interface DataPanelMetaProps extends DataRefreshProps {
   title: ReactNode;
   subtitle?: ReactNode;
   sourceHref?: string;
@@ -11,6 +13,7 @@ interface DataPanelMetaProps {
   headerActions?: ReactNode;
   titleClassName?: string;
   className?: string;
+  refreshLabel?: string;
 }
 
 export function DataPanelMeta({
@@ -20,9 +23,14 @@ export function DataPanelMeta({
   sourceLabel,
   updatedAt,
   headerActions,
+  onRefresh,
+  refreshing = false,
+  refreshLabel,
   titleClassName = "font-japanese text-sm font-medium text-slate-200",
   className = "mb-3",
 }: DataPanelMetaProps) {
+  const showToolbar = headerActions || onRefresh || sourceHref;
+
   return (
     <header className={className}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -34,16 +42,27 @@ export function DataPanelMeta({
             </p>
           ) : null}
         </div>
-        {(headerActions || sourceHref) && (
+        {showToolbar ? (
           <div className="flex shrink-0 flex-col items-end gap-2">
             {headerActions}
-            {sourceHref && sourceLabel ? (
-              <ExternalLink href={sourceHref} className="text-xs">
-                {sourceLabel}
-              </ExternalLink>
-            ) : null}
+            {(onRefresh || sourceHref) && (
+              <div className="flex items-center gap-1">
+                {onRefresh ? (
+                  <DataRefreshButton
+                    onClick={onRefresh}
+                    loading={refreshing}
+                    label={refreshLabel}
+                  />
+                ) : null}
+                {sourceHref && sourceLabel ? (
+                  <ExternalLink href={sourceHref} className="text-xs">
+                    {sourceLabel}
+                  </ExternalLink>
+                ) : null}
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
       {updatedAt != null ? (
         <DataUpdatedAt value={updatedAt} className="mt-2" />
@@ -63,5 +82,34 @@ export function DataUpdatedAt({ value, className = "mt-3" }: DataUpdatedAtProps)
     <p className={`font-japanese text-[10px] text-content-muted ${className}`}>
       最終更新: {formatDataUpdatedAt(value)}
     </p>
+  );
+}
+
+/** リンク行の外に置くリロード＋リンク（ScenarioCard など） */
+export function DataSourceActions({
+  sourceHref,
+  sourceLabel,
+  onRefresh,
+  refreshing = false,
+  refreshLabel,
+  className = "flex items-center gap-1",
+}: {
+  sourceHref?: string;
+  sourceLabel?: string;
+  refreshLabel?: string;
+  className?: string;
+} & DataRefreshProps) {
+  if (!onRefresh && !sourceHref) return null;
+  return (
+    <div className={className}>
+      {onRefresh ? (
+        <DataRefreshButton onClick={onRefresh} loading={refreshing} label={refreshLabel} />
+      ) : null}
+      {sourceHref && sourceLabel ? (
+        <ExternalLink href={sourceHref} className="text-xs">
+          {sourceLabel}
+        </ExternalLink>
+      ) : null}
+    </div>
   );
 }

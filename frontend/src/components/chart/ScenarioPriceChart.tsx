@@ -32,6 +32,7 @@ import type {
 } from "../../types/scenario";
 import { isHodlHorizon } from "../../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 interface PricePoint {
@@ -75,7 +76,7 @@ interface ChartRow {
   futurePrice: number | null;
 }
 
-interface ScenarioPriceChartProps {
+interface ScenarioPriceChartProps extends DataRefreshProps {
   history: PricePoint[];
   currentPrice: number;
   openedAt: Date;
@@ -235,6 +236,8 @@ export function ScenarioPriceChart({
   mtfGates = [],
   chartUpdatedAt,
   scenarioGeneratedAt,
+  onRefresh,
+  refreshing,
 }: ScenarioPriceChartProps) {
   const isHodl = isHodlHorizon(horizonId, horizonMode);
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
@@ -490,6 +493,9 @@ export function ScenarioPriceChart({
         sourceHref={EXTERNAL_LINKS.binanceSpot}
         sourceLabel="Binance"
         updatedAt={chartUpdatedAt ?? scenarioGeneratedAt}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="エントリーチャートを更新"
         headerActions={
           <div className="flex flex-col items-end gap-1">
             <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeClass}`}>

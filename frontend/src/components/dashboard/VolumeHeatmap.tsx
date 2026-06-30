@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { HeatmapCell, HeatmapExchange } from "../../types/scenario";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXCHANGE_URLS, EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
@@ -12,7 +13,7 @@ const HEATMAP_EXCHANGES: { value: HeatmapExchange; label: string }[] = [
   { value: "coinbase", label: "Coinbase" },
 ];
 
-interface VolumeHeatmapProps {
+interface VolumeHeatmapProps extends DataRefreshProps {
   cells: HeatmapCell[];
   referencePrice?: number;
   exchange?: HeatmapExchange;
@@ -71,6 +72,8 @@ export function VolumeHeatmap({
   onExchangeChange,
   loading = false,
   collectedAt,
+  onRefresh,
+  refreshing,
 }: VolumeHeatmapProps) {
   const { rows, bidPct, askPct, priceLow, priceHigh } = useMemo(() => {
     if (!cells.length) {
@@ -120,6 +123,9 @@ export function VolumeHeatmap({
           sourceHref={heatmapSourceHref}
           sourceLabel={heatmapSourceLabel}
           updatedAt={collectedAt}
+          onRefresh={onRefresh}
+          refreshing={refreshing || loading}
+          refreshLabel="板厚みを更新"
           headerActions={
             onExchangeChange ? (
               <select
@@ -150,6 +156,9 @@ export function VolumeHeatmap({
         sourceHref={heatmapSourceHref}
         sourceLabel={heatmapSourceLabel}
         updatedAt={collectedAt}
+        onRefresh={onRefresh}
+        refreshing={refreshing || loading}
+        refreshLabel="板厚みを更新"
         headerActions={
           onExchangeChange ? (
             <select

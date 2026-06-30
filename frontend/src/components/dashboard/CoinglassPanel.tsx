@@ -1,9 +1,10 @@
 import type { CoinglassSnapshot, ExchangeDerivatives } from "../../types/scenario";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 import { ExternalLink } from "../ui/ExternalLink";
 
-interface CoinglassPanelProps {
+interface CoinglassPanelProps extends DataRefreshProps {
   data: CoinglassSnapshot | null;
 }
 
@@ -44,7 +45,7 @@ function sourceHref(source: string | null | undefined): string {
   return EXTERNAL_LINKS.binanceFutures;
 }
 
-export function CoinglassPanel({ data }: CoinglassPanelProps) {
+export function CoinglassPanel({ data, onRefresh, refreshing }: CoinglassPanelProps) {
   const exchanges = data?.exchanges ?? [];
 
   return (
@@ -61,6 +62,9 @@ export function CoinglassPanel({ data }: CoinglassPanelProps) {
         sourceHref={sourceHref(data?.source)}
         sourceLabel={sourceLabel(data?.source)}
         updatedAt={data?.timestamp}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="先物指標を更新"
       />
 
       {data && (data.open_interest_usd != null || data.funding_rate != null) && (

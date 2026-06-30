@@ -1,4 +1,5 @@
 import type { EquityIndexSnapshot, GlobalEquitySnapshot } from "../../../types/scenario";
+import type { DataRefreshProps } from "../../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../../lib/external-links";
 import { DataPanelMeta } from "../../ui/DataPanelMeta";
 import { MacroSignalBadge } from "./MacroCommentary";
@@ -42,12 +43,12 @@ function MiniSparkline({ history }: { history: { value: number }[] }) {
   );
 }
 
-interface EquityMarketsPanelProps {
+interface EquityMarketsPanelProps extends DataRefreshProps {
   data: GlobalEquitySnapshot | null | undefined;
   loading?: boolean;
 }
 
-export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
+export function EquityMarketsPanel({ data, loading, onRefresh, refreshing }: EquityMarketsPanelProps) {
   if (loading && !data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -55,6 +56,9 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
           title="世界株指数"
           sourceHref={EXTERNAL_LINKS.yahooFinance}
           sourceLabel="Yahoo Finance"
+          onRefresh={onRefresh}
+          refreshing={refreshing || loading}
+          refreshLabel="株指数を更新"
         />
         <p className="mt-3 text-sm text-content-muted">読み込み中…</p>
       </div>
@@ -68,6 +72,9 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
           title="世界株指数"
           sourceHref={EXTERNAL_LINKS.yahooFinance}
           sourceLabel="Yahoo Finance"
+          onRefresh={onRefresh}
+          refreshing={refreshing || loading}
+          refreshLabel="株指数を更新"
         />
         <p className="mt-3 text-sm text-content-muted">株価指数データを取得できませんでした。</p>
       </div>
@@ -84,6 +91,9 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
             sourceHref={EXTERNAL_LINKS.yahooFinance}
             sourceLabel="Yahoo Finance"
             updatedAt={data.timestamp}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            refreshLabel="株指数を更新"
             className="mb-0"
           />
         </div>

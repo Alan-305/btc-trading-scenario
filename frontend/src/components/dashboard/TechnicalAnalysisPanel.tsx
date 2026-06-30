@@ -1,9 +1,10 @@
 import type { TechnicalAnalysis } from "../../types/market";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { candleIntervalLabel, type CandleInterval } from "../../lib/candle-interval";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
-interface TechnicalAnalysisPanelProps {
+interface TechnicalAnalysisPanelProps extends DataRefreshProps {
   data: TechnicalAnalysis | null;
   interval?: CandleInterval;
 }
@@ -16,7 +17,12 @@ function intervalTag(interval: string): string {
   return interval === "1d" ? "1D" : interval.toUpperCase();
 }
 
-export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnalysisPanelProps) {
+export function TechnicalAnalysisPanel({
+  data,
+  interval = "4h",
+  onRefresh,
+  refreshing,
+}: TechnicalAnalysisPanelProps) {
   const activeInterval = data?.interval ?? interval;
   const title = intervalTitle(activeInterval);
   const tag = intervalTag(activeInterval);
@@ -28,6 +34,9 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
           title={`テクニカル分析（${title}）`}
           sourceHref={EXTERNAL_LINKS.binanceSpot}
           sourceLabel="Binance"
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          refreshLabel="テクニカル分析を更新"
         />
         <p className="text-sm text-content-muted">データなし</p>
       </div>
@@ -41,6 +50,9 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
         sourceHref={EXTERNAL_LINKS.binanceSpot}
         sourceLabel="Binance"
         updatedAt={data.fetched_at}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="テクニカル分析を更新"
       />
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <div>

@@ -95,6 +95,7 @@ def _latest_timestamp(*values: datetime | None) -> datetime:
 @router.get("/macro-events", response_model=MacroEventsResponse)
 async def macro_events(
     days: int = 7,
+    refresh: bool = False,
     http: CollectorHttpClient = Depends(get_http_client),
     cache: AppCache = Depends(get_redis_cache),
 ):
@@ -102,10 +103,11 @@ async def macro_events(
     cache_key = f"{AppCache.MACRO_EVENTS_KEY}:{days}"
     last_good_key = f"{AppCache.MACRO_EVENTS_KEY}:last_good:{days}"
 
-    cached_raw = await cache.get_json(cache_key)
-    cached = MacroEventsResponse.model_validate(cached_raw) if cached_raw else None
-    if cached and not should_bypass_short_cache(cached):
-        return cached
+    if not refresh:
+        cached_raw = await cache.get_json(cache_key)
+        cached = MacroEventsResponse.model_validate(cached_raw) if cached_raw else None
+        if cached and not should_bypass_short_cache(cached):
+            return cached
 
     last_good_raw = await cache.get_json(last_good_key)
     last_good = MacroEventsResponse.model_validate(last_good_raw) if last_good_raw else None

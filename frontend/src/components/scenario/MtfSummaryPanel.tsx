@@ -1,14 +1,15 @@
 import type { MtfAnalysis } from "../../types/scenario";
-import { EXTERNAL_LINKS } from "../../lib/external-links";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { trendBadgeClass, trendLabelJa } from "../../lib/mtf-entry-gate";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
-interface MtfSummaryPanelProps {
+interface MtfSummaryPanelProps extends DataRefreshProps {
   mtf: MtfAnalysis;
   updatedAt?: string | null;
 }
 
-export function MtfSummaryPanel({ mtf, updatedAt }: MtfSummaryPanelProps) {
+export function MtfSummaryPanel({ mtf, updatedAt, onRefresh, refreshing }: MtfSummaryPanelProps) {
   if (!mtf.layers.length) return null;
 
   return (
@@ -22,6 +23,9 @@ export function MtfSummaryPanel({ mtf, updatedAt }: MtfSummaryPanelProps) {
         sourceHref={EXTERNAL_LINKS.binanceSpot}
         sourceLabel="Binance"
         updatedAt={updatedAt}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="MTF分析を更新"
       />
 
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

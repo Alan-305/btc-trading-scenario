@@ -1,4 +1,5 @@
 import type { MacroContextSnapshot } from "../../types/scenario";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 import { MacroSignalBadge, MacroSummaryText } from "./macro/MacroCommentary";
@@ -7,7 +8,7 @@ import { OnChainChart } from "./macro/OnChainChart";
 import { DvolChart, PutCallOiChart } from "./macro/OptionsCharts";
 import { UsdtDominancePanel } from "./macro/UsdtDominancePanel";
 
-interface MacroContextPanelProps {
+interface MacroContextPanelProps extends DataRefreshProps {
   data: MacroContextSnapshot | null;
   loading?: boolean;
   error?: string | null;
@@ -20,7 +21,13 @@ function etfSourceLink(source: string | undefined): { href: string; label: strin
   return { href: EXTERNAL_LINKS.yahooFinance, label: "Yahoo Finance" };
 }
 
-export function MacroContextPanel({ data, loading, error }: MacroContextPanelProps) {
+export function MacroContextPanel({
+  data,
+  loading,
+  error,
+  onRefresh,
+  refreshing,
+}: MacroContextPanelProps) {
   if (loading && !data) {
     return (
       <div id="macro-environment" className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -60,6 +67,9 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
               title="マクロ環境"
               subtitle="ETF資金・Deribitオプション・オンチェーン・USDT.D（シナリオ分析に反映）"
               updatedAt={data.fetched_at}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              refreshLabel="マクロ環境を更新"
               className="mb-0"
             />
           </div>
@@ -72,7 +82,9 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
       </header>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {data.usdt_dominance ? <UsdtDominancePanel data={data.usdt_dominance} /> : null}
+        {data.usdt_dominance ? (
+          <UsdtDominancePanel data={data.usdt_dominance} onRefresh={onRefresh} refreshing={refreshing} />
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -86,6 +98,9 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
               sourceHref={etfLink.href}
               sourceLabel={etfLink.label}
               updatedAt={etf_flows.timestamp}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              refreshLabel="ETFフローを更新"
               headerActions={
                 <MacroSignalBadge signalJa={etf_flows.signal_ja ?? "様子見"} stance={etf_flows.stance} />
               }
@@ -107,6 +122,9 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
               sourceHref={EXTERNAL_LINKS.deribit}
               sourceLabel="Deribit"
               updatedAt={options.timestamp}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              refreshLabel="オプションを更新"
               headerActions={
                 <MacroSignalBadge signalJa={options.signal_ja ?? "様子見"} stance={options.stance} />
               }
@@ -131,6 +149,9 @@ export function MacroContextPanel({ data, loading, error }: MacroContextPanelPro
               sourceHref={EXTERNAL_LINKS.blockchainCharts}
               sourceLabel="blockchain.com"
               updatedAt={onchain.timestamp}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              refreshLabel="オンチェーンを更新"
               headerActions={
                 <MacroSignalBadge signalJa={onchain.signal_ja ?? "様子見"} stance={onchain.stance} />
               }

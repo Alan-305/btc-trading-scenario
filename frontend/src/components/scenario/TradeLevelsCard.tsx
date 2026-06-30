@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PaperTradeDraft, PaperTradeTakeProfitTarget } from "../../types/paper-trade";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import type { EntryZone, ExitStrategy, TradeSide } from "../../types/scenario";
 import { TakeProfitTargetPicker } from "../paper-trade/TakeProfitTargetPicker";
-import { DataUpdatedAt } from "../ui/DataPanelMeta";
+import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
 import {
   computePositionSizing,
   formatBtcQty,
@@ -14,7 +15,7 @@ import {
   type PositionSizingInput,
 } from "../../lib/position-sizing";
 
-interface TradeLevelsCardProps {
+interface TradeLevelsCardProps extends DataRefreshProps {
   entry: EntryZone;
   exit: ExitStrategy;
   onPaperEntry?: (draft: PaperTradeDraft) => void | Promise<void>;
@@ -90,7 +91,14 @@ function LevelRow({ label, display, copyValue, accent }: LevelRowProps) {
   );
 }
 
-export function TradeLevelsCard({ entry, exit, onPaperEntry, updatedAt }: TradeLevelsCardProps) {
+export function TradeLevelsCard({
+  entry,
+  exit,
+  onPaperEntry,
+  updatedAt,
+  onRefresh,
+  refreshing,
+}: TradeLevelsCardProps) {
   const [prefs, setPrefs] = useState<PositionSizingInput>(() => loadPositionSizingPrefs());
   const [paperEntrySubmitting, setPaperEntrySubmitting] = useState(false);
   const [takeProfitTarget, setTakeProfitTarget] = useState<PaperTradeTakeProfitTarget>("tp1");
@@ -117,10 +125,18 @@ export function TradeLevelsCard({ entry, exit, onPaperEntry, updatedAt }: TradeL
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-end">
-        <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
-          {sideMeta.text}
-        </span>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <DataUpdatedAt value={updatedAt} className="mt-0" />
+        <div className="flex items-center gap-2">
+          <DataSourceActions
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            refreshLabel="取引計画を更新"
+          />
+          <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
+            {sideMeta.text}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-1.5">
@@ -293,7 +309,6 @@ export function TradeLevelsCard({ entry, exit, onPaperEntry, updatedAt }: TradeL
           </p>
         )}
       </div>
-      <DataUpdatedAt value={updatedAt} />
     </div>
   );
 }

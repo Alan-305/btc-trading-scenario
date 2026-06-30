@@ -4,9 +4,10 @@ import {
   fearGreedLabelJa,
   type FearGreedHistoryPoint,
 } from "../../lib/fear-greed";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
-interface FearGreedMeterProps {
+interface FearGreedMeterProps extends DataRefreshProps {
   value: number | null;
   classification?: string;
   updatedAt?: string | null;
@@ -100,6 +101,8 @@ export function FearGreedMeter({
   classification,
   updatedAt,
   history = [],
+  onRefresh,
+  refreshing,
 }: FearGreedMeterProps) {
   const v = value ?? 50;
   const label = fearGreedLabelJa(classification ?? "Neutral");
@@ -126,6 +129,9 @@ export function FearGreedMeter({
           sourceHref={EXTERNAL_LINKS.fearGreed}
           sourceLabel="alternative.me"
           updatedAt={updatedAt}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          refreshLabel="Fear & Greedを更新"
           className="mb-4"
         />
 
@@ -148,6 +154,9 @@ export function FearGreedMeter({
             sourceHref={EXTERNAL_LINKS.fearGreed}
             sourceLabel="alternative.me"
             updatedAt={updatedAt}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            refreshLabel="履歴を更新"
             className="mb-3"
           />
           <ul>

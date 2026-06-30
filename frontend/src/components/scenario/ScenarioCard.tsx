@@ -11,8 +11,8 @@ import {
 } from "../../lib/scenario-branches";
 import { isHodlHorizon } from "../../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
-import { DataUpdatedAt } from "../ui/DataPanelMeta";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { HoldScenarioPanel } from "./HoldScenarioPanel";
 import { MtfSummaryPanel } from "./MtfSummaryPanel";
 
@@ -21,7 +21,7 @@ const BRANCH_LABEL: Record<TradeBranch, { text: string; color: string }> = {
   bearish: { text: "下落シナリオ", color: "text-accent-red" },
 };
 
-interface ScenarioCardProps {
+interface ScenarioCardProps extends DataRefreshProps {
   scenario: ScenarioResponse;
   activeBranch: TradeBranch;
   onBranchChange: (branch: TradeBranch) => void;
@@ -35,6 +35,8 @@ export function ScenarioCard({
   onBranchChange,
   activeHorizonId,
   onHorizonChange,
+  onRefresh,
+  refreshing,
 }: ScenarioCardProps) {
   const directional = resolveDirectionalScenario(scenario, activeBranch);
   const horizons = resolveHorizons(directional);
@@ -57,9 +59,13 @@ export function ScenarioCard({
           <DataUpdatedAt value={scenario.generated_at} className="mt-1" />
         </div>
         <div className="flex flex-col items-end gap-1">
-          <ExternalLink href={EXTERNAL_LINKS.whitebit} className="text-xs">
-            WhiteBIT
-          </ExternalLink>
+          <DataSourceActions
+            sourceHref={EXTERNAL_LINKS.whitebit}
+            sourceLabel="WhiteBIT"
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            refreshLabel="シナリオを再分析"
+          />
           <span className={`text-sm font-medium ${branchMeta.color}`}>{branchMeta.text}</span>
           {!watchPrimary && activeBranch === recommended ? (
             <span className="text-[10px] text-content-muted">いまのおすすめ</span>
@@ -115,7 +121,12 @@ export function ScenarioCard({
       ) : null}
 
       {!isHodl && scenario.mtf ? (
-        <MtfSummaryPanel mtf={scenario.mtf} updatedAt={scenario.generated_at} />
+        <MtfSummaryPanel
+          mtf={scenario.mtf}
+          updatedAt={scenario.generated_at}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+        />
       ) : null}
 
       <p className="mt-4 whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">

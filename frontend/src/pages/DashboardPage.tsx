@@ -151,7 +151,17 @@ export function DashboardPage() {
   const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
   const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
   const [paperTrades, setPaperTrades] = useState<PaperTrade[]>([]);
+  const [panelRefreshing, setPanelRefreshing] = useState<Record<string, boolean>>({});
   const hasInitializedScenarioSelection = useRef(false);
+
+  const setRefreshing = useCallback((key: string, value: boolean) => {
+    setPanelRefreshing((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const isRefreshing = useCallback(
+    (key: string) => panelRefreshing[key] ?? false,
+    [panelRefreshing],
+  );
 
   const activeDirectional = scenario
     ? resolveDirectionalScenario(scenario, activeBranch)
@@ -188,49 +198,67 @@ export function DashboardPage() {
     }
   }, [scenario]);
 
-  const loadChart = useCallback(async (interval: CandleInterval) => {
-    setChartLoading(true);
-    try {
-      const [candleData, ta] = await Promise.all([
-        api.getCandles(interval, 80).catch(() => null),
-        api.getTechnical(interval).catch(() => null),
-      ]);
-      setCandles(candleData);
-      setTechnical(ta);
-    } finally {
-      setChartLoading(false);
-    }
-  }, []);
+  const loadChart = useCallback(
+    async (interval: CandleInterval, refresh = false) => {
+      setChartLoading(true);
+      setRefreshing("chart", true);
+      try {
+        const [candleData, ta] = await Promise.all([
+          api.getCandles(interval, 80, refresh),
+          api.getTechnical(interval, refresh),
+        ]);
+        setCandles(candleData);
+        setTechnical(ta);
+      } finally {
+        setChartLoading(false);
+        setRefreshing("chart", false);
+      }
+    },
+    [setRefreshing],
+  );
 
-  const loadEntryChart = useCallback(async () => {
-    try {
-      const [candles, ta] = await Promise.all([
-        api.getCandles(ENTRY_CHART_INTERVAL, ENTRY_CHART_BAR_COUNT),
-        api.getTechnical(ENTRY_CHART_INTERVAL).catch(() => null),
-      ]);
-      setEntryChartCandles(candles);
-      setEntryTechnical(ta);
-    } catch {
-      setEntryChartCandles(null);
-      setEntryTechnical(null);
-    }
-  }, []);
+  const loadEntryChart = useCallback(
+    async (refresh = false) => {
+      setRefreshing("entryChart", true);
+      try {
+        const [candleData, ta, snap] = await Promise.all([
+          api.getCandles(ENTRY_CHART_INTERVAL, ENTRY_CHART_BAR_COUNT, refresh),
+          api.getTechnical(ENTRY_CHART_INTERVAL, refresh).catch(() => null),
+          refresh ? api.getMarketSnapshot(true).catch(() => null) : Promise.resolve(null),
+        ]);
+        setEntryChartCandles(candleData);
+        setEntryTechnical(ta);
+        if (snap) setSnapshot(snap);
+      } catch {
+        setEntryChartCandles(null);
+        setEntryTechnical(null);
+      } finally {
+        setRefreshing("entryChart", false);
+      }
+    },
+    [setRefreshing],
+  );
 
   const skipIntervalChartLoad = useRef(true);
 
-  const loadHeatmap = useCallback(async (exchange: HeatmapExchange) => {
-    setHeatmapLoading(true);
-    try {
-      const hm = await api.getHeatmap(exchange);
-      setHeatmap(hm.cells);
-      setHeatmapCollectedAt(hm.collected_at ?? null);
-    } catch {
-      setHeatmap([]);
-      setHeatmapCollectedAt(null);
-    } finally {
-      setHeatmapLoading(false);
-    }
-  }, []);
+  const loadHeatmap = useCallback(
+    async (exchange: HeatmapExchange) => {
+      setHeatmapLoading(true);
+      setRefreshing("heatmap", true);
+      try {
+        const hm = await api.getHeatmap(exchange);
+        setHeatmap(hm.cells);
+        setHeatmapCollectedAt(hm.collected_at ?? null);
+      } catch {
+        setHeatmap([]);
+        setHeatmapCollectedAt(null);
+      } finally {
+        setHeatmapLoading(false);
+        setRefreshing("heatmap", false);
+      }
+    },
+    [setRefreshing],
+  );
 
   const loadMacro = useCallback(async () => {
     setMacroLoading(true);
@@ -254,6 +282,109 @@ export function DashboardPage() {
       setMacroEventsLoading(false);
     }
   }, []);
+
+  const refreshScenarioOnly = useCallback(async () => {
+    setRefreshing("scenario", true);
+    try {
+      const scen = await api.buildScenario(buildResearchContext(researchItems));
+      setScenario(scen);
+      setOpenedAt(new Date());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "シナリオの更新に失敗しました");
+    } finally {
+      setRefreshing("scenario", false);
+    }
+  }, [researchItems, setRefreshing]);
+
+  const refreshSnapshotOnly = useCallback(async () => {
+    setRefreshing("snapshot", true);
+    try {
+      setSnapshot(await api.getMarketSnapshot(true));
+    } finally {
+      setRefreshing("snapshot", false);
+    }
+  }, [setRefreshing]);
+
+  const refreshSentimentOnly = useCallback(async () => {
+    setRefreshing("sentiment", true);
+    try {
+      setSentiment(await api.getSentiment());
+    } finally {
+      setRefreshing("sentiment", false);
+    }
+  }, [setRefreshing]);
+
+  const refreshSessionsOnly = useCallback(async () => {
+    setRefreshing("sessions", true);
+    try {
+      setSessions(await api.getMarketSessions());
+    } finally {
+      setRefreshing("sessions", false);
+    }
+  }, [setRefreshing]);
+
+  const refreshRiskZonesOnly = useCallback(async () => {
+    setRefreshing("riskZones", true);
+    try {
+      setRiskZones(await api.getRiskZones().catch(() => null));
+    } finally {
+      setRefreshing("riskZones", false);
+    }
+  }, [setRefreshing]);
+
+  const refreshMacroContextOnly = useCallback(async () => {
+    setRefreshing("macro", true);
+    setMacroError(null);
+    try {
+      setMacroContext(await api.getMacroContext());
+    } catch (e) {
+      setMacroContext(null);
+      setMacroError(e instanceof Error ? e.message : "マクロデータの取得に失敗しました");
+    } finally {
+      setRefreshing("macro", false);
+    }
+  }, [setRefreshing]);
+
+  const refreshMacroEventsOnly = useCallback(async () => {
+    setRefreshing("macroEvents", true);
+    setMacroEventsLoading(true);
+    try {
+      setMacroEvents(await api.getMacroEvents(7, true));
+    } catch (eventError) {
+      console.warn("macro-events refresh failed", eventError);
+    } finally {
+      setRefreshing("macroEvents", false);
+      setMacroEventsLoading(false);
+    }
+  }, [setRefreshing]);
+
+  const refreshAccuracyOnly = useCallback(async () => {
+    if (!user || savedRecords.length === 0) return;
+    setRefreshing("accuracy", true);
+    setAccuracyLoading(true);
+    try {
+      const snap = await api.getMarketSnapshot(true);
+      setSnapshot(snap);
+      const inputs: SavedPredictionInput[] = savedRecords.map((row) => ({
+        saved_at: row.saved_at?.toISOString() ?? null,
+        macro_trend: row.scenario.macro_trend,
+        reference_price: row.market_summary.whitebit_price
+          ? parseFloat(row.market_summary.whitebit_price)
+          : row.scenario.entry.zone_low,
+        entry_zone_low: row.scenario.entry.zone_low,
+        entry_zone_high: row.scenario.entry.zone_high,
+        take_profit: row.scenario.exit.take_profit,
+        stop_loss: row.scenario.exit.stop_loss,
+        side: row.scenario.entry.side,
+      }));
+      setAccuracy(await api.evaluatePredictions(inputs));
+    } catch {
+      setAccuracy(null);
+    } finally {
+      setRefreshing("accuracy", false);
+      setAccuracyLoading(false);
+    }
+  }, [user, savedRecords, setRefreshing]);
 
   const load = useCallback(async (refresh = false) => {
     setLoading(true);
@@ -291,8 +422,8 @@ export function DashboardPage() {
 
   const handleRefresh = useCallback(() => {
     void load(true);
-    void loadChart(candleInterval);
-    void loadEntryChart();
+    void loadChart(candleInterval, true);
+    void loadEntryChart(true);
     void loadHeatmap(heatmapExchange);
     void loadMacro();
   }, [load, loadChart, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange, loadMacro]);
@@ -615,6 +746,9 @@ export function DashboardPage() {
         sourceHref={EXTERNAL_LINKS.tradingView}
         sourceLabel="TradingView"
         updatedAt={candles?.fetched_at ?? technical?.fetched_at}
+        onRefresh={() => void loadChart(candleInterval, true)}
+        refreshing={isRefreshing("chart") || chartLoading}
+        refreshLabel="チャートを更新"
         headerActions={
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-xs text-content-muted">
@@ -701,6 +835,8 @@ export function DashboardPage() {
                 onBranchChange={setActiveBranch}
                 activeHorizonId={activeHorizonId}
                 onHorizonChange={setActiveHorizonId}
+                onRefresh={() => void refreshScenarioOnly()}
+                refreshing={isRefreshing("scenario")}
               />
             ) : null}
             {scenario?.watch ? (
@@ -732,6 +868,8 @@ export function DashboardPage() {
                 mtfGates={scenario.mtf_gates}
                 chartUpdatedAt={entryChartCandles?.fetched_at}
                 scenarioGeneratedAt={scenario.generated_at}
+                onRefresh={() => void loadEntryChart(true)}
+                refreshing={isRefreshing("entryChart")}
               />
             )}
             {!isActiveHodl && activeHorizon && scenario ? (
@@ -745,6 +883,8 @@ export function DashboardPage() {
                   exit={activeHorizon.exit}
                   onPaperEntry={user ? handlePaperEntry : undefined}
                   updatedAt={scenario.generated_at}
+                  onRefresh={() => void refreshScenarioOnly()}
+                  refreshing={isRefreshing("scenario")}
                 />
               </CollapsibleSection>
             ) : null}
@@ -754,12 +894,18 @@ export function DashboardPage() {
                 trades={paperTrades}
                 currentPrice={price}
                 priceUpdatedAt={snapshot?.collected_at}
+                onRefresh={() => void refreshSnapshotOnly()}
+                refreshing={isRefreshing("snapshot")}
               />
             ) : null}
             {sessions && (
               <div>
                 <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
-                <MarketSessionsPanel data={sessions} />
+                <MarketSessionsPanel
+                  data={sessions}
+                  onRefresh={() => void refreshSessionsOnly()}
+                  refreshing={isRefreshing("sessions")}
+                />
               </div>
             )}
             <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />
@@ -775,12 +921,21 @@ export function DashboardPage() {
             </div>
             <div>
               <IndicatorSignalHeader signal={technicalSignal(technical)} />
-              <TechnicalAnalysisPanel data={technical} interval={candleInterval} />
+              <TechnicalAnalysisPanel
+                data={technical}
+                interval={candleInterval}
+                onRefresh={() => void loadChart(candleInterval, true)}
+                refreshing={isRefreshing("chart") || chartLoading}
+              />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <div>
                 <IndicatorSignalHeader signal={riskZonesSignal(riskZones)} />
-                <RiskZonesPanel data={riskZones} />
+                <RiskZonesPanel
+                  data={riskZones}
+                  onRefresh={() => void refreshRiskZonesOnly()}
+                  refreshing={isRefreshing("riskZones")}
+                />
               </div>
               <div>
                 <IndicatorSignalHeader
@@ -791,6 +946,8 @@ export function DashboardPage() {
                   classification={sentiment?.fear_greed?.classification}
                   updatedAt={sentiment?.fear_greed?.timestamp ?? sentiment?.fetched_at}
                   history={sentiment?.fear_greed_history}
+                  onRefresh={() => void refreshSentimentOnly()}
+                  refreshing={isRefreshing("sentiment")}
                 />
               </div>
             </div>
@@ -804,6 +961,8 @@ export function DashboardPage() {
                   onExchangeChange={setHeatmapExchange}
                   loading={heatmapLoading}
                   collectedAt={heatmapCollectedAt ?? snapshot?.collected_at}
+                  onRefresh={() => void loadHeatmap(heatmapExchange)}
+                  refreshing={isRefreshing("heatmap")}
                 />
               </div>
               {snapshot && (
@@ -813,13 +972,19 @@ export function DashboardPage() {
                     tickers={snapshot.tickers}
                     divergence={snapshot.divergence_pct}
                     collectedAt={snapshot.collected_at}
+                    onRefresh={() => void refreshSnapshotOnly()}
+                    refreshing={isRefreshing("snapshot")}
                   />
                 </div>
               )}
             </div>
             <div>
               <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
-              <CoinglassPanel data={sentiment?.coinglass ?? null} />
+              <CoinglassPanel
+                data={sentiment?.coinglass ?? null}
+                onRefresh={() => void refreshSentimentOnly()}
+                refreshing={isRefreshing("sentiment")}
+              />
             </div>
           </div>
         );
@@ -829,10 +994,26 @@ export function DashboardPage() {
           <div className="space-y-6">
             <div>
               <IndicatorSignalHeader signal={equityMarketsSignal(macroContext?.equity_markets)} />
-              <EquityMarketsPanel data={macroContext?.equity_markets} loading={macroLoading} />
+              <EquityMarketsPanel
+                data={macroContext?.equity_markets}
+                loading={macroLoading}
+                onRefresh={() => void refreshMacroContextOnly()}
+                refreshing={isRefreshing("macro")}
+              />
             </div>
-            <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
-            <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
+            <EconomicCalendarPanel
+              data={macroEvents}
+              loading={macroEventsLoading}
+              onRefresh={() => void refreshMacroEventsOnly()}
+              refreshing={isRefreshing("macroEvents")}
+            />
+            <MacroContextPanel
+              data={macroContext}
+              loading={macroLoading}
+              error={macroError}
+              onRefresh={() => void refreshMacroContextOnly()}
+              refreshing={isRefreshing("macro")}
+            />
             {user && (
               <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
             )}
@@ -855,6 +1036,8 @@ export function DashboardPage() {
                   loading={accuracyLoading}
                   savedRecords={savedRecords}
                   priceUpdatedAt={snapshot?.collected_at}
+                  onRefresh={() => void refreshAccuracyOnly()}
+                  refreshing={isRefreshing("accuracy")}
                 />
               )}
               {user && (

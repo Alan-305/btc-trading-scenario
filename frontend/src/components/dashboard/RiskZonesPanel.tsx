@@ -1,8 +1,9 @@
 import type { RiskZonesResponse } from "../../types/market";
+import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 import { DataPanelMeta } from "../ui/DataPanelMeta";
 
-interface RiskZonesPanelProps {
+interface RiskZonesPanelProps extends DataRefreshProps {
   data: RiskZonesResponse | null;
 }
 
@@ -21,7 +22,7 @@ function ZoneRow({ zone }: { zone: NonNullable<RiskZonesResponse["long_liquidati
   );
 }
 
-export function RiskZonesPanel({ data }: RiskZonesPanelProps) {
+export function RiskZonesPanel({ data, onRefresh, refreshing }: RiskZonesPanelProps) {
   if (!data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
@@ -30,6 +31,9 @@ export function RiskZonesPanel({ data }: RiskZonesPanelProps) {
           subtitle="ロング清算・ショートスクイズの目安価格帯"
           sourceHref={EXTERNAL_LINKS.okxFutures}
           sourceLabel="OKX"
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          refreshLabel="リキッド帯を更新"
         />
         <p className="text-sm text-content-muted">データなし</p>
       </div>
@@ -44,6 +48,9 @@ export function RiskZonesPanel({ data }: RiskZonesPanelProps) {
         sourceHref={EXTERNAL_LINKS.okxFutures}
         sourceLabel="OKX"
         updatedAt={data.fetched_at}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        refreshLabel="リキッド帯を更新"
       />
       <p className="mb-3 font-english text-xs text-content-muted">
         基準価格 ${data.reference_price.toLocaleString()}
