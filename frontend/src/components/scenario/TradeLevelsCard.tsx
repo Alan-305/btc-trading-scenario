@@ -104,7 +104,7 @@ export function TradeLevelsCard({ entry, exit }: TradeLevelsCardProps) {
     <div className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-japanese text-sm font-medium text-slate-200">
-          取引レベル（取引所に入力）
+          取引計画（レベル・数量）
         </h3>
         <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
           {sideMeta.text}
