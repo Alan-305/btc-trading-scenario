@@ -15,7 +15,7 @@ import {
 interface TradeLevelsCardProps {
   entry: EntryZone;
   exit: ExitStrategy;
-  onPaperEntry?: (draft: PaperTradeDraft) => void;
+  onPaperEntry?: (draft: PaperTradeDraft) => void | Promise<void>;
 }
 
 const SIDE_LABEL: Record<TradeSide, { text: string; className: string }> = {
@@ -89,6 +89,7 @@ function LevelRow({ label, display, copyValue, accent }: LevelRowProps) {
 
 export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardProps) {
   const [prefs, setPrefs] = useState<PositionSizingInput>(() => loadPositionSizingPrefs());
+  const [paperEntrySubmitting, setPaperEntrySubmitting] = useState(false);
 
   useEffect(() => {
     savePositionSizingPrefs(prefs);
@@ -242,20 +243,25 @@ export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardPr
             {onPaperEntry ? (
               <button
                 type="button"
-                onClick={() =>
-                  onPaperEntry({
-                    side: sizing.side as PaperTradeDraft["side"],
-                    entryPrice: sizing.entryPrice,
-                    sizeBtc: sizing.positionSizeBtc,
-                    stopLoss: sizing.stopLoss,
-                    takeProfit1: exit.take_profit[0] ?? null,
-                    takeProfit2: exit.take_profit[1] ?? null,
-                    label: `${SIDE_LABEL[sizing.side].text} · ${ENTRY_BASIS_LABEL[prefs.entryBasis]}`,
-                  })
-                }
-                className="mt-2 min-h-[44px] w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-blue/90"
+                disabled={paperEntrySubmitting}
+                onClick={() => {
+                  if (paperEntrySubmitting) return;
+                  setPaperEntrySubmitting(true);
+                  void Promise.resolve(
+                    onPaperEntry({
+                      side: sizing.side as PaperTradeDraft["side"],
+                      entryPrice: sizing.entryPrice,
+                      sizeBtc: sizing.positionSizeBtc,
+                      stopLoss: sizing.stopLoss,
+                      takeProfit1: exit.take_profit[0] ?? null,
+                      takeProfit2: exit.take_profit[1] ?? null,
+                      label: `${SIDE_LABEL[sizing.side].text} · ${ENTRY_BASIS_LABEL[prefs.entryBasis]}`,
+                    }),
+                  ).finally(() => setPaperEntrySubmitting(false));
+                }}
+                className="mt-2 min-h-[44px] w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-blue/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                仮想エントリー（擬似トレードに記録）
+                {paperEntrySubmitting ? "記録中…" : "仮想エントリー（擬似トレードに記録）"}
               </button>
             ) : null}
           </div>

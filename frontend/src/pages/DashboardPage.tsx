@@ -61,7 +61,7 @@ import {
 import { buildResearchContext } from "../lib/scenario-context";
 import { createJournalFromScenario } from "../lib/journal-from-scenario";
 import { subscribeJournalEntries } from "../lib/firestore-journal";
-import { subscribePaperTrades } from "../lib/firestore-paper-trades";
+import { subscribePaperTrades, createPaperTrade } from "../lib/firestore-paper-trades";
 import { subscribeResearchItems } from "../lib/firestore-research";
 import {
   coinglassSignal,
@@ -150,7 +150,6 @@ export function DashboardPage() {
   const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
   const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
   const [paperTrades, setPaperTrades] = useState<PaperTrade[]>([]);
-  const [pendingPaperDraft, setPendingPaperDraft] = useState<PaperTradeDraft | null>(null);
   const hasInitializedScenarioSelection = useRef(false);
 
   const activeDirectional = scenario
@@ -163,6 +162,18 @@ export function DashboardPage() {
   const isActiveHodl = activeHorizon
     ? isHodlHorizon(activeHorizon.id, activeHorizon.horizon_mode)
     : false;
+
+  const handlePaperEntry = useCallback(
+    async (draft: PaperTradeDraft) => {
+      if (!user) return;
+      await createPaperTrade(user.uid, {
+        ...draft,
+        scenarioBranch: activeBranch,
+        horizonId: activeHorizon?.id ?? null,
+      });
+    },
+    [user, activeBranch, activeHorizon?.id],
+  );
 
   useEffect(() => {
     if (!scenario) {
@@ -715,11 +726,7 @@ export function DashboardPage() {
                 <TradeLevelsCard
                   entry={activeHorizon.entry}
                   exit={activeHorizon.exit}
-                  onPaperEntry={
-                    user
-                      ? (draft) => setPendingPaperDraft(draft)
-                      : undefined
-                  }
+                  onPaperEntry={user ? handlePaperEntry : undefined}
                 />
               </CollapsibleSection>
             ) : null}
@@ -728,10 +735,6 @@ export function DashboardPage() {
                 uid={user.uid}
                 trades={paperTrades}
                 currentPrice={price}
-                scenarioBranch={activeBranch}
-                horizonId={activeHorizon?.id ?? null}
-                pendingDraft={pendingPaperDraft}
-                onDraftConsumed={() => setPendingPaperDraft(null)}
               />
             ) : null}
             {sessions && (

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PaperTrade, PaperTradeDraft, PaperTradePeriod } from "../../types/paper-trade";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PaperTrade, PaperTradePeriod } from "../../types/paper-trade";
 import {
   closePaperTrade,
-  createPaperTrade,
   deletePaperTrade,
   updatePaperTradeFields,
   type PaperTradeEditableFields,
@@ -29,10 +28,6 @@ interface PaperTradePanelProps {
   uid: string;
   trades: PaperTrade[];
   currentPrice: number;
-  scenarioBranch: string | null;
-  horizonId: string | null;
-  pendingDraft: PaperTradeDraft | null;
-  onDraftConsumed: () => void;
 }
 
 function formatTs(d: Date | null): string {
@@ -258,10 +253,6 @@ export function PaperTradePanel({
   uid,
   trades,
   currentPrice,
-  scenarioBranch,
-  horizonId,
-  pendingDraft,
-  onDraftConsumed,
 }: PaperTradePanelProps) {
   const [period, setPeriod] = useState<PaperTradePeriod>("month");
   const resolvingRef = useRef<Set<string>>(new Set());
@@ -276,22 +267,6 @@ export function PaperTradePanel({
     () => periodTrades.filter((t) => !isPaperTradeOpen(t)),
     [periodTrades],
   );
-
-  const handleCreateFromDraft = useCallback(
-    async (draft: PaperTradeDraft) => {
-      await createPaperTrade(uid, {
-        ...draft,
-        scenarioBranch,
-        horizonId,
-      });
-    },
-    [uid, scenarioBranch, horizonId],
-  );
-
-  useEffect(() => {
-    if (!pendingDraft) return;
-    void handleCreateFromDraft(pendingDraft).then(onDraftConsumed);
-  }, [pendingDraft, handleCreateFromDraft, onDraftConsumed]);
 
   useEffect(() => {
     if (currentPrice <= 0 || openTrades.length === 0) return;
