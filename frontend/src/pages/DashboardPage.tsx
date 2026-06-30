@@ -893,9 +893,6 @@ export function DashboardPage() {
                 uid={user.uid}
                 trades={paperTrades}
                 currentPrice={price}
-                priceUpdatedAt={snapshot?.collected_at}
-                onRefresh={() => void refreshSnapshotOnly()}
-                refreshing={isRefreshing("snapshot")}
               />
             ) : null}
             {sessions && (

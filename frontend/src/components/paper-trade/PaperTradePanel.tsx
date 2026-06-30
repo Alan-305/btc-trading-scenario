@@ -16,10 +16,7 @@ import {
   unrealizedPnlUsd,
 } from "../../lib/paper-trade-math";
 import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
-import { EXTERNAL_LINKS } from "../../lib/external-links";
-import type { DataRefreshProps } from "../../types/data-refresh";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
-import { DataSourceActions } from "../ui/DataPanelMeta";
 import { TakeProfitTargetPicker } from "./TakeProfitTargetPicker";
 
 const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
@@ -29,11 +26,10 @@ const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
   { id: "all", label: "すべて" },
 ];
 
-interface PaperTradePanelProps extends DataRefreshProps {
+interface PaperTradePanelProps {
   uid: string;
   trades: PaperTrade[];
   currentPrice: number;
-  priceUpdatedAt?: string | null;
 }
 
 function formatTs(d: Date | null): string {
@@ -341,9 +337,6 @@ export function PaperTradePanel({
   uid,
   trades,
   currentPrice,
-  priceUpdatedAt,
-  onRefresh,
-  refreshing,
 }: PaperTradePanelProps) {
   const [period, setPeriod] = useState<PaperTradePeriod>("month");
   const [bulkMode, setBulkMode] = useState(false);
@@ -421,20 +414,9 @@ export function PaperTradePanel({
       storageKey="paperTradePanelOpen"
       defaultOpen
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <p className="font-japanese text-xs leading-relaxed text-content-muted">
-          取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約5分以内に約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。シナリオ分析はアプリを開いたときのみ更新されます。実際の取引所注文は行いません。
-        </p>
-        <DataSourceActions
-          sourceHref={EXTERNAL_LINKS.whitebit}
-          sourceLabel="WhiteBIT"
-          onRefresh={onRefresh}
-          refreshing={refreshing}
-          refreshLabel="参照価格を更新"
-          updatedAt={priceUpdatedAt}
-          className="shrink-0"
-        />
-      </div>
+      <p className="mb-4 font-japanese text-xs leading-relaxed text-content-muted">
+        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約5分以内に約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。シナリオ分析はアプリを開いたときのみ更新されます。実際の取引所注文は行いません。
+      </p>
       {currentPrice > 0 ? (
         <p className="mb-4 font-japanese text-[10px] text-content-muted">
           参照価格{" "}
