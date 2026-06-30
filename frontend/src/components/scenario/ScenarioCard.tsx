@@ -11,7 +11,7 @@ import {
 } from "../../lib/scenario-branches";
 import { isHodlHorizon } from "../../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
-import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
+import { DataSourceActions } from "../ui/DataPanelMeta";
 import type { DataRefreshProps } from "../../types/data-refresh";
 import { HoldScenarioPanel } from "./HoldScenarioPanel";
 import { MtfSummaryPanel } from "./MtfSummaryPanel";
@@ -56,7 +56,6 @@ export function ScenarioCard({
         <div>
           <h2 className="text-lg font-medium text-slate-100">{active.label}</h2>
           <p className="mt-1 text-xs text-content-muted">{active.period_hint}</p>
-          <DataUpdatedAt value={scenario.generated_at} className="mt-1" />
         </div>
         <div className="flex flex-col items-end gap-1">
           <DataSourceActions
@@ -65,6 +64,7 @@ export function ScenarioCard({
             onRefresh={onRefresh}
             refreshing={refreshing}
             refreshLabel="シナリオを再分析"
+            updatedAt={scenario.generated_at}
           />
           <span className={`text-sm font-medium ${branchMeta.color}`}>{branchMeta.text}</span>
           {!watchPrimary && activeBranch === recommended ? (

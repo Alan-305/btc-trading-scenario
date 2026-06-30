@@ -3,7 +3,7 @@ import type { PaperTradeDraft, PaperTradeTakeProfitTarget } from "../../types/pa
 import type { DataRefreshProps } from "../../types/data-refresh";
 import type { EntryZone, ExitStrategy, TradeSide } from "../../types/scenario";
 import { TakeProfitTargetPicker } from "../paper-trade/TakeProfitTargetPicker";
-import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
+import { DataSourceActions } from "../ui/DataPanelMeta";
 import {
   computePositionSizing,
   formatBtcQty,
@@ -125,18 +125,16 @@ export function TradeLevelsCard({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <DataUpdatedAt value={updatedAt} className="mt-0" />
-        <div className="flex items-center gap-2">
-          <DataSourceActions
-            onRefresh={onRefresh}
-            refreshing={refreshing}
-            refreshLabel="取引計画を更新"
-          />
-          <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
-            {sideMeta.text}
-          </span>
-        </div>
+      <div className="mb-3 flex items-start justify-end gap-2">
+        <DataSourceActions
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          refreshLabel="取引計画を更新"
+          updatedAt={updatedAt}
+        />
+        <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
+          {sideMeta.text}
+        </span>
       </div>
 
       <div className="space-y-1.5">

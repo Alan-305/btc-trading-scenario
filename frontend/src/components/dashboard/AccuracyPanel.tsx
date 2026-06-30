@@ -7,8 +7,7 @@ import {
   type AccuracyPeriodSummary,
 } from "../../lib/accuracy-periods";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
-import { DataSourceActions, DataUpdatedAt } from "../ui/DataPanelMeta";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataSourceActions } from "../ui/DataPanelMeta";
 import type { DataRefreshProps } from "../../types/data-refresh";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
 
@@ -120,6 +119,7 @@ export function AccuracyPanel({
           onRefresh={onRefresh}
           refreshing={refreshing || loading}
           refreshLabel="的中率を再計算"
+          updatedAt={priceUpdatedAt}
         />
       }
     >
@@ -128,14 +128,6 @@ export function AccuracyPanel({
           <PeriodCard key={row.period.id} row={row} />
         ))}
       </div>
-      {priceUpdatedAt ? (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-          <DataUpdatedAt value={priceUpdatedAt} className="mt-0" />
-          <ExternalLink href={EXTERNAL_LINKS.whitebit} className="text-xs">
-            WhiteBIT
-          </ExternalLink>
-        </div>
-      ) : null}
 
       <h3 className="mb-2 mt-5 font-japanese text-xs font-medium text-content-secondary">直近の評価一覧</h3>
       <ul className="space-y-2">

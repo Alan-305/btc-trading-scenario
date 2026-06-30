@@ -17,7 +17,6 @@ import {
 } from "../../lib/paper-trade-math";
 import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
-import { formatDataUpdatedAt } from "../../lib/format-data-updated";
 import type { DataRefreshProps } from "../../types/data-refresh";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { DataSourceActions } from "../ui/DataPanelMeta";
@@ -432,6 +431,7 @@ export function PaperTradePanel({
           onRefresh={onRefresh}
           refreshing={refreshing}
           refreshLabel="参照価格を更新"
+          updatedAt={priceUpdatedAt}
           className="shrink-0"
         />
       </div>
@@ -441,7 +441,6 @@ export function PaperTradePanel({
           <span className="font-english text-slate-300">
             ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
-          {priceUpdatedAt ? ` · 最終更新: ${formatDataUpdatedAt(priceUpdatedAt)}` : ""}
         </p>
       ) : null}
 
