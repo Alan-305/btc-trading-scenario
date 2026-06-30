@@ -3,6 +3,7 @@ import type { PaperTrade, PaperTradePeriod } from "../../types/paper-trade";
 import {
   closePaperTrade,
   deletePaperTrade,
+  deletePaperTrades,
   updatePaperTradeFields,
   type PaperTradeEditableFields,
 } from "../../lib/firestore-paper-trades";
@@ -131,9 +132,19 @@ interface PositionCardProps {
   trade: PaperTrade;
   currentPrice: number;
   uid: string;
+  bulkMode: boolean;
+  selected: boolean;
+  onSelectChange: (tradeId: string, selected: boolean) => void;
 }
 
-function PositionCard({ trade, currentPrice, uid }: PositionCardProps) {
+function PositionCard({
+  trade,
+  currentPrice,
+  uid,
+  bulkMode,
+  selected,
+  onSelectChange,
+}: PositionCardProps) {
   const [editing, setEditing] = useState(false);
   const open = isPaperTradeOpen(trade);
   const uPnl = open ? unrealizedPnlUsd(trade, currentPrice) : 0;
@@ -155,21 +166,40 @@ function PositionCard({ trade, currentPrice, uid }: PositionCardProps) {
   };
 
   return (
-    <li className="rounded-lg border border-surface-border/70 bg-surface-elevated/40 p-3">
+    <li
+      className={`rounded-lg border p-3 transition ${
+        bulkMode && selected
+          ? "border-accent-blue/60 bg-accent-blue/10"
+          : "border-surface-border/70 bg-surface-elevated/40"
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-japanese text-xs font-medium text-slate-200">
-            {trade.side === "long" ? "ロング" : "ショート"}
-            <span className="mx-2 text-content-muted">·</span>
-            {statusLabelJa(trade.status)}
-          </p>
-          <p className="mt-1 font-japanese text-[10px] text-content-muted">
-            建玉 {formatTs(trade.openedAt)}
-            {trade.closedAt ? ` → 決済 ${formatTs(trade.closedAt)}` : ""}
-          </p>
-          {trade.label ? (
-            <p className="mt-1 font-japanese text-[10px] text-content-secondary">{trade.label}</p>
+        <div className="flex min-w-0 items-start gap-2">
+          {bulkMode ? (
+            <label className="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center">
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={(e) => onSelectChange(trade.id, e.target.checked)}
+                className="h-4 w-4 rounded border-surface-border accent-accent-blue"
+                aria-label={`${trade.side === "long" ? "ロング" : "ショート"}を選択`}
+              />
+            </label>
           ) : null}
+          <div className="min-w-0">
+            <p className="font-japanese text-xs font-medium text-slate-200">
+              {trade.side === "long" ? "ロング" : "ショート"}
+              <span className="mx-2 text-content-muted">·</span>
+              {statusLabelJa(trade.status)}
+            </p>
+            <p className="mt-1 font-japanese text-[10px] text-content-muted">
+              建玉 {formatTs(trade.openedAt)}
+              {trade.closedAt ? ` → 決済 ${formatTs(trade.closedAt)}` : ""}
+            </p>
+            {trade.label ? (
+              <p className="mt-1 font-japanese text-[10px] text-content-secondary">{trade.label}</p>
+            ) : null}
+          </div>
         </div>
         <p
           className={`font-english text-sm tabular-nums ${
@@ -216,7 +246,7 @@ function PositionCard({ trade, currentPrice, uid }: PositionCardProps) {
 
       {editing ? (
         <PositionEditor trade={trade} onSave={handleSave} onCancel={() => setEditing(false)} />
-      ) : (
+      ) : bulkMode ? null : (
         <div className="mt-3 flex flex-wrap gap-2">
           {open ? (
             <>
@@ -249,12 +279,55 @@ function PositionCard({ trade, currentPrice, uid }: PositionCardProps) {
   );
 }
 
+interface PositionListProps {
+  trades: PaperTrade[];
+  currentPrice: number;
+  uid: string;
+  bulkMode: boolean;
+  selectedIds: Set<string>;
+  onSelectChange: (tradeId: string, selected: boolean) => void;
+  emptyMessage: string;
+}
+
+function PositionList({
+  trades,
+  currentPrice,
+  uid,
+  bulkMode,
+  selectedIds,
+  onSelectChange,
+  emptyMessage,
+}: PositionListProps) {
+  if (trades.length === 0) {
+    return <p className="font-japanese text-xs text-content-muted">{emptyMessage}</p>;
+  }
+
+  return (
+    <ul className="space-y-3">
+      {trades.map((t) => (
+        <PositionCard
+          key={t.id}
+          trade={t}
+          currentPrice={currentPrice}
+          uid={uid}
+          bulkMode={bulkMode}
+          selected={selectedIds.has(t.id)}
+          onSelectChange={onSelectChange}
+        />
+      ))}
+    </ul>
+  );
+}
+
 export function PaperTradePanel({
   uid,
   trades,
   currentPrice,
 }: PaperTradePanelProps) {
   const [period, setPeriod] = useState<PaperTradePeriod>("month");
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const resolvingRef = useRef<Set<string>>(new Set());
 
   const periodTrades = useMemo(
@@ -267,6 +340,55 @@ export function PaperTradePanel({
     () => periodTrades.filter((t) => !isPaperTradeOpen(t)),
     [periodTrades],
   );
+  const bulkTargetTrades = useMemo(
+    () => [...openTrades, ...closedTrades],
+    [openTrades, closedTrades],
+  );
+  const selectedCount = selectedIds.size;
+
+  const handleSelectChange = (tradeId: string, selected: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(tradeId);
+      else next.delete(tradeId);
+      return next;
+    });
+  };
+
+  const exitBulkMode = () => {
+    setBulkMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedIds(new Set(bulkTargetTrades.map((t) => t.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCount === 0) return;
+    if (!window.confirm(`選択した ${selectedCount} 件の擬似ポジションを削除しますか？`)) return;
+
+    setBulkDeleting(true);
+    try {
+      await deletePaperTrades(uid, [...selectedIds]);
+      exitBulkMode();
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!bulkMode) return;
+    setSelectedIds((prev) => {
+      const visible = new Set(bulkTargetTrades.map((t) => t.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [bulkMode, bulkTargetTrades]);
 
   useEffect(() => {
     if (currentPrice <= 0 || openTrades.length === 0) return;
@@ -335,23 +457,75 @@ export function PaperTradePanel({
         <StatBox label="決済数" value={String(stats.closedCount)} />
       </div>
 
+      {trades.length > 0 ? (
+        <div className="mb-4 rounded-lg border border-surface-border/70 bg-surface-elevated/30 p-3">
+          {!bulkMode ? (
+            <button
+              type="button"
+              onClick={() => setBulkMode(true)}
+              className="min-h-[44px] rounded-lg border border-surface-border px-4 py-2 font-japanese text-xs text-content-secondary hover:text-slate-200"
+            >
+              一括選択して削除
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="font-japanese text-xs text-content-muted">
+                削除するポジションにチェックを入れてください（オープン・決済済みの両方）。
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleSelectAllVisible}
+                  disabled={bulkDeleting || bulkTargetTrades.length === 0}
+                  className="min-h-[44px] rounded-lg border border-surface-border px-3 py-2 text-xs text-content-secondary disabled:opacity-50"
+                >
+                  表示中をすべて選択（{bulkTargetTrades.length}）
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  disabled={bulkDeleting || selectedCount === 0}
+                  className="min-h-[44px] rounded-lg border border-surface-border px-3 py-2 text-xs text-content-secondary disabled:opacity-50"
+                >
+                  選択解除
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkDelete()}
+                  disabled={bulkDeleting || selectedCount === 0}
+                  className="min-h-[44px] rounded-lg border border-accent-red/40 bg-accent-red/10 px-3 py-2 text-xs font-medium text-accent-red disabled:opacity-50"
+                >
+                  {bulkDeleting ? "削除中…" : `選択を削除（${selectedCount}）`}
+                </button>
+                <button
+                  type="button"
+                  onClick={exitBulkMode}
+                  disabled={bulkDeleting}
+                  className="min-h-[44px] rounded-lg px-3 py-2 text-xs text-content-muted disabled:opacity-50"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <CollapsibleSection
         title={`オープンポジション（${openTrades.length}）`}
         defaultOpen
         storageKey="paperTradeOpenList"
         className="mb-4 border-surface-border/60 bg-transparent"
       >
-        {openTrades.length === 0 ? (
-          <p className="font-japanese text-xs text-content-muted">
-            オープン中の擬似ポジションはありません。取引計画から「仮想エントリー」を押してください。
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {openTrades.map((t) => (
-              <PositionCard key={t.id} trade={t} currentPrice={currentPrice} uid={uid} />
-            ))}
-          </ul>
-        )}
+        <PositionList
+          trades={openTrades}
+          currentPrice={currentPrice}
+          uid={uid}
+          bulkMode={bulkMode}
+          selectedIds={selectedIds}
+          onSelectChange={handleSelectChange}
+          emptyMessage="オープン中の擬似ポジションはありません。取引計画から「仮想エントリー」を押してください。"
+        />
       </CollapsibleSection>
 
       <CollapsibleSection
@@ -360,15 +534,15 @@ export function PaperTradePanel({
         storageKey="paperTradeClosedList"
         className="border-surface-border/60 bg-transparent"
       >
-        {closedTrades.length === 0 ? (
-          <p className="font-japanese text-xs text-content-muted">この期間の決済履歴はありません。</p>
-        ) : (
-          <ul className="space-y-3">
-            {closedTrades.map((t) => (
-              <PositionCard key={t.id} trade={t} currentPrice={currentPrice} uid={uid} />
-            ))}
-          </ul>
-        )}
+        <PositionList
+          trades={closedTrades}
+          currentPrice={currentPrice}
+          uid={uid}
+          bulkMode={bulkMode}
+          selectedIds={selectedIds}
+          onSelectChange={handleSelectChange}
+          emptyMessage="この期間の決済履歴はありません。"
+        />
       </CollapsibleSection>
     </CollapsibleSection>
   );

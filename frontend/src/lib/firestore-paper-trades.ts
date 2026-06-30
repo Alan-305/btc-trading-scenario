@@ -111,6 +111,12 @@ export async function deletePaperTrade(uid: string, tradeId: string): Promise<vo
   await deleteDoc(doc(paperTradeCollection(uid), tradeId));
 }
 
+export async function deletePaperTrades(uid: string, tradeIds: string[]): Promise<void> {
+  const uniqueIds = [...new Set(tradeIds)];
+  if (uniqueIds.length === 0) return;
+  await Promise.all(uniqueIds.map((id) => deletePaperTrade(uid, id)));
+}
+
 export function subscribePaperTrades(
   uid: string,
   onData: (records: PaperTrade[]) => void,
