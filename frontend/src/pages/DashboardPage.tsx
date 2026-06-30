@@ -283,6 +283,9 @@ export function DashboardPage() {
     }
   }, [researchItems, loadMacro]);
 
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   const handleRefresh = useCallback(() => {
     void load(true);
     void loadChart(candleInterval);
@@ -320,16 +323,21 @@ export function DashboardPage() {
       return;
     }
     skipIntervalChartLoad.current = true;
-    void Promise.all([load(), loadChart(candleInterval), loadEntryChart()]);
-    const id = setInterval(() => load(), 60_000);
-    const clockId = setInterval(() => {
+    void Promise.all([loadRef.current(), loadChart(candleInterval), loadEntryChart()]);
+    // ログイン中はシナリオ再分析を自動実行しない（手動の「再分析」のみ）
+    const scenarioPollId = user
+      ? null
+      : window.setInterval(() => {
+          void loadRef.current();
+        }, 60_000);
+    const clockId = window.setInterval(() => {
       api.getMarketSessions().then(setSessions).catch(() => {});
     }, 30_000);
     return () => {
-      clearInterval(id);
+      if (scenarioPollId != null) clearInterval(scenarioPollId);
       clearInterval(clockId);
     };
-  }, [canAccessApp, load, loadChart]);
+  }, [canAccessApp, user, loadChart, loadEntryChart, candleInterval]);
 
   useEffect(() => {
     if (!canAccessApp) return;
