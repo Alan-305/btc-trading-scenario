@@ -12,7 +12,6 @@ import {
 import { isHodlHorizon } from "../../lib/scenario-horizons";
 import { HoldScenarioPanel } from "./HoldScenarioPanel";
 import { MtfSummaryPanel } from "./MtfSummaryPanel";
-import { TradeLevelsCard } from "./TradeLevelsCard";
 
 const BRANCH_LABEL: Record<TradeBranch, { text: string; color: string }> = {
   bullish: { text: "上昇シナリオ", color: "text-accent-green" },
@@ -113,8 +112,6 @@ export function ScenarioCard({
       <p className="mt-4 whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {active.scenario_text_ja}
       </p>
-
-      {!isHodl ? <TradeLevelsCard entry={active.entry} exit={active.exit} /> : null}
 
       {scenario.data_sources && (
         <p className="mt-3 text-xs text-content-muted">

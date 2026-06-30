@@ -23,16 +23,19 @@ import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysi
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
+import { PaperTradePanel } from "../components/paper-trade/PaperTradePanel";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
 import { ScenarioCard } from "../components/scenario/ScenarioCard";
+import { TradeLevelsCard } from "../components/scenario/TradeLevelsCard";
 import { WatchScenarioCard } from "../components/scenario/WatchScenarioCard";
+import { CollapsibleSection } from "../components/ui/CollapsibleSection";
 import { ExternalLink } from "../components/ui/ExternalLink";
 import { useAuth } from "../hooks/useAuth";
 import {
   type DashboardSection,
   loadDashboardSection,
 } from "../lib/dashboard-nav";
-import { normalizeHorizonId } from "../lib/scenario-horizons";
+import { normalizeHorizonId, isHodlHorizon } from "../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../lib/external-links";
 import {
   type CandleInterval,
@@ -58,6 +61,7 @@ import {
 import { buildResearchContext } from "../lib/scenario-context";
 import { createJournalFromScenario } from "../lib/journal-from-scenario";
 import { subscribeJournalEntries } from "../lib/firestore-journal";
+import { subscribePaperTrades } from "../lib/firestore-paper-trades";
 import { subscribeResearchItems } from "../lib/firestore-research";
 import {
   coinglassSignal,
@@ -73,6 +77,7 @@ import {
 } from "../lib/indicator-signals";
 import type { MacroEventsResponse } from "../types/macro-events";
 import type { JournalEntry } from "../types/journal";
+import type { PaperTrade, PaperTradeDraft } from "../types/paper-trade";
 import type { ResearchItem } from "../types/research";
 import type {
   AccuracySummary,
@@ -144,6 +149,8 @@ export function DashboardPage() {
   const [chartLoading, setChartLoading] = useState(false);
   const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
   const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
+  const [paperTrades, setPaperTrades] = useState<PaperTrade[]>([]);
+  const [pendingPaperDraft, setPendingPaperDraft] = useState<PaperTradeDraft | null>(null);
   const hasInitializedScenarioSelection = useRef(false);
 
   const activeDirectional = scenario
@@ -153,6 +160,9 @@ export function DashboardPage() {
     activeDirectional,
     normalizeHorizonId(activeHorizonId),
   );
+  const isActiveHodl = activeHorizon
+    ? isHodlHorizon(activeHorizon.id, activeHorizon.horizon_mode)
+    : false;
 
   useEffect(() => {
     if (!scenario) {
@@ -361,6 +371,19 @@ export function DashboardPage() {
         setJournalLoading(false);
       },
       () => setJournalLoading(false),
+    );
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setPaperTrades([]);
+      return;
+    }
+    const unsub = subscribePaperTrades(
+      user.uid,
+      (records) => setPaperTrades(records),
+      (message) => console.warn("paper trades subscribe failed", message),
     );
     return unsub;
   }, [user]);
@@ -683,6 +706,34 @@ export function DashboardPage() {
                 mtfGates={scenario.mtf_gates}
               />
             )}
+            {!isActiveHodl && activeHorizon && scenario ? (
+              <CollapsibleSection
+                title="取引計画（レベル・数量）"
+                storageKey="tradeLevelsPanelOpen"
+                defaultOpen
+              >
+                <TradeLevelsCard
+                  entry={activeHorizon.entry}
+                  exit={activeHorizon.exit}
+                  onPaperEntry={
+                    user
+                      ? (draft) => setPendingPaperDraft(draft)
+                      : undefined
+                  }
+                />
+              </CollapsibleSection>
+            ) : null}
+            {user && !isActiveHodl ? (
+              <PaperTradePanel
+                uid={user.uid}
+                trades={paperTrades}
+                currentPrice={price}
+                scenarioBranch={activeBranch}
+                horizonId={activeHorizon?.id ?? null}
+                pendingDraft={pendingPaperDraft}
+                onDraftConsumed={() => setPendingPaperDraft(null)}
+              />
+            ) : null}
             <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
             {sessions && (
               <div>

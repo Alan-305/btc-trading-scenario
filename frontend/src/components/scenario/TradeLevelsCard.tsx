@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { PaperTradeDraft } from "../../types/paper-trade";
 import type { EntryZone, ExitStrategy, TradeSide } from "../../types/scenario";
 import {
   computePositionSizing,
@@ -14,6 +15,7 @@ import {
 interface TradeLevelsCardProps {
   entry: EntryZone;
   exit: ExitStrategy;
+  onPaperEntry?: (draft: PaperTradeDraft) => void;
 }
 
 const SIDE_LABEL: Record<TradeSide, { text: string; className: string }> = {
@@ -85,7 +87,7 @@ function LevelRow({ label, display, copyValue, accent }: LevelRowProps) {
   );
 }
 
-export function TradeLevelsCard({ entry, exit }: TradeLevelsCardProps) {
+export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardProps) {
   const [prefs, setPrefs] = useState<PositionSizingInput>(() => loadPositionSizingPrefs());
 
   useEffect(() => {
@@ -101,11 +103,8 @@ export function TradeLevelsCard({ entry, exit }: TradeLevelsCardProps) {
   const priceFmt = (v: number) => `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
   return (
-    <div className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-japanese text-sm font-medium text-slate-200">
-          取引計画（レベル・数量）
-        </h3>
+    <div>
+      <div className="mb-3 flex items-center justify-end">
         <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${sideMeta.className}`}>
           {sideMeta.text}
         </span>
@@ -239,6 +238,26 @@ export function TradeLevelsCard({ entry, exit }: TradeLevelsCardProps) {
               {priceFmt(sizing.entryPrice)}・SL {priceFmt(sizing.stopLoss)} の値幅から数量を算出。
               レバレッジ・手数料・スリッページは含みません。
             </p>
+
+            {onPaperEntry ? (
+              <button
+                type="button"
+                onClick={() =>
+                  onPaperEntry({
+                    side: sizing.side as PaperTradeDraft["side"],
+                    entryPrice: sizing.entryPrice,
+                    sizeBtc: sizing.positionSizeBtc,
+                    stopLoss: sizing.stopLoss,
+                    takeProfit1: exit.take_profit[0] ?? null,
+                    takeProfit2: exit.take_profit[1] ?? null,
+                    label: `${SIDE_LABEL[sizing.side].text} · ${ENTRY_BASIS_LABEL[prefs.entryBasis]}`,
+                  })
+                }
+                className="mt-2 min-h-[44px] w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-blue/90"
+              >
+                仮想エントリー（擬似トレードに記録）
+              </button>
+            ) : null}
           </div>
         ) : (
           <p className="mt-4 rounded-md bg-surface-card px-3 py-2 text-xs text-accent-amber">

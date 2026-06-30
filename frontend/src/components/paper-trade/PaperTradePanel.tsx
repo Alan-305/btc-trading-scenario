@@ -1,0 +1,400 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { PaperTrade, PaperTradeDraft, PaperTradePeriod } from "../../types/paper-trade";
+import {
+  closePaperTrade,
+  createPaperTrade,
+  deletePaperTrade,
+  updatePaperTradeFields,
+  type PaperTradeEditableFields,
+} from "../../lib/firestore-paper-trades";
+import {
+  filterPaperTradesByPeriod,
+  isPaperTradeOpen,
+  resolvePaperTradeExit,
+  statusLabelJa,
+  summarizePaperTrades,
+  unrealizedPnlUsd,
+} from "../../lib/paper-trade-math";
+import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
+import { CollapsibleSection } from "../ui/CollapsibleSection";
+
+const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
+  { id: "today", label: "本日" },
+  { id: "week", label: "7日" },
+  { id: "month", label: "30日" },
+  { id: "all", label: "すべて" },
+];
+
+interface PaperTradePanelProps {
+  uid: string;
+  trades: PaperTrade[];
+  currentPrice: number;
+  scenarioBranch: string | null;
+  horizonId: string | null;
+  pendingDraft: PaperTradeDraft | null;
+  onDraftConsumed: () => void;
+}
+
+function formatTs(d: Date | null): string {
+  if (!d) return "—";
+  return d.toLocaleString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function StatBox({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-lg border border-surface-border/60 bg-surface-elevated/50 px-3 py-2">
+      <p className="font-japanese text-[10px] text-content-muted">{label}</p>
+      <p className={`mt-1 font-english text-sm tabular-nums ${accent ?? "text-slate-100"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+interface PositionEditorProps {
+  trade: PaperTrade;
+  onSave: (fields: PaperTradeEditableFields) => void;
+  onCancel: () => void;
+}
+
+function PositionEditor({ trade, onSave, onCancel }: PositionEditorProps) {
+  const [fields, setFields] = useState<PaperTradeEditableFields>({
+    entryPrice: trade.entryPrice,
+    sizeBtc: trade.sizeBtc,
+    stopLoss: trade.stopLoss,
+    takeProfit1: trade.takeProfit1,
+    takeProfit2: trade.takeProfit2,
+    label: trade.label,
+  });
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-surface-border bg-surface-card p-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {(
+          [
+            ["entryPrice", "エントリー"],
+            ["sizeBtc", "数量 BTC"],
+            ["stopLoss", "SL"],
+            ["takeProfit1", "TP1"],
+            ["takeProfit2", "TP2"],
+          ] as const
+        ).map(([key, label]) => (
+          <label key={key} className="flex flex-col gap-1">
+            <span className="text-[10px] text-content-muted">{label}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={fields[key] ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const parsed = raw === "" ? null : Number(raw);
+                setFields((f) => ({
+                  ...f,
+                  [key]: parsed != null && Number.isFinite(parsed) ? parsed : null,
+                }));
+              }}
+              className="min-h-[36px] rounded-md border border-surface-border bg-surface-elevated px-2 text-xs text-slate-100"
+            />
+          </label>
+        ))}
+      </div>
+      <label className="flex flex-col gap-1">
+        <span className="text-[10px] text-content-muted">メモ</span>
+        <input
+          type="text"
+          value={fields.label}
+          onChange={(e) => setFields((f) => ({ ...f, label: e.target.value }))}
+          className="min-h-[36px] rounded-md border border-surface-border bg-surface-elevated px-2 text-xs text-slate-100"
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => onSave(fields)}
+          className="min-h-[40px] rounded-lg bg-accent-blue px-3 py-2 text-xs font-medium text-white"
+        >
+          保存
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-[40px] rounded-lg border border-surface-border px-3 py-2 text-xs text-content-secondary"
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface PositionCardProps {
+  trade: PaperTrade;
+  currentPrice: number;
+  uid: string;
+}
+
+function PositionCard({ trade, currentPrice, uid }: PositionCardProps) {
+  const [editing, setEditing] = useState(false);
+  const open = isPaperTradeOpen(trade);
+  const uPnl = open ? unrealizedPnlUsd(trade, currentPrice) : 0;
+  const rPnl = trade.realizedPnlUsd ?? 0;
+
+  const handleSave = async (fields: PaperTradeEditableFields) => {
+    await updatePaperTradeFields(uid, trade.id, fields);
+    setEditing(false);
+  };
+
+  const handleManualClose = async () => {
+    if (!currentPrice) return;
+    await closePaperTrade(uid, trade.id, currentPrice, "closed_manual", trade);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("この擬似ポジションを削除しますか？")) return;
+    await deletePaperTrade(uid, trade.id);
+  };
+
+  return (
+    <li className="rounded-lg border border-surface-border/70 bg-surface-elevated/40 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-japanese text-xs font-medium text-slate-200">
+            {trade.side === "long" ? "ロング" : "ショート"}
+            <span className="mx-2 text-content-muted">·</span>
+            {statusLabelJa(trade.status)}
+          </p>
+          <p className="mt-1 font-japanese text-[10px] text-content-muted">
+            建玉 {formatTs(trade.openedAt)}
+            {trade.closedAt ? ` → 決済 ${formatTs(trade.closedAt)}` : ""}
+          </p>
+          {trade.label ? (
+            <p className="mt-1 font-japanese text-[10px] text-content-secondary">{trade.label}</p>
+          ) : null}
+        </div>
+        <p
+          className={`font-english text-sm tabular-nums ${
+            (open ? uPnl : rPnl) >= 0 ? "text-accent-green" : "text-accent-red"
+          }`}
+        >
+          {open ? formatUsd(uPnl) : formatUsd(rPnl)}
+          {open ? <span className="ml-1 text-[10px] text-content-muted">含み</span> : null}
+        </p>
+      </div>
+
+      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 font-japanese text-[10px] text-content-muted sm:grid-cols-3">
+        <div>
+          エントリー <span className="font-english text-slate-300">${trade.entryPrice.toLocaleString()}</span>
+        </div>
+        <div>
+          数量 <span className="font-english text-slate-300">{formatBtcQty(trade.sizeBtc)} BTC</span>
+        </div>
+        <div>
+          SL <span className="font-english text-accent-red">${trade.stopLoss.toLocaleString()}</span>
+        </div>
+        {trade.takeProfit1 != null ? (
+          <div>
+            TP1{" "}
+            <span className="font-english text-accent-green">
+              ${trade.takeProfit1.toLocaleString()}
+            </span>
+          </div>
+        ) : null}
+        {trade.takeProfit2 != null ? (
+          <div>
+            TP2{" "}
+            <span className="font-english text-accent-green">
+              ${trade.takeProfit2.toLocaleString()}
+            </span>
+          </div>
+        ) : null}
+        {trade.exitPrice != null ? (
+          <div>
+            決済 <span className="font-english text-slate-300">${trade.exitPrice.toLocaleString()}</span>
+          </div>
+        ) : null}
+      </dl>
+
+      {editing ? (
+        <PositionEditor trade={trade} onSave={handleSave} onCancel={() => setEditing(false)} />
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {open ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="min-h-[40px] rounded-lg border border-surface-border px-3 py-2 text-xs text-content-secondary hover:text-slate-200"
+              >
+                編集
+              </button>
+              <button
+                type="button"
+                onClick={handleManualClose}
+                className="min-h-[40px] rounded-lg border border-accent-amber/40 px-3 py-2 text-xs text-amber-200"
+              >
+                いまの価格で決済
+              </button>
+            </>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="min-h-[40px] rounded-lg border border-accent-red/30 px-3 py-2 text-xs text-accent-red"
+          >
+            削除
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+export function PaperTradePanel({
+  uid,
+  trades,
+  currentPrice,
+  scenarioBranch,
+  horizonId,
+  pendingDraft,
+  onDraftConsumed,
+}: PaperTradePanelProps) {
+  const [period, setPeriod] = useState<PaperTradePeriod>("month");
+  const resolvingRef = useRef<Set<string>>(new Set());
+
+  const periodTrades = useMemo(
+    () => filterPaperTradesByPeriod(trades, period),
+    [trades, period],
+  );
+  const stats = useMemo(() => summarizePaperTrades(periodTrades), [periodTrades]);
+  const openTrades = useMemo(() => trades.filter(isPaperTradeOpen), [trades]);
+  const closedTrades = useMemo(
+    () => periodTrades.filter((t) => !isPaperTradeOpen(t)),
+    [periodTrades],
+  );
+
+  const handleCreateFromDraft = useCallback(
+    async (draft: PaperTradeDraft) => {
+      await createPaperTrade(uid, {
+        ...draft,
+        scenarioBranch,
+        horizonId,
+      });
+    },
+    [uid, scenarioBranch, horizonId],
+  );
+
+  useEffect(() => {
+    if (!pendingDraft) return;
+    void handleCreateFromDraft(pendingDraft).then(onDraftConsumed);
+  }, [pendingDraft, handleCreateFromDraft, onDraftConsumed]);
+
+  useEffect(() => {
+    if (currentPrice <= 0 || openTrades.length === 0) return;
+
+    for (const trade of openTrades) {
+      if (resolvingRef.current.has(trade.id)) continue;
+      const resolution = resolvePaperTradeExit(trade, currentPrice);
+      if (!resolution) continue;
+
+      resolvingRef.current.add(trade.id);
+      void closePaperTrade(uid, trade.id, resolution.exitPrice, resolution.status, trade).finally(
+        () => {
+          resolvingRef.current.delete(trade.id);
+        },
+      );
+    }
+  }, [currentPrice, openTrades, uid]);
+
+  const summaryText = `オープン ${stats.openCount} · 勝率 ${
+    stats.winRatePct != null ? `${stats.winRatePct}%` : "—"
+  } · 損益 ${formatUsd(stats.totalRealizedPnlUsd)}`;
+
+  return (
+    <CollapsibleSection
+      title="擬似トレード"
+      summary={summaryText}
+      storageKey="paperTradePanelOpen"
+      defaultOpen
+    >
+      <p className="mb-4 font-japanese text-xs leading-relaxed text-content-muted">
+        取引計画の「仮想エントリー」でポジションを記録します。価格が SL / TP に届くと自動決済。実際の取引所注文は行いません。
+      </p>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {PERIOD_OPTIONS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => setPeriod(p.id)}
+            className={`min-h-[40px] rounded-lg px-3 py-2 text-xs font-medium ${
+              period === p.id
+                ? "bg-accent-blue text-white"
+                : "border border-surface-border text-content-secondary"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <StatBox
+          label="勝率（決済済み）"
+          value={stats.winRatePct != null ? `${stats.winRatePct}%` : "—"}
+          accent="text-accent-blue"
+        />
+        <StatBox
+          label="勝ち / 負け"
+          value={`${stats.winCount} / ${stats.lossCount}`}
+        />
+        <StatBox
+          label="期間損益"
+          value={formatUsd(stats.totalRealizedPnlUsd)}
+          accent={stats.totalRealizedPnlUsd >= 0 ? "text-accent-green" : "text-accent-red"}
+        />
+        <StatBox label="決済数" value={String(stats.closedCount)} />
+      </div>
+
+      <CollapsibleSection
+        title={`オープンポジション（${openTrades.length}）`}
+        defaultOpen
+        storageKey="paperTradeOpenList"
+        className="mb-4 border-surface-border/60 bg-transparent"
+      >
+        {openTrades.length === 0 ? (
+          <p className="font-japanese text-xs text-content-muted">
+            オープン中の擬似ポジションはありません。取引計画から「仮想エントリー」を押してください。
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {openTrades.map((t) => (
+              <PositionCard key={t.id} trade={t} currentPrice={currentPrice} uid={uid} />
+            ))}
+          </ul>
+        )}
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        title={`決済済み（${closedTrades.length}）`}
+        defaultOpen={false}
+        storageKey="paperTradeClosedList"
+        className="border-surface-border/60 bg-transparent"
+      >
+        {closedTrades.length === 0 ? (
+          <p className="font-japanese text-xs text-content-muted">この期間の決済履歴はありません。</p>
+        ) : (
+          <ul className="space-y-3">
+            {closedTrades.map((t) => (
+              <PositionCard key={t.id} trade={t} currentPrice={currentPrice} uid={uid} />
+            ))}
+          </ul>
+        )}
+      </CollapsibleSection>
+    </CollapsibleSection>
+  );
+}
