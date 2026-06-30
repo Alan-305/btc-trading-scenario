@@ -734,7 +734,6 @@ export function DashboardPage() {
                 onDraftConsumed={() => setPendingPaperDraft(null)}
               />
             ) : null}
-            <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
             {sessions && (
               <div>
                 <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
@@ -808,6 +807,7 @@ export function DashboardPage() {
               <IndicatorSignalHeader signal={equityMarketsSignal(macroContext?.equity_markets)} />
               <EquityMarketsPanel data={macroContext?.equity_markets} loading={macroLoading} />
             </div>
+            <EconomicCalendarPanel data={macroEvents} loading={macroEventsLoading} />
             <MacroContextPanel data={macroContext} loading={macroLoading} error={macroError} />
             {user && (
               <ResearchPanel userId={user.uid} items={researchItems} loading={researchLoading} />
