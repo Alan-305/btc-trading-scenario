@@ -1,0 +1,10 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "paperTrades",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [{ "fieldPath": "status", "order": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}

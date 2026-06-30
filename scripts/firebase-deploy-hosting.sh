@@ -27,7 +27,7 @@ cd frontend && npm run build
 
 echo "==> Deploy Firebase Hosting + Storage rules"
 cd "$ROOT"
-firebase deploy --only hosting,storage --project="$PROJECT_ID"
+firebase deploy --only hosting,storage,firestore:indexes --project="$PROJECT_ID"
 
 echo ""
 echo "Login URL: https://nexus-btc-trading.web.app"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PaperTrade, PaperTradePeriod } from "../../types/paper-trade";
 import {
   closePaperTrade,
@@ -10,13 +10,11 @@ import {
 import {
   filterPaperTradesByPeriod,
   isPaperTradeOpen,
-  resolvePaperTradeExit,
   statusLabelJa,
   summarizePaperTrades,
   takeProfitTargetLabel,
   unrealizedPnlUsd,
 } from "../../lib/paper-trade-math";
-import { notifyPaperTradeFill } from "../../lib/paper-trade-notify";
 import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
 import { TakeProfitTargetPicker } from "./TakeProfitTargetPicker";
@@ -344,7 +342,6 @@ export function PaperTradePanel({
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const resolvingRef = useRef<Set<string>>(new Set());
 
   const periodTrades = useMemo(
     () => filterPaperTradesByPeriod(trades, period),
@@ -406,24 +403,6 @@ export function PaperTradePanel({
     });
   }, [bulkMode, bulkTargetTrades]);
 
-  useEffect(() => {
-    if (currentPrice <= 0 || openTrades.length === 0) return;
-
-    for (const trade of openTrades) {
-      if (resolvingRef.current.has(trade.id)) continue;
-      const resolution = resolvePaperTradeExit(trade, currentPrice);
-      if (!resolution) continue;
-
-      resolvingRef.current.add(trade.id);
-      const { exitPrice, status } = resolution;
-      void closePaperTrade(uid, trade.id, exitPrice, status, trade)
-        .then(() => notifyPaperTradeFill(trade, exitPrice, status))
-        .finally(() => {
-          resolvingRef.current.delete(trade.id);
-        });
-    }
-  }, [currentPrice, openTrades, uid]);
-
   const summaryText = `オープン ${stats.openCount} · 勝率 ${
     stats.winRatePct != null ? `${stats.winRatePct}%` : "—"
   } · 損益 ${formatUsd(stats.totalRealizedPnlUsd)}`;
@@ -436,7 +415,7 @@ export function PaperTradePanel({
       defaultOpen
     >
       <p className="mb-4 font-japanese text-xs leading-relaxed text-content-muted">
-        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL で自動決済し、約定時にログイン中のメールへ通知します。実際の取引所注文は行いません。
+        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。実際の取引所注文は行いません。
       </p>
 
       <div className="mb-4 flex flex-wrap gap-2">
