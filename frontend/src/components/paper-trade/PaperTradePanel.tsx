@@ -13,10 +13,13 @@ import {
   resolvePaperTradeExit,
   statusLabelJa,
   summarizePaperTrades,
+  takeProfitTargetLabel,
   unrealizedPnlUsd,
 } from "../../lib/paper-trade-math";
+import { notifyPaperTradeFill } from "../../lib/paper-trade-notify";
 import { formatBtcQty, formatUsd } from "../../lib/position-sizing";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
+import { TakeProfitTargetPicker } from "./TakeProfitTargetPicker";
 
 const PERIOD_OPTIONS: { id: PaperTradePeriod; label: string }[] = [
   { id: "today", label: "本日" },
@@ -65,6 +68,7 @@ function PositionEditor({ trade, onSave, onCancel }: PositionEditorProps) {
     stopLoss: trade.stopLoss,
     takeProfit1: trade.takeProfit1,
     takeProfit2: trade.takeProfit2,
+    takeProfitTarget: trade.takeProfitTarget,
     label: trade.label,
   });
 
@@ -99,6 +103,13 @@ function PositionEditor({ trade, onSave, onCancel }: PositionEditorProps) {
           </label>
         ))}
       </div>
+      <TakeProfitTargetPicker
+        value={fields.takeProfitTarget}
+        onChange={(takeProfitTarget) => setFields((f) => ({ ...f, takeProfitTarget }))}
+        hasTp1={fields.takeProfit1 != null}
+        hasTp2={fields.takeProfit2 != null}
+        compact
+      />
       <label className="flex flex-col gap-1">
         <span className="text-[10px] text-content-muted">メモ</span>
         <input
@@ -195,6 +206,11 @@ function PositionCard({
             <p className="mt-1 font-japanese text-[10px] text-content-muted">
               建玉 {formatTs(trade.openedAt)}
               {trade.closedAt ? ` → 決済 ${formatTs(trade.closedAt)}` : ""}
+              {open ? (
+                <span className="ml-2 text-content-secondary">
+                  自動利確: {takeProfitTargetLabel(trade.takeProfitTarget)}
+                </span>
+              ) : null}
             </p>
             {trade.label ? (
               <p className="mt-1 font-japanese text-[10px] text-content-secondary">{trade.label}</p>
@@ -399,11 +415,12 @@ export function PaperTradePanel({
       if (!resolution) continue;
 
       resolvingRef.current.add(trade.id);
-      void closePaperTrade(uid, trade.id, resolution.exitPrice, resolution.status, trade).finally(
-        () => {
+      const { exitPrice, status } = resolution;
+      void closePaperTrade(uid, trade.id, exitPrice, status, trade)
+        .then(() => notifyPaperTradeFill(trade, exitPrice, status))
+        .finally(() => {
           resolvingRef.current.delete(trade.id);
-        },
-      );
+        });
     }
   }, [currentPrice, openTrades, uid]);
 
@@ -419,7 +436,7 @@ export function PaperTradePanel({
       defaultOpen
     >
       <p className="mb-4 font-japanese text-xs leading-relaxed text-content-muted">
-        取引計画の「仮想エントリー」でポジションを記録します。価格が SL / TP に届くと自動決済。実際の取引所注文は行いません。
+        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL で自動決済し、約定時にログイン中のメールへ通知します。実際の取引所注文は行いません。
       </p>
 
       <div className="mb-4 flex flex-wrap gap-2">

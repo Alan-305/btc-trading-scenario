@@ -1,4 +1,10 @@
-import type { PaperTrade, PaperTradePeriod, PaperTradeStats, PaperTradeStatus } from "../types/paper-trade";
+import type {
+  PaperTrade,
+  PaperTradePeriod,
+  PaperTradeStats,
+  PaperTradeStatus,
+  PaperTradeTakeProfitTarget,
+} from "../types/paper-trade";
 
 export function isPaperTradeOpen(trade: PaperTrade): boolean {
   return trade.status === "open";
@@ -23,10 +29,10 @@ export function realizedPnlFromExit(
 
 export interface PaperTradeResolution {
   exitPrice: number;
-  status: Exclude<PaperTradeStatus, "open">;
+  status: Exclude<PaperTradeStatus, "open" | "closed_manual">;
 }
 
-/** Check if current price triggers SL or TP for an open position. */
+/** Check if current price triggers SL or the selected TP for an open position. */
 export function resolvePaperTradeExit(
   trade: PaperTrade,
   price: number,
@@ -34,26 +40,31 @@ export function resolvePaperTradeExit(
   if (!isPaperTradeOpen(trade) || price <= 0) return null;
 
   const { side, stopLoss, takeProfit1, takeProfit2 } = trade;
+  const target = trade.takeProfitTarget ?? "tp1";
 
   if (side === "long") {
     if (price <= stopLoss) return { exitPrice: stopLoss, status: "closed_sl" };
-    if (takeProfit2 != null && price >= takeProfit2) {
+    if (target === "tp2" && takeProfit2 != null && price >= takeProfit2) {
       return { exitPrice: takeProfit2, status: "closed_tp2" };
     }
-    if (takeProfit1 != null && price >= takeProfit1) {
+    if (target === "tp1" && takeProfit1 != null && price >= takeProfit1) {
       return { exitPrice: takeProfit1, status: "closed_tp1" };
     }
     return null;
   }
 
   if (price >= stopLoss) return { exitPrice: stopLoss, status: "closed_sl" };
-  if (takeProfit2 != null && price <= takeProfit2) {
+  if (target === "tp2" && takeProfit2 != null && price <= takeProfit2) {
     return { exitPrice: takeProfit2, status: "closed_tp2" };
   }
-  if (takeProfit1 != null && price <= takeProfit1) {
+  if (target === "tp1" && takeProfit1 != null && price <= takeProfit1) {
     return { exitPrice: takeProfit1, status: "closed_tp1" };
   }
   return null;
+}
+
+export function takeProfitTargetLabel(target: PaperTradeTakeProfitTarget): string {
+  return target === "tp1" ? "TP1" : "TP2";
 }
 
 export function filterPaperTradesByPeriod(

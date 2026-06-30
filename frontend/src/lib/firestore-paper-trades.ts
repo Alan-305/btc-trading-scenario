@@ -12,7 +12,7 @@ import {
   updateDoc,
   type Timestamp as FirestoreTimestamp,
 } from "firebase/firestore";
-import type { PaperTrade, PaperTradeInput, PaperTradeStatus } from "../types/paper-trade";
+import type { PaperTrade, PaperTradeInput, PaperTradeStatus, PaperTradeTakeProfitTarget } from "../types/paper-trade";
 import { realizedPnlFromExit } from "./paper-trade-math";
 import { getFirebaseDb } from "./firebase";
 
@@ -41,6 +41,8 @@ function mapDoc(id: string, data: Record<string, unknown>): PaperTrade {
     stopLoss: num(data, "stopLoss") ?? 0,
     takeProfit1: num(data, "takeProfit1"),
     takeProfit2: num(data, "takeProfit2"),
+    takeProfitTarget:
+      data.takeProfitTarget === "tp2" ? "tp2" : ("tp1" as PaperTradeTakeProfitTarget),
     exitPrice: num(data, "exitPrice"),
     realizedPnlUsd: num(data, "realizedPnlUsd"),
     label: (data.label as string) ?? "",
@@ -71,6 +73,7 @@ export interface PaperTradeEditableFields {
   stopLoss: number;
   takeProfit1: number | null;
   takeProfit2: number | null;
+  takeProfitTarget: PaperTradeTakeProfitTarget;
   label: string;
 }
 

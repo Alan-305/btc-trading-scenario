@@ -99,4 +99,6 @@ export const api = {
     postJson<{ email: string; message: string }>("/api/v1/invites", { email }),
   summarizeResearch: (body: ResearchSummarizeRequest) =>
     postJson<ResearchSummarizeResponse>("/api/v1/research/summarize", body),
+  notifyPaperTradeFill: (body: import("../types/paper-trade").PaperTradeFillNotifyRequest) =>
+    postJson<{ status: string }>("/api/v1/paper-trades/notify-fill", body),
 };

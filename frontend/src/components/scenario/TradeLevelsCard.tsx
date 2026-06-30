@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { PaperTradeDraft } from "../../types/paper-trade";
+import type { PaperTradeDraft, PaperTradeTakeProfitTarget } from "../../types/paper-trade";
 import type { EntryZone, ExitStrategy, TradeSide } from "../../types/scenario";
+import { TakeProfitTargetPicker } from "../paper-trade/TakeProfitTargetPicker";
 import {
   computePositionSizing,
   formatBtcQty,
@@ -90,6 +91,15 @@ function LevelRow({ label, display, copyValue, accent }: LevelRowProps) {
 export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardProps) {
   const [prefs, setPrefs] = useState<PositionSizingInput>(() => loadPositionSizingPrefs());
   const [paperEntrySubmitting, setPaperEntrySubmitting] = useState(false);
+  const [takeProfitTarget, setTakeProfitTarget] = useState<PaperTradeTakeProfitTarget>("tp1");
+  const hasTp1 = exit.take_profit[0] != null;
+  const hasTp2 = exit.take_profit[1] != null;
+
+  useEffect(() => {
+    if (takeProfitTarget === "tp2" && !hasTp2) {
+      setTakeProfitTarget("tp1");
+    }
+  }, [takeProfitTarget, hasTp2]);
 
   useEffect(() => {
     savePositionSizingPrefs(prefs);
@@ -241,28 +251,38 @@ export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardPr
             </p>
 
             {onPaperEntry ? (
-              <button
-                type="button"
-                disabled={paperEntrySubmitting}
-                onClick={() => {
-                  if (paperEntrySubmitting) return;
-                  setPaperEntrySubmitting(true);
-                  void Promise.resolve(
-                    onPaperEntry({
-                      side: sizing.side as PaperTradeDraft["side"],
-                      entryPrice: sizing.entryPrice,
-                      sizeBtc: sizing.positionSizeBtc,
-                      stopLoss: sizing.stopLoss,
-                      takeProfit1: exit.take_profit[0] ?? null,
-                      takeProfit2: exit.take_profit[1] ?? null,
-                      label: `${SIDE_LABEL[sizing.side].text} · ${ENTRY_BASIS_LABEL[prefs.entryBasis]}`,
-                    }),
-                  ).finally(() => setPaperEntrySubmitting(false));
-                }}
-                className="mt-2 min-h-[44px] w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-blue/90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {paperEntrySubmitting ? "記録中…" : "仮想エントリー（擬似トレードに記録）"}
-              </button>
+              <div className="mt-3 space-y-3">
+                <TakeProfitTargetPicker
+                  value={takeProfitTarget}
+                  onChange={setTakeProfitTarget}
+                  hasTp1={hasTp1}
+                  hasTp2={hasTp2}
+                  disabled={paperEntrySubmitting}
+                />
+                <button
+                  type="button"
+                  disabled={paperEntrySubmitting}
+                  onClick={() => {
+                    if (paperEntrySubmitting) return;
+                    setPaperEntrySubmitting(true);
+                    void Promise.resolve(
+                      onPaperEntry({
+                        side: sizing.side as PaperTradeDraft["side"],
+                        entryPrice: sizing.entryPrice,
+                        sizeBtc: sizing.positionSizeBtc,
+                        stopLoss: sizing.stopLoss,
+                        takeProfit1: exit.take_profit[0] ?? null,
+                        takeProfit2: exit.take_profit[1] ?? null,
+                        takeProfitTarget,
+                        label: `${SIDE_LABEL[sizing.side].text} · ${ENTRY_BASIS_LABEL[prefs.entryBasis]}`,
+                      }),
+                    ).finally(() => setPaperEntrySubmitting(false));
+                  }}
+                  className="min-h-[44px] w-full rounded-lg bg-accent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-blue/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {paperEntrySubmitting ? "記録中…" : "仮想エントリー（擬似トレードに記録）"}
+                </button>
+              </div>
             ) : null}
           </div>
         ) : (
