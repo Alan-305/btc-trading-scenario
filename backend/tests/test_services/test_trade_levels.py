@@ -104,6 +104,30 @@ def test_short_entry_ignores_distant_resistance():
     assert high - low <= spot * 0.04
 
 
+def test_short_entry_ignores_distant_mtf_daily_resistance():
+    """Regression: MTF daily resistance far above spot must not widen the short band."""
+    from app.schemas.mtf import MtfAnalysis, MtfTimeframeLayer
+
+    spot = 59_842.0
+    ta = _ta(atr=1_500, support=58_388, resistance=81_900)
+    mtf = MtfAnalysis(
+        layers=[
+            MtfTimeframeLayer(
+                interval="1d",
+                label_ja="日足",
+                trend="bearish",
+                support=58_000,
+                resistance=81_900,
+                summary_ja="",
+            ),
+        ]
+    )
+    low, high = compute_entry_zone(spot, "short", ta, None, confidence=0.7, mtf=mtf)
+    assert high <= spot * 1.02
+    assert low >= spot * 0.98
+    assert high - low <= spot * 0.04
+
+
 def test_short_exit_enforces_min_rr_despite_near_support():
     """Regression: nearby support must not collapse TP while SL stays wide."""
     ctx = _context(

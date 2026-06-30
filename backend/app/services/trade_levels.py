@@ -342,10 +342,14 @@ def _apply_mtf_long_entry(
     layers = layer_by_interval(mtf)
     daily = layers.get("1d")
     weekly = layers.get("1w")
-    if daily and daily.support and daily.support < price:
+    if daily and daily.support and is_plausible_usd_price(
+        daily.support, price, min_ratio=0.97, max_ratio=1.0
+    ):
         entry_low = round(min(entry_low, daily.support * 1.001), 2)
         entry_high = round(max(entry_high, min(daily.support * 1.01, price * 1.008)), 2)
-    if weekly and weekly.resistance and price >= weekly.resistance * 0.985:
+    if weekly and weekly.resistance and is_plausible_usd_price(
+        weekly.resistance, price, min_ratio=1.0, max_ratio=1.03
+    ) and price >= weekly.resistance * 0.985:
         entry_high = round(min(entry_high, price * 1.002), 2)
     return entry_low, entry_high
 
@@ -361,9 +365,13 @@ def _apply_mtf_short_entry(
     layers = layer_by_interval(mtf)
     daily = layers.get("1d")
     weekly = layers.get("1w")
-    if daily and daily.resistance and daily.resistance > price:
+    if daily and daily.resistance and is_plausible_usd_price(
+        daily.resistance, price, min_ratio=1.0, max_ratio=1.03
+    ):
         entry_high = round(min(entry_high, daily.resistance * 1.001), 2)
-        entry_low = round(max(entry_low, max(daily.resistance * 0.99, price * 0.995)), 2)
-    if weekly and weekly.support and price <= weekly.support * 1.015:
+        entry_low = round(max(entry_low, min(daily.resistance * 0.992, price * 0.998)), 2)
+    if weekly and weekly.support and is_plausible_usd_price(
+        weekly.support, price, min_ratio=0.97, max_ratio=1.0
+    ) and price <= weekly.support * 1.015:
         entry_low = round(max(entry_low, price * 0.998), 2)
     return entry_low, entry_high
