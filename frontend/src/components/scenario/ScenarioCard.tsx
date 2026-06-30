@@ -110,11 +110,11 @@ export function ScenarioCard({
 
       {!isHodl && scenario.mtf ? <MtfSummaryPanel mtf={scenario.mtf} /> : null}
 
-      {!isHodl ? <TradeLevelsCard entry={active.entry} exit={active.exit} /> : null}
-
       <p className="mt-4 whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {active.scenario_text_ja}
       </p>
+
+      {!isHodl ? <TradeLevelsCard entry={active.entry} exit={active.exit} /> : null}
 
       {scenario.data_sources && (
         <p className="mt-3 text-xs text-content-muted">
