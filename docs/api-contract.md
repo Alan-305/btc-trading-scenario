@@ -108,13 +108,17 @@ Query: `?refresh=true` regenerates scenario.
 
 Header: `X-Internal-Token: <INTERNAL_COLLECT_TOKEN>` (when configured)
 
+Scheduled lightweight job: exchange tickers + paper-trade TP/SL monitoring. Does **not** run Gemini scenario analysis.
+
 Response:
 
 ```json
 {
   "status": "collected",
+  "mode": "paper_trade_watch",
+  "reference_price": 97500,
   "tickers": 4,
-  "orderbooks": 4
+  "paper_trades": { "scanned": 1, "closed": 0, "notified": 0, "errors": 0 }
 }
 ```
 

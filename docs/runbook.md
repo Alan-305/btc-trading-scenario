@@ -63,7 +63,9 @@ gcloud run services describe btc-trading-api --region=asia-northeast1 --format='
 | `COINGLASS_API_KEY` | 有料データ（任意） |
 | `INTERNAL_COLLECT_TOKEN` | Cloud Scheduler 用 |
 
-### Cloud Scheduler（任意）
+### Cloud Scheduler（擬似トレード監視）
+
+5分おきに価格取得と擬似トレードの TP/SL チェックのみ実行します（Gemini シナリオ再分析は含みません。シナリオはアプリを開いたときのみ）。
 
 ```bash
 API_URL=$(gcloud run services describe btc-trading-api --region=asia-northeast1 --format='value(status.url)')
@@ -72,9 +74,19 @@ TOKEN=$(gcloud secrets versions access latest --secret=INTERNAL_COLLECT_TOKEN)
 gcloud scheduler jobs create http btc-collect-job \
   --location=asia-northeast1 \
   --schedule="*/5 * * * *" \
+  --time-zone="Asia/Tokyo" \
   --uri="${API_URL}/api/v1/internal/collect" \
   --http-method=POST \
   --headers="X-Internal-Token=${TOKEN}"
+```
+
+既存ジョブの間隔を変える場合:
+
+```bash
+gcloud scheduler jobs update http btc-collect-job \
+  --location=asia-northeast1 \
+  --project=nexus-btc-trading \
+  --schedule="*/5 * * * *"
 ```
 
 ## Monitoring

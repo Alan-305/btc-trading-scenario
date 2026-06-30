@@ -415,7 +415,7 @@ export function PaperTradePanel({
       defaultOpen
     >
       <p className="mb-4 font-japanese text-xs leading-relaxed text-content-muted">
-        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。実際の取引所注文は行いません。
+        取引計画の「仮想エントリー」でポジションを記録します。選択した TP1 / TP2 または SL に届くとサーバーが約5分以内に約定処理し、ログイン中のメールへ通知します（アプリを開いていなくても送信）。シナリオ分析はアプリを開いたときのみ更新されます。実際の取引所注文は行いません。
       </p>
 
       <div className="mb-4 flex flex-wrap gap-2">

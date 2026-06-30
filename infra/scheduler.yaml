@@ -1,6 +1,7 @@
 # Cloud Scheduler job (create via gcloud)
+# Lightweight: tickers + paper-trade TP/SL watch (no Gemini). Scenario builds on app open only.
 # gcloud scheduler jobs create http btc-collect-job \
-#   --schedule="*/1 * * * *" \
+#   --schedule="*/5 * * * *" \
 #   --uri="https://btc-trading-api-xxx.run.app/api/v1/internal/collect" \
 #   --http-method=POST \
 #   --headers="X-Internal-Token=YOUR_TOKEN"
