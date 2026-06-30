@@ -55,6 +55,7 @@ export interface TechnicalAnalysis {
   support: number | null;
   resistance: number | null;
   atr_14?: number | null;
+  adx_14?: number | null;
   stoch_k?: number | null;
   stoch_d?: number | null;
   stoch_last_cross?: "gc" | "dc" | null;

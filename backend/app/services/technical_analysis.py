@@ -25,13 +25,23 @@ def _ema(values: np.ndarray, period: int) -> np.ndarray:
 
 
 def _rsi(closes: np.ndarray, period: int = 14) -> float | None:
+    """Wilder's RSI: seed with the first `period` average, then smooth over the series.
+
+    TradingView や一般的なチャートと同じ平滑化方式。単純平均より直近の値動きへの
+    追従が安定し、閾値（売られすぎ/買われすぎ）判定の整合性が取れる。
+    """
     if len(closes) < period + 1:
         return None
     deltas = np.diff(closes)
     gains = np.where(deltas > 0, deltas, 0.0)
     losses = np.where(deltas < 0, -deltas, 0.0)
-    avg_gain = np.mean(gains[-period:])
-    avg_loss = np.mean(losses[-period:])
+    # Seed: simple average of the first `period` changes.
+    avg_gain = float(np.mean(gains[:period]))
+    avg_loss = float(np.mean(losses[:period]))
+    # Wilder smoothing for the remaining changes.
+    for i in range(period, len(deltas)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
     if avg_loss == 0:
         return 100.0
     rs = avg_gain / avg_loss
@@ -93,6 +103,65 @@ def _atr(candles: list[Candle], period: int = 14) -> float | None:
     for tr in trs[period:]:
         atr = (atr * (period - 1) + tr) / period
     return round(float(atr), 2)
+
+
+def _adx(candles: list[Candle], period: int = 14) -> float | None:
+    """Wilder's ADX(14): trend-strength gauge in [0, 100].
+
+    ADX は方向ではなく「トレンドの強さ」を測る。<20 はレンジ（トレンド追随系の
+    シグナルが効きにくい）、>25 は明確なトレンドの目安。シグナル合成の重み付けに使う。
+    """
+    if len(candles) < period * 2 + 1:
+        return None
+    highs = [c.high for c in candles]
+    lows = [c.low for c in candles]
+    closes = [c.close for c in candles]
+
+    plus_dm: list[float] = []
+    minus_dm: list[float] = []
+    trs: list[float] = []
+    for i in range(1, len(candles)):
+        up_move = highs[i] - highs[i - 1]
+        down_move = lows[i - 1] - lows[i]
+        plus_dm.append(up_move if (up_move > down_move and up_move > 0) else 0.0)
+        minus_dm.append(down_move if (down_move > up_move and down_move > 0) else 0.0)
+        trs.append(
+            max(
+                highs[i] - lows[i],
+                abs(highs[i] - closes[i - 1]),
+                abs(lows[i] - closes[i - 1]),
+            )
+        )
+    if len(trs) < period:
+        return None
+
+    def _dx(atr_v: float, sm_plus: float, sm_minus: float) -> float:
+        if atr_v == 0:
+            return 0.0
+        plus_di = 100.0 * sm_plus / atr_v
+        minus_di = 100.0 * sm_minus / atr_v
+        denom = plus_di + minus_di
+        if denom == 0:
+            return 0.0
+        return 100.0 * abs(plus_di - minus_di) / denom
+
+    # Wilder-smoothed running sums of TR / +DM / -DM.
+    atr = sum(trs[:period])
+    sm_plus = sum(plus_dm[:period])
+    sm_minus = sum(minus_dm[:period])
+    dx_values: list[float] = [_dx(atr, sm_plus, sm_minus)]
+    for i in range(period, len(trs)):
+        atr = atr - atr / period + trs[i]
+        sm_plus = sm_plus - sm_plus / period + plus_dm[i]
+        sm_minus = sm_minus - sm_minus / period + minus_dm[i]
+        dx_values.append(_dx(atr, sm_plus, sm_minus))
+
+    if len(dx_values) < period:
+        return round(float(dx_values[-1]), 1) if dx_values else None
+    adx = sum(dx_values[:period]) / period
+    for dx in dx_values[period:]:
+        adx = (adx * (period - 1) + dx) / period
+    return round(float(adx), 1)
 
 
 def _sma(values: list[float], period: int) -> list[float]:
@@ -276,6 +345,101 @@ def _build_overlay_series(candles: list[Candle]) -> list[OverlaySeriesPoint]:
     return series
 
 
+def _combine_signals(
+    *,
+    price: float,
+    rsi: float | None,
+    ema20: float | None,
+    ema50: float | None,
+    ema200: float | None,
+    macd: MacdValues | None,
+    bollinger: BollingerValues | None,
+    adx: float | None,
+    last_cross: str | None,
+    stoch_zone: str,
+) -> tuple[str, float, float]:
+    """Weighted, regime-aware signal combination → (trend, bull_score, bear_score).
+
+    旧実装（指標ごとに等重み +1、Stoch のみ +2 の単純多数決）の問題を解消する:
+    - 相関するトレンド系（EMA20/50 と 価格 vs EMA200）を1つのトレンドスコアに統合し、
+      トレンドの二重カウントを排除。
+    - ADX でレジームを判定し、順張り（トレンド系）と逆張り（RSI/BB/Stoch）の重みを
+      切り替える。レンジ時は順張りを弱め逆張りを強め、トレンド時はその逆。
+    - RSI はグラデーション（30/40・60/70）で寄与を段階化。
+    - Stochastic はタイミング系として軽量化（最大 0.8、旧実装の最大 2 から低減）。
+    - 中立マージンを設け、僅差では neutral を返してダマシを抑制。
+    """
+    bull = 0.0
+    bear = 0.0
+
+    trending = adx is not None and adx >= 25
+    ranging = adx is not None and adx < 20
+    trend_w = 1.5 if trending else 0.6 if ranging else 1.0
+    mr_w = 0.6 if trending else 1.2 if ranging else 1.0  # mean-reversion weight
+
+    # --- Trend group: combine EMA structure into a single score in [-2, 2] ---
+    trend_score = 0
+    if ema20 is not None and ema50 is not None:
+        trend_score += 1 if ema20 > ema50 else -1
+    if ema200 is not None:
+        trend_score += 1 if price > ema200 else -1
+    if trend_score > 0:
+        bull += trend_w * (trend_score / 2)
+    elif trend_score < 0:
+        bear += trend_w * (-trend_score / 2)
+
+    # --- Momentum: MACD histogram ---
+    if macd is not None:
+        if macd.histogram > 0:
+            bull += 1.0
+        elif macd.histogram < 0:
+            bear += 1.0
+
+    # --- Mean reversion: RSI with gradient ---
+    if rsi is not None:
+        if rsi < 30:
+            bull += mr_w
+        elif rsi < 40:
+            bull += mr_w * 0.5
+        elif rsi > 70:
+            bear += mr_w
+        elif rsi > 60:
+            bear += mr_w * 0.5
+
+    # --- Mean reversion: Bollinger band touch ---
+    if bollinger is not None:
+        if price <= bollinger.lower:
+            bull += mr_w * 0.8
+        elif price >= bollinger.upper:
+            bear += mr_w * 0.8
+
+    # --- Timing: Stochastic (light, capped weight) ---
+    stoch_w = 0.8
+    if last_cross == "gc":
+        if stoch_zone == "oversold":
+            bull += stoch_w
+        elif stoch_zone != "overbought":
+            bull += stoch_w * 0.5
+    elif last_cross == "dc":
+        if stoch_zone == "overbought":
+            bear += stoch_w
+        elif stoch_zone != "oversold":
+            bear += stoch_w * 0.5
+    elif stoch_zone == "oversold":
+        bull += stoch_w * 0.5
+    elif stoch_zone == "overbought":
+        bear += stoch_w * 0.5
+
+    margin = 0.5
+    if bull - bear > margin:
+        trend = "bullish"
+    elif bear - bull > margin:
+        trend = "bearish"
+    else:
+        trend = "neutral"
+    return trend, round(bull, 2), round(bear, 2)
+
+
 class TechnicalAnalysisService:
     def analyze(
         self,
@@ -307,6 +471,7 @@ class TechnicalAnalysisService:
             )
         support, resistance = _swing_levels(candles)
         atr_14 = _atr(candles)
+        adx_14 = _adx(candles)
         price = float(closes[-1])
         overlay_series = _build_overlay_series(candles)
 
@@ -325,55 +490,18 @@ class TechnicalAnalysisService:
         )
         stoch_stance_val = _stoch_stance(stoch_k, stoch_d, last_cross, stoch_zone)
 
-        bullish = 0
-        bearish = 0
-        if rsi is not None:
-            if rsi < 35:
-                bullish += 1
-            elif rsi > 65:
-                bearish += 1
-        if ema20 is not None and ema50 is not None:
-            if ema20 > ema50:
-                bullish += 1
-            elif ema20 < ema50:
-                bearish += 1
-        if macd is not None:
-            if macd.histogram > 0:
-                bullish += 1
-            elif macd.histogram < 0:
-                bearish += 1
-        if ema200 is not None:
-            if price > ema200:
-                bullish += 1
-            elif price < ema200:
-                bearish += 1
-        if bollinger is not None:
-            if price <= bollinger.lower:
-                bullish += 1
-            elif price >= bollinger.upper:
-                bearish += 1
-
-        if last_cross == "gc":
-            if stoch_zone == "oversold":
-                bullish += 2
-            elif stoch_zone != "overbought":
-                bullish += 1
-        elif last_cross == "dc":
-            if stoch_zone == "overbought":
-                bearish += 2
-            elif stoch_zone != "oversold":
-                bearish += 1
-        elif stoch_zone == "oversold":
-            bullish += 1
-        elif stoch_zone == "overbought":
-            bearish += 1
-
-        if bullish > bearish:
-            trend = "bullish"
-        elif bearish > bullish:
-            trend = "bearish"
-        else:
-            trend = "neutral"
+        trend, _bull_score, _bear_score = _combine_signals(
+            price=price,
+            rsi=rsi,
+            ema20=ema20,
+            ema50=ema50,
+            ema200=ema200,
+            macd=macd,
+            bollinger=bollinger,
+            adx=adx_14,
+            last_cross=last_cross,
+            stoch_zone=stoch_zone,
+        )
 
         parts: list[str] = []
         if rsi is not None:
@@ -399,6 +527,9 @@ class TechnicalAnalysisService:
             parts.append(f"サポ ${support:,.0f} / レジ ${resistance:,.0f}")
         if atr_14 is not None:
             parts.append(f"ATR(14) ${atr_14:,.0f}")
+        if adx_14 is not None:
+            regime = "強いトレンド" if adx_14 >= 25 else "レンジ" if adx_14 < 20 else "トレンド形成中"
+            parts.append(f"ADX(14) {adx_14:.0f}（{regime}）")
         if stoch_k is not None and stoch_d is not None:
             parts.append(f"Stoch {stoch_signal_ja}")
 
@@ -416,6 +547,7 @@ class TechnicalAnalysisService:
             support=round(support, 2) if support else None,
             resistance=round(resistance, 2) if resistance else None,
             atr_14=atr_14,
+            adx_14=adx_14,
             stoch_k=stoch_k,
             stoch_d=stoch_d,
             stoch_last_cross=last_cross,  # type: ignore[arg-type]

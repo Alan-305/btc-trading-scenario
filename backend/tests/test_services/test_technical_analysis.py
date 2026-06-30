@@ -3,9 +3,14 @@ from datetime import datetime, timedelta, timezone
 import pytest
 import numpy as np
 
-from app.schemas.candles import Candle
+from app.schemas.candles import Candle, MacdValues
 from app.services.prediction_evaluator import PredictionEvaluator, SavedPredictionInput
-from app.services.technical_analysis import TechnicalAnalysisService, _rsi
+from app.services.technical_analysis import (
+    TechnicalAnalysisService,
+    _adx,
+    _combine_signals,
+    _rsi,
+)
 
 
 def _make_candles(closes: list[float]) -> list[Candle]:
@@ -32,6 +37,102 @@ def test_rsi_bounds():
     rsi = _rsi(closes, 14)
     assert rsi is not None
     assert 0 <= rsi <= 100
+
+
+def test_rsi_wilder_extremes():
+    # Monotonic up → no losses → RSI saturates at 100.
+    up = np.linspace(100, 200, 40)
+    assert _rsi(up, 14) == 100.0
+    # Monotonic down → no gains → RSI collapses toward 0.
+    down = np.linspace(200, 100, 40)
+    assert _rsi(down, 14) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_rsi_wilder_matches_reference():
+    # Canonical Wilder/StockCharts example: first RSI(14) from 15 closes ≈ 70.53
+    # (seed = simple average of the first 14 changes, no smoothing step yet).
+    closes = np.array(
+        [
+            44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42,
+            45.84, 46.08, 45.89, 46.03, 45.61, 46.28, 46.28,
+        ]
+    )
+    rsi = _rsi(closes, 14)
+    assert rsi is not None
+    assert rsi == pytest.approx(70.53, abs=0.2)
+
+
+def _adx_candles(closes: list[float]) -> list[Candle]:
+    return _make_candles(closes)
+
+
+def test_adx_none_when_insufficient():
+    assert _adx(_make_candles([100.0] * 10)) is None
+
+
+def test_adx_higher_for_trend_than_chop():
+    trend = _make_candles([100 + i for i in range(80)])
+    chop = _make_candles([100 + (5 if i % 2 == 0 else -5) for i in range(80)])
+    adx_trend = _adx(trend)
+    adx_chop = _adx(chop)
+    assert adx_trend is not None and adx_chop is not None
+    assert 0 <= adx_chop <= 100 and 0 <= adx_trend <= 100
+    # A clean one-directional move should register more trend strength than whipsaw.
+    assert adx_trend > adx_chop
+
+
+def test_combine_signals_strong_uptrend_is_bullish():
+    trend, bull, bear = _combine_signals(
+        price=110.0,
+        rsi=58.0,
+        ema20=105.0,
+        ema50=100.0,
+        ema200=95.0,
+        macd=MacdValues(macd=1.0, signal=0.5, histogram=0.5),
+        bollinger=None,
+        adx=30.0,
+        last_cross="gc",
+        stoch_zone="neutral",
+    )
+    assert trend == "bullish"
+    assert bull > bear
+
+
+def test_combine_signals_range_favors_mean_reversion():
+    # Weak downtrend structure but ranging (ADX<20) with oversold RSI + BB lower touch.
+    from app.schemas.candles import BollingerValues
+
+    trend, bull, bear = _combine_signals(
+        price=90.0,
+        rsi=25.0,
+        ema20=100.0,
+        ema50=102.0,
+        ema200=105.0,
+        macd=None,
+        bollinger=BollingerValues(upper=110.0, middle=100.0, lower=90.0),
+        adx=15.0,
+        last_cross="gc",
+        stoch_zone="oversold",
+    )
+    # In a range, oversold extremes should be faded (bullish), not chased down.
+    assert trend == "bullish"
+    assert bull > bear
+
+
+def test_combine_signals_neutral_on_tie():
+    trend, _bull, _bear = _combine_signals(
+        price=100.0,
+        rsi=50.0,
+        ema20=None,
+        ema50=None,
+        ema200=None,
+        macd=None,
+        bollinger=None,
+        adx=None,
+        last_cross=None,
+        stoch_zone="neutral",
+    )
+    assert trend == "neutral"
 
 
 def test_technical_analysis_returns_summary():

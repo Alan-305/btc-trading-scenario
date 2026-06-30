@@ -64,6 +64,7 @@ class TechnicalAnalysisResponse(BaseModel):
     support: float | None = None
     resistance: float | None = None
     atr_14: float | None = None
+    adx_14: float | None = None
     stoch_k: float | None = None
     stoch_d: float | None = None
     stoch_last_cross: Literal["gc", "dc"] | None = None
