@@ -29,7 +29,7 @@ import { ScenarioCard } from "../components/scenario/ScenarioCard";
 import { TradeLevelsCard } from "../components/scenario/TradeLevelsCard";
 import { WatchScenarioCard } from "../components/scenario/WatchScenarioCard";
 import { CollapsibleSection } from "../components/ui/CollapsibleSection";
-import { ExternalLink } from "../components/ui/ExternalLink";
+import { DataPanelMeta } from "../components/ui/DataPanelMeta";
 import { useAuth } from "../hooks/useAuth";
 import {
   type DashboardSection,
@@ -122,6 +122,7 @@ export function DashboardPage() {
   const [scenario, setScenario] = useState<ScenarioResponse | null>(null);
   const [sentiment, setSentiment] = useState<SentimentIndicators | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapCell[]>([]);
+  const [heatmapCollectedAt, setHeatmapCollectedAt] = useState<string | null>(null);
   const [heatmapExchange, setHeatmapExchange] = useState<HeatmapExchange>("all");
   const [heatmapLoading, setHeatmapLoading] = useState(false);
   const [macroContext, setMacroContext] = useState<MacroContextSnapshot | null>(null);
@@ -222,8 +223,10 @@ export function DashboardPage() {
     try {
       const hm = await api.getHeatmap(exchange);
       setHeatmap(hm.cells);
+      setHeatmapCollectedAt(hm.collected_at ?? null);
     } catch {
       setHeatmap([]);
+      setHeatmapCollectedAt(null);
     } finally {
       setHeatmapLoading(false);
     }
@@ -607,28 +610,32 @@ export function DashboardPage() {
 
   const candleSection = (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="font-english text-sm font-medium text-slate-200">₿BTCUSDT</h2>
-          <label className="flex items-center gap-2 text-xs text-content-muted">
-            <span>足</span>
-            <select
-              value={candleInterval}
-              onChange={(e) => setCandleInterval(e.target.value as CandleInterval)}
-              disabled={chartLoading}
-              className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-slate-200"
-            >
-              {CANDLE_INTERVAL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {chartLoading && <span className="text-xs text-content-muted">読み込み中…</span>}
-        </div>
-        <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingViewで開く</ExternalLink>
-      </div>
+      <DataPanelMeta
+        title={<h2 className="font-english text-sm font-medium text-slate-200">₿BTCUSDT</h2>}
+        sourceHref={EXTERNAL_LINKS.tradingView}
+        sourceLabel="TradingView"
+        updatedAt={candles?.fetched_at ?? technical?.fetched_at}
+        headerActions={
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-content-muted">
+              <span>足</span>
+              <select
+                value={candleInterval}
+                onChange={(e) => setCandleInterval(e.target.value as CandleInterval)}
+                disabled={chartLoading}
+                className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 text-sm text-slate-200"
+              >
+                {CANDLE_INTERVAL_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {chartLoading && <span className="text-xs text-content-muted">読み込み中…</span>}
+          </div>
+        }
+      />
       <IndicatorSignalHeader signal={stochasticSignal(technical)} />
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
         <p className="font-english text-sm text-slate-200">
@@ -723,6 +730,8 @@ export function DashboardPage() {
                 stochSeries={entryTechnical?.stoch_series ?? []}
                 macroEvents={macroEvents?.events ?? []}
                 mtfGates={scenario.mtf_gates}
+                chartUpdatedAt={entryChartCandles?.fetched_at}
+                scenarioGeneratedAt={scenario.generated_at}
               />
             )}
             {!isActiveHodl && activeHorizon && scenario ? (
@@ -735,6 +744,7 @@ export function DashboardPage() {
                   entry={activeHorizon.entry}
                   exit={activeHorizon.exit}
                   onPaperEntry={user ? handlePaperEntry : undefined}
+                  updatedAt={scenario.generated_at}
                 />
               </CollapsibleSection>
             ) : null}
@@ -743,6 +753,7 @@ export function DashboardPage() {
                 uid={user.uid}
                 trades={paperTrades}
                 currentPrice={price}
+                priceUpdatedAt={snapshot?.collected_at}
               />
             ) : null}
             {sessions && (
@@ -778,7 +789,7 @@ export function DashboardPage() {
                 <FearGreedMeter
                   value={fgValue}
                   classification={sentiment?.fear_greed?.classification}
-                  updatedAt={sentiment?.fear_greed?.timestamp}
+                  updatedAt={sentiment?.fear_greed?.timestamp ?? sentiment?.fetched_at}
                   history={sentiment?.fear_greed_history}
                 />
               </div>
@@ -792,6 +803,7 @@ export function DashboardPage() {
                   exchange={heatmapExchange}
                   onExchangeChange={setHeatmapExchange}
                   loading={heatmapLoading}
+                  collectedAt={heatmapCollectedAt ?? snapshot?.collected_at}
                 />
               </div>
               {snapshot && (
@@ -800,6 +812,7 @@ export function DashboardPage() {
                   <ExchangeDivergence
                     tickers={snapshot.tickers}
                     divergence={snapshot.divergence_pct}
+                    collectedAt={snapshot.collected_at}
                   />
                 </div>
               )}
@@ -841,6 +854,7 @@ export function DashboardPage() {
                   data={accuracy}
                   loading={accuracyLoading}
                   savedRecords={savedRecords}
+                  priceUpdatedAt={snapshot?.collected_at}
                 />
               )}
               {user && (

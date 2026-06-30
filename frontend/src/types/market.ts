@@ -14,6 +14,7 @@ export interface CandlesResponse {
   interval: string;
   candles: Candle[];
   source: string;
+  fetched_at?: string | null;
 }
 
 export interface MacdValues {
@@ -68,6 +69,8 @@ export interface TechnicalAnalysis {
   trend: MacroTrend | "neutral";
   summary_ja: string;
   overlay_series?: OverlayPoint[];
+  source?: string;
+  fetched_at?: string | null;
 }
 
 export interface RiskZone {
@@ -83,6 +86,8 @@ export interface RiskZonesResponse {
   long_liquidation: RiskZone | null;
   short_squeeze: RiskZone | null;
   disclaimer: string;
+  source?: string;
+  fetched_at?: string | null;
 }
 
 export interface PredictionEvaluation {

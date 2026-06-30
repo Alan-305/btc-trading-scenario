@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import type { MacroEvent, MacroEventsResponse } from "../../types/macro-events";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 const IMPACT_STYLE: Record<
   MacroEvent["impact"],
@@ -23,6 +25,16 @@ const IMPACT_STYLE: Record<
 };
 
 const COLLAPSED_VISIBLE = 5;
+
+function calendarSourceLink(source: string | undefined): { href: string; label: string } {
+  if (source === "finnhub") {
+    return { href: EXTERNAL_LINKS.finnhub, label: "Finnhub" };
+  }
+  if (source === "forex_factory") {
+    return { href: EXTERNAL_LINKS.forexFactory, label: "Forex Factory" };
+  }
+  return { href: EXTERNAL_LINKS.finnhub, label: "FOMC" };
+}
 
 function formatEventTime(iso: string): string {
   const d = new Date(iso);
@@ -109,10 +121,22 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
   const hiddenCount = Math.max(0, upcoming.length - COLLAPSED_VISIBLE);
   const needsCollapse = upcoming.length > COLLAPSED_VISIBLE;
 
+  const sourceLink = calendarSourceLink(data?.source);
+  const sourceLabelText =
+    data?.source === "finnhub"
+      ? "Finnhub"
+      : data?.source === "forex_factory"
+        ? "Forex Factory"
+        : "FOMC静的";
+
   if (loading && !data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="font-japanese text-sm font-medium text-content-secondary">経済指標カレンダー</h3>
+        <DataPanelMeta
+          title="経済指標カレンダー"
+          sourceHref={EXTERNAL_LINKS.finnhub}
+          sourceLabel="Finnhub"
+        />
         <p className="mt-3 text-sm text-content-muted">読み込み中…</p>
       </div>
     );
@@ -120,19 +144,16 @@ export function EconomicCalendarPanel({ data, loading }: EconomicCalendarPanelPr
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <header className="mb-4">
-        <h3 className="font-japanese text-base font-medium text-slate-200">経済指標カレンダー</h3>
-        <p className="mt-1 font-japanese text-[11px] text-content-muted">
-          米国中心（
-          {data?.source === "finnhub"
-            ? "Finnhub"
-            : data?.source === "forex_factory"
-              ? "Forex Factory"
-              : "FOMC静的"}
-          ）— 高インパクトはエントリーチャートにも表示
-          {upcoming.length > 0 ? ` · 予定 ${upcoming.length} 件` : ""}
-        </p>
-      </header>
+      <DataPanelMeta
+        title="経済指標カレンダー"
+        subtitle={`米国中心（${sourceLabelText}）— 高インパクトはエントリーチャートにも表示${
+          upcoming.length > 0 ? ` · 予定 ${upcoming.length} 件` : ""
+        }`}
+        sourceHref={sourceLink.href}
+        sourceLabel={sourceLink.label}
+        updatedAt={data?.fetched_at}
+        className="mb-4"
+      />
 
       {data?.note_ja ? (
         <p className="mb-3 rounded-lg border border-accent-amber/30 bg-accent-amber/5 px-3 py-2 font-japanese text-xs text-amber-100/90">

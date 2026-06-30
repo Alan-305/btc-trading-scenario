@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import (
@@ -17,6 +21,7 @@ from app.integrations.derivatives_provider import DerivativesProvider
 from app.schemas.candles import (
     CandleInterval,
     CandlesResponse,
+    OrderbookHeatmapResponse,
     RiskZonesResponse,
     TechnicalAnalysisResponse,
 )
@@ -68,7 +73,7 @@ async def volume_profile(
     return {"bins": bins}
 
 
-@router.get("/orderbook-heatmap")
+@router.get("/orderbook-heatmap", response_model=OrderbookHeatmapResponse)
 async def orderbook_heatmap(
     exchange: str | None = Query(default=None, description="whitebit|binance|bybit|bitget|coinbase"),
     aggregator: MarketAggregator = Depends(get_market_aggregator),
@@ -80,7 +85,12 @@ async def orderbook_heatmap(
     if exchange:
         orderbooks = [ob for ob in orderbooks if ob.exchange == exchange.lower()]
     cells = service.compute(orderbooks, reference_price=price)
-    return {"cells": cells, "exchange": exchange or "all"}
+    return OrderbookHeatmapResponse(
+        cells=cells,
+        exchange=exchange or "all",
+        collected_at=snapshot.collected_at,
+        source="exchanges",
+    )
 
 
 @router.get("/candles", response_model=CandlesResponse)
@@ -98,10 +108,12 @@ async def market_candles(
             return CandlesResponse.model_validate(cached)
 
     candles = await klines.fetch(interval=interval, limit=limit)
+    fetched_at = candles[-1].ts if candles else datetime.now(timezone.utc)
     response = CandlesResponse(
         symbol="BTCUSDT",
         interval=interval,
         candles=candles,
+        fetched_at=fetched_at,
     )
     await cache.set_json(cache_key, response.model_dump(mode="json"), ttl=300)
     return response
@@ -123,6 +135,9 @@ async def market_technical(
 
     candles = await klines.fetch(interval=interval, limit=250)
     response = ta.analyze(candles, interval=interval)
+    response = response.model_copy(
+        update={"fetched_at": candles[-1].ts if candles else datetime.now(timezone.utc)},
+    )
     await cache.set_json(cache_key, response.model_dump(mode="json"), ttl=300)
     return response
 
@@ -140,4 +155,14 @@ async def market_risk_zones(
     price = reference_price_from_snapshot(snapshot)
     cells = heatmap_service.compute(snapshot.orderbooks, reference_price=price)
     liq_events = await liquidation_feed.fetch_recent()
-    return estimator.estimate(price, cg, cells, liq_events)
+    zones = estimator.estimate(price, cg, cells, liq_events)
+    timestamps = [snapshot.collected_at]
+    if cg:
+        timestamps.append(cg.timestamp)
+    fetched_at = max(timestamps)
+    return zones.model_copy(
+        update={
+            "fetched_at": fetched_at,
+            "source": "binance_okx",
+        },
+    )

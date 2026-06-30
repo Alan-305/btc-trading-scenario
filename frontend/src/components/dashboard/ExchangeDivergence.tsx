@@ -1,10 +1,12 @@
 import type { NormalizedTicker } from "../../types/scenario";
-import { EXCHANGE_URLS } from "../../lib/external-links";
+import { EXCHANGE_URLS, EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 import { ExternalLink } from "../ui/ExternalLink";
 
 interface ExchangeDivergenceProps {
   tickers: NormalizedTicker[];
   divergence: Record<string, number>;
+  collectedAt?: string | null;
 }
 
 const EXCHANGE_LABEL: Record<string, string> = {
@@ -15,10 +17,16 @@ const EXCHANGE_LABEL: Record<string, string> = {
   coinbase: "Coinbase",
 };
 
-export function ExchangeDivergence({ tickers, divergence }: ExchangeDivergenceProps) {
+export function ExchangeDivergence({ tickers, divergence, collectedAt }: ExchangeDivergenceProps) {
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h3 className="mb-3 text-sm font-medium text-content-secondary">取引所価格・乖離</h3>
+      <DataPanelMeta
+        title="取引所価格・乖離"
+        subtitle="基準は WhiteBIT（シナリオの参照価格）"
+        sourceHref={EXTERNAL_LINKS.whitebit}
+        sourceLabel="WhiteBIT"
+        updatedAt={collectedAt}
+      />
       <ul className="space-y-2">
         {tickers.map((t) => {
           const div = divergence[t.exchange] ?? 0;

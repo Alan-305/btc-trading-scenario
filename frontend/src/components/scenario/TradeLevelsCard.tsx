@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { PaperTradeDraft, PaperTradeTakeProfitTarget } from "../../types/paper-trade";
 import type { EntryZone, ExitStrategy, TradeSide } from "../../types/scenario";
 import { TakeProfitTargetPicker } from "../paper-trade/TakeProfitTargetPicker";
+import { DataUpdatedAt } from "../ui/DataPanelMeta";
 import {
   computePositionSizing,
   formatBtcQty,
@@ -17,6 +18,7 @@ interface TradeLevelsCardProps {
   entry: EntryZone;
   exit: ExitStrategy;
   onPaperEntry?: (draft: PaperTradeDraft) => void | Promise<void>;
+  updatedAt?: string | null;
 }
 
 const SIDE_LABEL: Record<TradeSide, { text: string; className: string }> = {
@@ -88,7 +90,7 @@ function LevelRow({ label, display, copyValue, accent }: LevelRowProps) {
   );
 }
 
-export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardProps) {
+export function TradeLevelsCard({ entry, exit, onPaperEntry, updatedAt }: TradeLevelsCardProps) {
   const [prefs, setPrefs] = useState<PositionSizingInput>(() => loadPositionSizingPrefs());
   const [paperEntrySubmitting, setPaperEntrySubmitting] = useState(false);
   const [takeProfitTarget, setTakeProfitTarget] = useState<PaperTradeTakeProfitTarget>("tp1");
@@ -291,6 +293,7 @@ export function TradeLevelsCard({ entry, exit, onPaperEntry }: TradeLevelsCardPr
           </p>
         )}
       </div>
+      <DataUpdatedAt value={updatedAt} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { CoinglassSnapshot, ExchangeDerivatives } from "../../types/scenario";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 import { ExternalLink } from "../ui/ExternalLink";
 
 interface CoinglassPanelProps {
@@ -32,22 +33,35 @@ function formatPrice(ex: ExchangeDerivatives): string | null {
   return `$${ex.mark_price.toLocaleString()}`;
 }
 
+function sourceLabel(source: string | null | undefined): string {
+  if (source === "free_aggregate") return "複数取引所";
+  if (source === "coinglass") return "Coinglass";
+  return "Binance";
+}
+
+function sourceHref(source: string | null | undefined): string {
+  if (source === "coinglass") return EXTERNAL_LINKS.coinglass;
+  return EXTERNAL_LINKS.binanceFutures;
+}
+
 export function CoinglassPanel({ data }: CoinglassPanelProps) {
   const exchanges = data?.exchanges ?? [];
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-content-secondary">
-          先物指標
-          {data?.source && (
-            <span className="ml-2 text-xs font-normal text-content-muted">
-              ({data.source === "free_aggregate" ? "無料・複数取引所" : data.source})
-            </span>
-          )}
-        </h3>
-        <ExternalLink href={EXTERNAL_LINKS.binanceFutures}>Binance</ExternalLink>
-      </div>
+      <DataPanelMeta
+        title="先物指標"
+        subtitle={
+          data?.source
+            ? data.source === "free_aggregate"
+              ? "無料・複数取引所"
+              : data.source
+            : undefined
+        }
+        sourceHref={sourceHref(data?.source)}
+        sourceLabel={sourceLabel(data?.source)}
+        updatedAt={data?.timestamp}
+      />
 
       {data && (data.open_interest_usd != null || data.funding_rate != null) && (
         <dl className="mb-4 space-y-1 border-b border-surface-border pb-3 text-sm">

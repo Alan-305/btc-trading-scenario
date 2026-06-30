@@ -7,11 +7,15 @@ import {
   type AccuracyPeriodSummary,
 } from "../../lib/accuracy-periods";
 import { CollapsibleSection } from "../ui/CollapsibleSection";
+import { DataUpdatedAt } from "../ui/DataPanelMeta";
+import { ExternalLink } from "../ui/ExternalLink";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
 
 interface AccuracyPanelProps {
   data: AccuracySummary | null;
   loading: boolean;
   savedRecords?: SavedSnapshotRecord[];
+  priceUpdatedAt?: string | null;
 }
 
 const OUTCOME_LABEL = {
@@ -63,7 +67,12 @@ function PeriodCard({ row }: { row: AccuracyPeriodSummary }) {
   );
 }
 
-export function AccuracyPanel({ data, loading, savedRecords = [] }: AccuracyPanelProps) {
+export function AccuracyPanel({
+  data,
+  loading,
+  savedRecords = [],
+  priceUpdatedAt,
+}: AccuracyPanelProps) {
   const periods = useMemo(
     () => (data ? buildAccuracyPeriodSummaries(data, savedRecords) : []),
     [data, savedRecords],
@@ -107,6 +116,14 @@ export function AccuracyPanel({ data, loading, savedRecords = [] }: AccuracyPane
           <PeriodCard key={row.period.id} row={row} />
         ))}
       </div>
+      {priceUpdatedAt ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <DataUpdatedAt value={priceUpdatedAt} className="mt-0" />
+          <ExternalLink href={EXTERNAL_LINKS.whitebit} className="text-xs">
+            WhiteBIT
+          </ExternalLink>
+        </div>
+      ) : null}
 
       <h3 className="mb-2 mt-5 font-japanese text-xs font-medium text-content-secondary">直近の評価一覧</h3>
       <ul className="space-y-2">

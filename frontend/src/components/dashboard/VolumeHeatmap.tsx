@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { HeatmapCell, HeatmapExchange } from "../../types/scenario";
-import { EXCHANGE_URLS } from "../../lib/external-links";
-import { ExternalLink } from "../ui/ExternalLink";
+import { EXCHANGE_URLS, EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 const HEATMAP_EXCHANGES: { value: HeatmapExchange; label: string }[] = [
   { value: "all", label: "全取引所" },
@@ -18,6 +18,7 @@ interface VolumeHeatmapProps {
   exchange?: HeatmapExchange;
   onExchangeChange?: (exchange: HeatmapExchange) => void;
   loading?: boolean;
+  collectedAt?: string | null;
 }
 
 function formatUsdPrice(price: number): string {
@@ -69,6 +70,7 @@ export function VolumeHeatmap({
   exchange = "all",
   onExchangeChange,
   loading = false,
+  collectedAt,
 }: VolumeHeatmapProps) {
   const { rows, bidPct, askPct, priceLow, priceHigh } = useMemo(() => {
     if (!cells.length) {
@@ -101,26 +103,40 @@ export function VolumeHeatmap({
     };
   }, [cells, referencePrice]);
 
+  const heatmapSourceHref =
+    exchange !== "all" && EXCHANGE_URLS[exchange]
+      ? EXCHANGE_URLS[exchange]
+      : EXTERNAL_LINKS.whitebit;
+  const heatmapSourceLabel =
+    exchange !== "all"
+      ? (HEATMAP_EXCHANGES.find((e) => e.value === exchange)?.label ?? "取引所")
+      : "WhiteBIT";
+
   if (!cells.length) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-japanese text-sm font-medium text-content-secondary">板厚みヒートマップ</h3>
-          {onExchangeChange && (
-            <select
-              value={exchange}
-              onChange={(e) => onExchangeChange(e.target.value as HeatmapExchange)}
-              className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 font-japanese text-xs text-slate-200"
-              aria-label="取引所を選択"
-            >
-              {HEATMAP_EXCHANGES.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
+        <DataPanelMeta
+          title="板厚みヒートマップ"
+          sourceHref={heatmapSourceHref}
+          sourceLabel={heatmapSourceLabel}
+          updatedAt={collectedAt}
+          headerActions={
+            onExchangeChange ? (
+              <select
+                value={exchange}
+                onChange={(e) => onExchangeChange(e.target.value as HeatmapExchange)}
+                className="min-h-[36px] rounded-lg border border-surface-border bg-surface px-2 py-1 font-japanese text-xs text-slate-200"
+                aria-label="取引所を選択"
+              >
+                {HEATMAP_EXCHANGES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            ) : undefined
+          }
+        />
         <p className="text-sm text-content-muted">{loading ? "読み込み中…" : "データなし"}</p>
       </div>
     );
@@ -128,15 +144,14 @@ export function VolumeHeatmap({
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-japanese text-sm font-medium text-slate-300">板厚みヒートマップ</h3>
-          <p className="mt-1 font-japanese text-[11px] text-content-muted">
-            価格帯ごとの買い（B）・売り（S）の厚み（USD建て取引所）
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {onExchangeChange && (
+      <DataPanelMeta
+        title="板厚みヒートマップ"
+        subtitle="価格帯ごとの買い（B）・売り（S）の厚み（USD建て取引所）"
+        sourceHref={heatmapSourceHref}
+        sourceLabel={heatmapSourceLabel}
+        updatedAt={collectedAt}
+        headerActions={
+          onExchangeChange ? (
             <select
               value={exchange}
               onChange={(e) => onExchangeChange(e.target.value as HeatmapExchange)}
@@ -149,14 +164,9 @@ export function VolumeHeatmap({
                 </option>
               ))}
             </select>
-          )}
-          {exchange !== "all" && EXCHANGE_URLS[exchange] && (
-            <ExternalLink href={EXCHANGE_URLS[exchange]} className="text-xs">
-              {HEATMAP_EXCHANGES.find((e) => e.value === exchange)?.label}
-            </ExternalLink>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       <SummaryBar bidPct={bidPct} askPct={askPct} />
 

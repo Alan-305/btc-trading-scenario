@@ -2,15 +2,14 @@ import { EXTERNAL_LINKS } from "../../lib/external-links";
 import {
   fearGreedColor,
   fearGreedLabelJa,
-  formatFearGreedUpdated,
   type FearGreedHistoryPoint,
 } from "../../lib/fear-greed";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 interface FearGreedMeterProps {
   value: number | null;
   classification?: string;
-  updatedAt?: string;
+  updatedAt?: string | null;
   history?: FearGreedHistoryPoint[];
 }
 
@@ -110,22 +109,25 @@ export function FearGreedMeter({
     <div className="flex flex-col gap-4">
       {/* ゲージカード */}
       <article className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <header className="mb-4 flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2">
-            <span className="mt-0.5 text-lg text-amber-500" aria-hidden>
-              ₿
-            </span>
-            <div>
-              <h3 className="font-english text-sm font-semibold text-slate-100">Fear & Greed Index</h3>
-              <p className="mt-0.5 font-japanese text-[11px] leading-relaxed text-content-muted">
-                暗号資産市場のセンチメント（複合指標）
-              </p>
+        <DataPanelMeta
+          title={
+            <div className="flex items-start gap-2">
+              <span className="mt-0.5 text-lg text-amber-500" aria-hidden>
+                ₿
+              </span>
+              <div>
+                <h3 className="font-english text-sm font-semibold text-slate-100">Fear & Greed Index</h3>
+                <p className="mt-0.5 font-japanese text-[11px] leading-relaxed text-content-muted">
+                  暗号資産市場のセンチメント（複合指標）
+                </p>
+              </div>
             </div>
-          </div>
-          <ExternalLink href={EXTERNAL_LINKS.fearGreed} className="shrink-0 text-xs">
-            alternative.me
-          </ExternalLink>
-        </header>
+          }
+          sourceHref={EXTERNAL_LINKS.fearGreed}
+          sourceLabel="alternative.me"
+          updatedAt={updatedAt}
+          className="mb-4"
+        />
 
         <p className="mb-2 text-center font-japanese text-sm text-content-secondary">
           現在:{" "}
@@ -135,18 +137,19 @@ export function FearGreedMeter({
         </p>
 
         <FearGreedGauge value={v} />
-
-        <footer className="mt-3 flex items-center justify-between text-[10px] text-content-muted">
-          <span className="font-english">alternative.me</span>
-          <span>更新: {formatFearGreedUpdated(updatedAt)}</span>
-        </footer>
       </article>
 
       {/* 履歴カード */}
       {history.length > 0 && (
         <article className="rounded-xl border border-surface-border bg-surface-card p-5">
-          <h4 className="mb-1 font-english text-sm font-semibold text-slate-200">Historical Values</h4>
-          <p className="mb-3 font-japanese text-[11px] text-content-muted">過去の指数</p>
+          <DataPanelMeta
+            title={<h4 className="font-english text-sm font-semibold text-slate-200">Historical Values</h4>}
+            subtitle="過去の指数"
+            sourceHref={EXTERNAL_LINKS.fearGreed}
+            sourceLabel="alternative.me"
+            updatedAt={updatedAt}
+            className="mb-3"
+          />
           <ul>
             {history.map((row) => (
               <HistoryRow key={row.period} {...row} />

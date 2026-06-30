@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.market import OrderbookHeatmapCell
+
 
 CandleInterval = Literal["1h", "4h", "1d", "1w"]
 
@@ -23,6 +25,7 @@ class CandlesResponse(BaseModel):
     interval: CandleInterval
     candles: list[Candle]
     source: str = "binance"
+    fetched_at: datetime | None = None
 
 
 class MacdValues(BaseModel):
@@ -77,6 +80,8 @@ class TechnicalAnalysisResponse(BaseModel):
     trend: Literal["bullish", "bearish", "neutral"] = "neutral"
     summary_ja: str = ""
     overlay_series: list[OverlaySeriesPoint] = Field(default_factory=list)
+    source: str = "binance"
+    fetched_at: datetime | None = None
 
 
 class RiskZone(BaseModel):
@@ -87,11 +92,20 @@ class RiskZone(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class OrderbookHeatmapResponse(BaseModel):
+    cells: list[OrderbookHeatmapCell]
+    exchange: str = "all"
+    collected_at: datetime | None = None
+    source: str = "exchanges"
+
+
 class RiskZonesResponse(BaseModel):
     reference_price: float
     long_liquidation: RiskZone | None = None
     short_squeeze: RiskZone | None = None
     disclaimer: str = "推定値であり、実際の清算価格とは異なる場合があります。"
+    source: str = "binance_okx"
+    fetched_at: datetime | None = None
 
 
 class PredictionEvaluation(BaseModel):

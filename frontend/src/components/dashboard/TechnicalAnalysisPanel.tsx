@@ -1,7 +1,7 @@
 import type { TechnicalAnalysis } from "../../types/market";
 import { candleIntervalLabel, type CandleInterval } from "../../lib/candle-interval";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 interface TechnicalAnalysisPanelProps {
   data: TechnicalAnalysis | null;
@@ -24,7 +24,11 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
   if (!data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="mb-3 text-sm font-medium text-content-secondary">テクニカル分析（{title}）</h3>
+        <DataPanelMeta
+          title={`テクニカル分析（${title}）`}
+          sourceHref={EXTERNAL_LINKS.binanceSpot}
+          sourceLabel="Binance"
+        />
         <p className="text-sm text-content-muted">データなし</p>
       </div>
     );
@@ -32,10 +36,12 @@ export function TechnicalAnalysisPanel({ data, interval = "4h" }: TechnicalAnaly
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-content-secondary">テクニカル分析（{title}）</h3>
-        <ExternalLink href={EXTERNAL_LINKS.tradingView}>TradingView</ExternalLink>
-      </div>
+      <DataPanelMeta
+        title={`テクニカル分析（${title}）`}
+        sourceHref={EXTERNAL_LINKS.binanceSpot}
+        sourceLabel="Binance"
+        updatedAt={data.fetched_at}
+      />
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
         <div>
           <dt className="text-content-muted">RSI(14)</dt>

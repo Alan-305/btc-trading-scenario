@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 
@@ -45,6 +46,10 @@ async def sentiment(
         fear_greed_history=fg_data.history if fg_data else [],
         coinglass=cg,
         x_sentiment_score=None,
+        fetched_at=_latest_timestamp(
+            fg_data.current.timestamp if fg_data else None,
+            cg.timestamp if cg else None,
+        ),
     )
 
 
@@ -69,8 +74,22 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
             onchain=onchain,
             usdt_dominance=usdt,
             equity_markets=equity,
+            fetched_at=_latest_timestamp(
+                options.timestamp if options else None,
+                etf.timestamp if etf else None,
+                onchain.timestamp if onchain else None,
+                usdt.timestamp if usdt else None,
+                equity.timestamp if equity else None,
+            ),
         )
     )
+
+
+def _latest_timestamp(*values: datetime | None) -> datetime:
+    present = [v for v in values if v is not None]
+    if not present:
+        return datetime.now(timezone.utc)
+    return max(present)
 
 
 @router.get("/macro-events", response_model=MacroEventsResponse)

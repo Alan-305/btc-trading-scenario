@@ -1,4 +1,6 @@
 import type { EquityIndexSnapshot, GlobalEquitySnapshot } from "../../../types/scenario";
+import { EXTERNAL_LINKS } from "../../../lib/external-links";
+import { DataPanelMeta } from "../../ui/DataPanelMeta";
 import { MacroSignalBadge } from "./MacroCommentary";
 
 function formatPct(value: number | null | undefined): string {
@@ -49,7 +51,11 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
   if (loading && !data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="font-japanese text-sm font-medium text-content-secondary">世界株指数</h3>
+        <DataPanelMeta
+          title="世界株指数"
+          sourceHref={EXTERNAL_LINKS.yahooFinance}
+          sourceLabel="Yahoo Finance"
+        />
         <p className="mt-3 text-sm text-content-muted">読み込み中…</p>
       </div>
     );
@@ -58,7 +64,11 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
   if (!data?.markets?.length) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="font-japanese text-sm font-medium text-content-secondary">世界株指数</h3>
+        <DataPanelMeta
+          title="世界株指数"
+          sourceHref={EXTERNAL_LINKS.yahooFinance}
+          sourceLabel="Yahoo Finance"
+        />
         <p className="mt-3 text-sm text-content-muted">株価指数データを取得できませんでした。</p>
       </div>
     );
@@ -67,11 +77,15 @@ export function EquityMarketsPanel({ data, loading }: EquityMarketsPanelProps) {
   return (
     <section id="equity-markets" className="rounded-xl border border-surface-border bg-surface-card p-5">
       <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="font-japanese text-base font-medium text-slate-200">世界株指数</h3>
-          <p className="mt-1 font-japanese text-[11px] text-content-muted">
-            米国・日本・欧州の主要指数（Yahoo Finance）— リスクオン/offはBTCに波及しやすいです
-          </p>
+        <div className="min-w-0 flex-1">
+          <DataPanelMeta
+            title="世界株指数"
+            subtitle="米国・日本・欧州の主要指数（Yahoo Finance）— リスクオン/offはBTCに波及しやすいです"
+            sourceHref={EXTERNAL_LINKS.yahooFinance}
+            sourceLabel="Yahoo Finance"
+            updatedAt={data.timestamp}
+            className="mb-0"
+          />
         </div>
         {data.signal_ja ? (
           <MacroSignalBadge signalJa={data.signal_ja} stance={data.stance} />

@@ -99,3 +99,4 @@ class MacroContextSnapshot(BaseModel):
     overall_stance: MacroStance = "neutral"
     overall_signal_ja: str = "様子見"
     overall_summary_ja: str = ""
+    fetched_at: datetime | None = None

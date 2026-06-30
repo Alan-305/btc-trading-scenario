@@ -96,3 +96,4 @@ class SentimentIndicators(BaseModel):
     fear_greed_history: list[FearGreedHistoryPoint] = Field(default_factory=list)
     coinglass: CoinglassSnapshot | None = None
     x_sentiment_score: float | None = None
+    fetched_at: datetime | None = None

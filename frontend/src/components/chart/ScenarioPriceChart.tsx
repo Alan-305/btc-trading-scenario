@@ -31,6 +31,8 @@ import type {
   TradeSide,
 } from "../../types/scenario";
 import { isHodlHorizon } from "../../lib/scenario-horizons";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 interface PricePoint {
   ts: string;
@@ -89,6 +91,8 @@ interface ScenarioPriceChartProps {
   stochSeries?: StochSeriesPoint[];
   macroEvents?: MacroEvent[];
   mtfGates?: MtfEntryGate[];
+  chartUpdatedAt?: string | null;
+  scenarioGeneratedAt?: string | null;
 }
 
 function formatOpenedAt(d: Date): string {
@@ -229,6 +233,8 @@ export function ScenarioPriceChart({
   stochSeries = [],
   macroEvents = [],
   mtfGates = [],
+  chartUpdatedAt,
+  scenarioGeneratedAt,
 }: ScenarioPriceChartProps) {
   const isHodl = isHodlHorizon(horizonId, horizonMode);
   const entryLow = Math.min(entry.zone_low, entry.zone_high);
@@ -478,21 +484,22 @@ export function ScenarioPriceChart({
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium text-content-secondary">エントリー判断と価格の流れ</h2>
-          <p className="mt-1 text-xs text-content-muted">
-            {branchLabel ? `${branchLabel} — ` : ""}
-            {formatOpenedAt(openedAt)} 時点 — 左が過去、右が{periodHint}の目安
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeClass}`}>
-            {guide.headline}
-          </span>
-          <span className="text-xs text-content-muted">{SIDE_LABEL[entry.side]}</span>
-        </div>
-      </div>
+      <DataPanelMeta
+        title="エントリー判断と価格の流れ"
+        subtitle={`${branchLabel ? `${branchLabel} — ` : ""}${formatOpenedAt(openedAt)} 時点 — 左が過去、右が${periodHint}の目安`}
+        sourceHref={EXTERNAL_LINKS.binanceSpot}
+        sourceLabel="Binance"
+        updatedAt={chartUpdatedAt ?? scenarioGeneratedAt}
+        headerActions={
+          <div className="flex flex-col items-end gap-1">
+            <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeClass}`}>
+              {guide.headline}
+            </span>
+            <span className="text-xs text-content-muted">{SIDE_LABEL[entry.side]}</span>
+          </div>
+        }
+        className="mb-4"
+      />
 
       <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-surface-border/60 bg-surface/50 px-4 py-3">
         <div>

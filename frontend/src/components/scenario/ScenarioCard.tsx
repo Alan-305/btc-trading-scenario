@@ -10,6 +10,9 @@ import {
   resolveHorizons,
 } from "../../lib/scenario-branches";
 import { isHodlHorizon } from "../../lib/scenario-horizons";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataUpdatedAt } from "../ui/DataPanelMeta";
+import { ExternalLink } from "../ui/ExternalLink";
 import { HoldScenarioPanel } from "./HoldScenarioPanel";
 import { MtfSummaryPanel } from "./MtfSummaryPanel";
 
@@ -51,8 +54,12 @@ export function ScenarioCard({
         <div>
           <h2 className="text-lg font-medium text-slate-100">{active.label}</h2>
           <p className="mt-1 text-xs text-content-muted">{active.period_hint}</p>
+          <DataUpdatedAt value={scenario.generated_at} className="mt-1" />
         </div>
         <div className="flex flex-col items-end gap-1">
+          <ExternalLink href={EXTERNAL_LINKS.whitebit} className="text-xs">
+            WhiteBIT
+          </ExternalLink>
           <span className={`text-sm font-medium ${branchMeta.color}`}>{branchMeta.text}</span>
           {!watchPrimary && activeBranch === recommended ? (
             <span className="text-[10px] text-content-muted">いまのおすすめ</span>
@@ -107,7 +114,9 @@ export function ScenarioCard({
         <HoldScenarioPanel context={active.hold_context} />
       ) : null}
 
-      {!isHodl && scenario.mtf ? <MtfSummaryPanel mtf={scenario.mtf} /> : null}
+      {!isHodl && scenario.mtf ? (
+        <MtfSummaryPanel mtf={scenario.mtf} updatedAt={scenario.generated_at} />
+      ) : null}
 
       <p className="mt-4 whitespace-pre-wrap break-words font-japanese leading-relaxed text-slate-300">
         {active.scenario_text_ja}

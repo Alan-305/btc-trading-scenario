@@ -1,6 +1,6 @@
 import type { RiskZonesResponse } from "../../types/market";
 import { EXTERNAL_LINKS } from "../../lib/external-links";
-import { ExternalLink } from "../ui/ExternalLink";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 interface RiskZonesPanelProps {
   data: RiskZonesResponse | null;
@@ -25,8 +25,12 @@ export function RiskZonesPanel({ data }: RiskZonesPanelProps) {
   if (!data) {
     return (
       <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-        <h3 className="mb-3 text-sm font-medium text-content-secondary">リキッド帯（推定）</h3>
-        <p className="mb-1 text-[10px] text-content-muted">ロング清算・ショートスクイズの目安価格帯</p>
+        <DataPanelMeta
+          title="リキッド帯（推定）"
+          subtitle="ロング清算・ショートスクイズの目安価格帯"
+          sourceHref={EXTERNAL_LINKS.okxFutures}
+          sourceLabel="OKX"
+        />
         <p className="text-sm text-content-muted">データなし</p>
       </div>
     );
@@ -34,13 +38,13 @@ export function RiskZonesPanel({ data }: RiskZonesPanelProps) {
 
   return (
     <div className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-medium text-content-secondary">リキッド帯（推定）</h3>
-          <p className="mt-0.5 text-[10px] text-content-muted">ロング清算・ショートスクイズの目安価格帯</p>
-        </div>
-        <ExternalLink href={EXTERNAL_LINKS.binanceFutures}>Binance先物</ExternalLink>
-      </div>
+      <DataPanelMeta
+        title="リキッド帯（推定）"
+        subtitle="ロング清算・ショートスクイズの目安価格帯"
+        sourceHref={EXTERNAL_LINKS.okxFutures}
+        sourceLabel="OKX"
+        updatedAt={data.fetched_at}
+      />
       <p className="mb-3 font-english text-xs text-content-muted">
         基準価格 ${data.reference_price.toLocaleString()}
       </p>

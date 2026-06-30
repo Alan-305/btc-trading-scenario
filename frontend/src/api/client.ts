@@ -7,8 +7,8 @@ import type {
 } from "../types/market";
 import type { ResearchContextItem, ResearchSummarizeRequest, ResearchSummarizeResponse } from "../types/research";
 import type {
-  HeatmapCell,
   HeatmapExchange,
+  HeatmapResponse,
   MacroContextSnapshot,
   MarketSnapshot,
   ScenarioResponse,
@@ -82,7 +82,7 @@ export const api = {
       exchange && exchange !== "all"
         ? `?exchange=${encodeURIComponent(exchange)}`
         : "";
-    return fetchJson<{ cells: HeatmapCell[]; exchange: string }>(
+    return fetchJson<HeatmapResponse>(
       `/api/v1/market/orderbook-heatmap${q}`,
     );
   },

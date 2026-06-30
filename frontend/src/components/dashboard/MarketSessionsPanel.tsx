@@ -5,6 +5,8 @@ import type {
   MarketHourState,
   MarketStatusCode,
 } from "../../types/sessions";
+import { EXTERNAL_LINKS } from "../../lib/external-links";
+import { DataPanelMeta } from "../ui/DataPanelMeta";
 
 /** 青=静か / オレンジ=やや活発 / 赤=活発 */
 const ACTIVITY_BG: Record<ActivityLevel, string> = {
@@ -137,10 +139,14 @@ export function MarketSessionsPanel({ data }: MarketSessionsPanelProps) {
 
   return (
     <section className="rounded-xl border border-surface-border bg-surface-card p-5">
-      <h2 className="mb-1 font-japanese text-sm font-medium text-slate-300">
-        世界市場の時間帯
-      </h2>
-      <p className="mb-4 text-xs leading-relaxed text-content-muted">{data.timeline_caption_ja}</p>
+      <DataPanelMeta
+        title="世界市場の時間帯"
+        subtitle={data.timeline_caption_ja}
+        sourceHref={EXTERNAL_LINKS.yahooFinance}
+        sourceLabel="Yahoo Finance"
+        updatedAt={data.generated_at}
+        className="mb-4"
+      />
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {data.clocks.map((c) => (

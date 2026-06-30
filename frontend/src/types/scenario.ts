@@ -227,12 +227,20 @@ export interface SentimentIndicators {
   fear_greed_history: FearGreedHistoryPoint[];
   coinglass: CoinglassSnapshot | null;
   x_sentiment_score: number | null;
+  fetched_at?: string | null;
 }
 
 export interface HeatmapCell {
   price_bin: number;
   bid_depth: number;
   ask_depth: number;
+}
+
+export interface HeatmapResponse {
+  cells: HeatmapCell[];
+  exchange: string;
+  collected_at?: string | null;
+  source?: string;
 }
 
 export type HeatmapExchange = "all" | "whitebit" | "binance" | "bybit" | "bitget" | "coinbase";
@@ -330,4 +338,5 @@ export interface MacroContextSnapshot {
   overall_stance?: MacroStance;
   overall_signal_ja?: string;
   overall_summary_ja?: string;
+  fetched_at?: string | null;
 }
