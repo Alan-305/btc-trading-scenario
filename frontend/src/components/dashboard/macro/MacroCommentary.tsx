@@ -16,8 +16,8 @@ export const MACRO_STANCE_STYLE: Record<
   },
   neutral: {
     text: "様子見",
-    color: "text-content-secondary",
-    bg: "bg-surface-elevated border-surface-border",
+    color: "text-accent-amber",
+    bg: "bg-accent-amber/10 border-accent-amber/30",
   },
   reversal: {
     text: "トレンド転換の兆候",

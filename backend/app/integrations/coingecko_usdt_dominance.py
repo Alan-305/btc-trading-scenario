@@ -13,20 +13,49 @@ class CoingeckoUsdtDominanceClient:
         self.http = http
 
     async def fetch_snapshot(self) -> UsdtDominanceSnapshot | None:
+        current_dom = await self._fetch_current_dominance()
+        if current_dom is None:
+            return None
+
+        history: list[MacroSeriesPoint] = []
+        tether_chart: dict | None = None
         try:
-            global_data = await self.http.get_json(
-                f"{BASE}/global",
-                rate_limit_key="coingecko_global",
-            )
             tether_chart = await self.http.get_json(
                 f"{BASE}/coins/tether/market_chart",
                 params={"vs_currency": "usd", "days": 7},
                 rate_limit_key="coingecko_tether",
             )
-            total_chart = await self.http.get_json(
-                f"{BASE}/global/market_cap_chart",
-                params={"days": 7},
-                rate_limit_key="coingecko_global_chart",
+        except Exception:
+            tether_chart = None
+
+        if tether_chart:
+            try:
+                total_chart = await self.http.get_json(
+                    f"{BASE}/global/market_cap_chart",
+                    params={"days": 7},
+                    rate_limit_key="coingecko_global_chart",
+                )
+                history = _build_dominance_history(tether_chart, total_chart)
+            except Exception:
+                history = _build_dominance_history_estimated(tether_chart, current_dom)
+
+        change_7d = _dominance_change_pct(history, current_dom)
+        trend = _dominance_trend(change_7d)
+
+        return UsdtDominanceSnapshot(
+            dominance_pct=round(current_dom, 3),
+            change_7d_pct=round(change_7d, 3) if change_7d is not None else None,
+            trend=trend,
+            history=history,
+            source="coingecko",
+            timestamp=datetime.now(timezone.utc),
+        )
+
+    async def _fetch_current_dominance(self) -> float | None:
+        try:
+            global_data = await self.http.get_json(
+                f"{BASE}/global",
+                rate_limit_key="coingecko_global",
             )
         except Exception:
             return None
@@ -35,19 +64,7 @@ class CoingeckoUsdtDominanceClient:
         current_dom = pct_map.get("usdt")
         if current_dom is None:
             return None
-
-        history = _build_dominance_history(tether_chart, total_chart)
-        change_7d = _dominance_change_pct(history, float(current_dom))
-        trend = _dominance_trend(change_7d)
-
-        return UsdtDominanceSnapshot(
-            dominance_pct=round(float(current_dom), 3),
-            change_7d_pct=round(change_7d, 3) if change_7d is not None else None,
-            trend=trend,
-            history=history,
-            source="coingecko",
-            timestamp=datetime.now(timezone.utc),
-        )
+        return float(current_dom)
 
 
 def _build_dominance_history(
@@ -83,6 +100,35 @@ def _build_dominance_history(
     for p in points:
         key = p.ts.strftime("%Y-%m-%d")
         by_day[key] = p
+    return sorted(by_day.values(), key=lambda p: p.ts)
+
+
+def _build_dominance_history_estimated(
+    tether_chart: dict,
+    current_dom: float,
+) -> list[MacroSeriesPoint]:
+    """Estimate 7d dominance from USDT market cap when total-cap chart is unavailable."""
+    tether_caps = tether_chart.get("market_caps") or []
+    if not tether_caps or current_dom <= 0:
+        return []
+
+    last_cap = next((float(cap) for _, cap in reversed(tether_caps) if cap and cap > 0), None)
+    if not last_cap or last_cap <= 0:
+        return []
+
+    total_market_cap = last_cap / (current_dom / 100)
+    if total_market_cap <= 0:
+        return []
+
+    by_day: dict[str, MacroSeriesPoint] = {}
+    for ts_ms, usdt_cap in tether_caps:
+        if not usdt_cap or usdt_cap <= 0:
+            continue
+        dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
+        dom = float(usdt_cap) / total_market_cap * 100
+        key = dt.strftime("%Y-%m-%d")
+        by_day[key] = MacroSeriesPoint(ts=dt, value=round(dom, 3))
+
     return sorted(by_day.values(), key=lambda p: p.ts)
 
 
