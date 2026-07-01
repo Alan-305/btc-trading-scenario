@@ -10,7 +10,14 @@ export function WatchScenarioCard({ watch, isRecommended }: WatchScenarioCardPro
   const high = Math.max(watch.range_low, watch.range_high);
 
   return (
-    <article className="rounded-xl border border-accent-amber/30 bg-surface-card p-5">
+    <article
+      id="watch-scenario"
+      className={`scroll-mt-24 rounded-xl border bg-surface-card p-5 ${
+        isRecommended
+          ? "border-accent-amber/50 ring-1 ring-accent-amber/20"
+          : "border-accent-amber/30"
+      }`}
+    >
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium text-slate-100">様子見シナリオ</h2>

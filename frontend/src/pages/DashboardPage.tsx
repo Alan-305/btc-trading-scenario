@@ -879,6 +879,12 @@ export function DashboardPage() {
       case "overview":
         return (
           <div className="space-y-6">
+            {scenario?.watch && isWatchRecommended(scenario) ? (
+              <WatchScenarioCard
+                watch={scenario.watch}
+                isRecommended
+              />
+            ) : null}
             {scenario ? (
               <ScenarioCard
                 scenario={scenario}
@@ -888,12 +894,13 @@ export function DashboardPage() {
                 onHorizonChange={setActiveHorizonId}
                 onRefresh={() => void refreshScenarioOnly()}
                 refreshing={isRefreshing("scenario")}
+                watchScenarioAbove={isWatchRecommended(scenario)}
               />
             ) : null}
-            {scenario?.watch ? (
+            {scenario?.watch && !isWatchRecommended(scenario) ? (
               <WatchScenarioCard
                 watch={scenario.watch}
-                isRecommended={isWatchRecommended(scenario)}
+                isRecommended={false}
               />
             ) : null}
             {openedAt && price > 0 && activeHorizon && scenario && entryHistory.length > 0 && (
