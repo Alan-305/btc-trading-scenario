@@ -60,23 +60,35 @@ export function alignStochToChartRows(
   rows: { ts: string; isoTs?: string; kind: "past" | "now" | "future" | "macro" }[],
   series: StochSeriesPoint[],
 ): AlignedStochRow[] {
+  let lastKnown: AlignedStochRow | null = null;
+
   return rows.map((row) => {
-    if (row.kind !== "past" || !row.isoTs) {
-      return { ts: row.ts, k: null, d: null, cross: null };
+    if (row.isoTs) {
+      const targetMs = new Date(row.isoTs).getTime();
+      if (!Number.isNaN(targetMs)) {
+        const pt = findClosestStoch(series, targetMs, FOUR_H_MS);
+        if (pt) {
+          const aligned = {
+            ts: row.ts,
+            k: pt.k,
+            d: pt.d,
+            cross: row.kind === "past" ? pt.cross : null,
+          };
+          lastKnown = aligned;
+          return aligned;
+        }
+      }
     }
-    const targetMs = new Date(row.isoTs).getTime();
-    if (Number.isNaN(targetMs)) {
-      return { ts: row.ts, k: null, d: null, cross: null };
+
+    if (row.kind === "macro" && lastKnown) {
+      return {
+        ts: row.ts,
+        k: lastKnown.k,
+        d: lastKnown.d,
+        cross: null,
+      };
     }
-    const pt = findClosestStoch(series, targetMs, FOUR_H_MS);
-    if (!pt) {
-      return { ts: row.ts, k: null, d: null, cross: null };
-    }
-    return {
-      ts: row.ts,
-      k: pt.k,
-      d: pt.d,
-      cross: pt.cross,
-    };
+
+    return { ts: row.ts, k: null, d: null, cross: null };
   });
 }

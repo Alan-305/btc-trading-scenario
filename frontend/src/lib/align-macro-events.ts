@@ -45,6 +45,52 @@ export function chartMacroEvents(events: MacroEvent[]): MacroEvent[] {
   });
 }
 
+function interpolateSeries(values: { ms: number; v: number }[], targetMs: number): number | null {
+  if (!values.length) return null;
+  if (targetMs <= values[0].ms) return values[0].v;
+  if (targetMs >= values[values.length - 1].ms) return values[values.length - 1].v;
+  for (let index = 0; index < values.length - 1; index += 1) {
+    const left = values[index];
+    const right = values[index + 1];
+    if (targetMs >= left.ms && targetMs <= right.ms) {
+      if (left.ms === right.ms) return left.v;
+      const ratio = (targetMs - left.ms) / (right.ms - left.ms);
+      return left.v + ratio * (right.v - left.v);
+    }
+  }
+  return values[values.length - 1].v;
+}
+
+function resolveMacroRowPrices<T extends ChartRowWithTime>(
+  rows: T[],
+  eventMs: number,
+  nowMs: number,
+): { pastPrice: number | null; futurePrice: number | null } {
+  const pastPoints: { ms: number; v: number }[] = [];
+  const futurePoints: { ms: number; v: number }[] = [];
+
+  for (const row of rows) {
+    if (row.kind === "macro") continue;
+    const ms = rowTimeMs(row, nowMs);
+    if (ms == null) continue;
+    if (row.pastPrice != null) pastPoints.push({ ms, v: row.pastPrice });
+    if (row.futurePrice != null) futurePoints.push({ ms, v: row.futurePrice });
+  }
+
+  pastPoints.sort((a, b) => a.ms - b.ms);
+  futurePoints.sort((a, b) => a.ms - b.ms);
+
+  if (eventMs <= nowMs) {
+    return { pastPrice: interpolateSeries(pastPoints, eventMs), futurePrice: null };
+  }
+
+  return {
+    pastPrice: null,
+    futurePrice:
+      interpolateSeries(futurePoints, eventMs) ?? interpolateSeries(pastPoints, eventMs),
+  };
+}
+
 function insertRowsByTime<T extends ChartRowWithTime>(
   rows: T[],
   insertions: Array<{ ms: number; row: T }>,
@@ -128,14 +174,15 @@ export function mergeMacroEventMarkers<T extends ChartRowWithTime>(
       impact: markerImpact(group.events),
     });
 
+    const prices = resolveMacroRowPrices(rows, group.ms, nowMs);
     insertions.push({
       ms: group.ms,
       row: {
         ts,
         isoTs,
         kind: "macro",
-        pastPrice: null,
-        futurePrice: null,
+        pastPrice: prices.pastPrice,
+        futurePrice: prices.futurePrice,
       } as T,
     });
   }
