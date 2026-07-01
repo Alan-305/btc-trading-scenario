@@ -14,7 +14,19 @@ def test_static_fomc_in_window():
 
 
 def test_event_name_ja_cpi():
-    assert event_name_ja("Consumer Price Index (MoM)") == "米CPI"
+    assert event_name_ja("Consumer Price Index (MoM)", "US") == "米CPI"
+
+
+def test_event_name_ja_adp_not_nfp():
+    assert event_name_ja("ADP Non-Farm Employment Change", "US") == "ADP雇用"
+
+
+def test_event_name_ja_nfp_us():
+    assert event_name_ja("Non-Farm Employment Change", "US") == "米雇用統計"
+
+
+def test_event_name_ja_foreign_gdp_not_us_label():
+    assert event_name_ja("GDP m/m", "CA") is None
 
 
 def test_forex_factory_us_high_impact_parsed():

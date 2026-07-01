@@ -128,7 +128,7 @@ class MacroEventsService:
                     MacroEvent(
                         event_id=f"finnhub-{country}-{scheduled.isoformat()}-{i}",
                         name=name,
-                        name_ja=event_name_ja(name),
+                        name_ja=event_name_ja(name, country),
                         country=country,
                         scheduled_at=scheduled,
                         impact=impact,  # type: ignore[arg-type]

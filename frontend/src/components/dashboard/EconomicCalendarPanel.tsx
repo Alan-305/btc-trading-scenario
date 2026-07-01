@@ -221,9 +221,16 @@ export function EconomicCalendarPanel({
 }
 
 export function macroEventMarkerLabel(events: MacroEvent[]): string {
-  const first = events[0];
+  const sorted = [...events].sort((a, b) => {
+    const aNfp = /non-farm employment change/i.test(a.name) && !/adp/i.test(a.name);
+    const bNfp = /non-farm employment change/i.test(b.name) && !/adp/i.test(b.name);
+    if (aNfp && !bNfp) return -1;
+    if (!aNfp && bNfp) return 1;
+    return 0;
+  });
+  const first = sorted[0];
   if (!first) return "📊";
   const short = first.name_ja || first.name;
-  if (short.length <= 6) return short;
-  return short.slice(0, 5) + "…";
+  if (short.length <= 8) return short;
+  return short.slice(0, 7) + "…";
 }

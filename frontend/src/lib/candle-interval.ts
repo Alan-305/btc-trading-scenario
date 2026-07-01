@@ -39,6 +39,17 @@ export function formatEntryChartLabel(isoTs: string): string {
   });
 }
 
+/** マクロイベント用（分まで表示してチャート上の位置を正確に） */
+export function formatMacroEventChartLabel(isoTs: string): string {
+  const date = new Date(isoTs);
+  if (Number.isNaN(date.getTime())) return isoTs;
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  const h = date.getHours().toString().padStart(2, "0");
+  const min = date.getMinutes().toString().padStart(2, "0");
+  return `${m}/${d} ${h}:${min}`;
+}
+
 /** チャートX軸用のコンパクト表記（全足ラベル表示向け） */
 export function formatEntryChartCompact(isoTs: string): string {
   const date = new Date(isoTs);

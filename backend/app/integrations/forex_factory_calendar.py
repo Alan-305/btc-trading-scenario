@@ -162,7 +162,7 @@ def _parse_row(row: dict, index: int, start: datetime, end: datetime) -> MacroEv
     return MacroEvent(
         event_id=f"ff-{country}-{scheduled.isoformat()}-{index}",
         name=title,
-        name_ja=event_name_ja(title),
+        name_ja=event_name_ja(title, country),
         country=country,
         scheduled_at=scheduled,
         impact=impact,  # type: ignore[arg-type]

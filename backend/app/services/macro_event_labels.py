@@ -1,4 +1,4 @@
-EVENT_JA: dict[str, str] = {
+EVENT_JA_US: dict[str, str] = {
     "fomc": "FOMC 政策金利発表",
     "cpi": "米CPI",
     "consumer price index": "米CPI",
@@ -15,9 +15,17 @@ EVENT_JA: dict[str, str] = {
 }
 
 
-def event_name_ja(name: str) -> str | None:
+def event_name_ja(name: str, country: str | None = None) -> str | None:
     lower = name.lower()
-    for key, ja in EVENT_JA.items():
+    cc = (country or "").upper()
+
+    if "adp" in lower:
+        return "ADP雇用"
+
+    if cc != "US":
+        return None
+
+    for key, ja in EVENT_JA_US.items():
         if key in lower:
             return ja
     return None
