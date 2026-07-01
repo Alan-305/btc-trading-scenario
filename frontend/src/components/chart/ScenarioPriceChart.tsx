@@ -188,7 +188,7 @@ function ChartTooltip({
   label,
 }: {
   active?: boolean;
-  payload?: Array<{ payload: ChartRow; value: number }>;
+  payload?: Array<{ payload: ChartRow; value: number; name?: string; dataKey?: string }>;
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
@@ -196,17 +196,30 @@ function ChartTooltip({
   const row = payload[0]?.payload;
   if (!row) return null;
 
-  const price =
-    row.kind === "past"
-      ? row.pastPrice
-      : row.kind === "future"
-        ? row.futurePrice
-        : row.pastPrice ?? row.futurePrice;
+  const pastEntry = payload.find((p) => p.name === "pastPrice" || p.dataKey === "pastPrice");
+  const futureEntry = payload.find((p) => p.name === "futurePrice" || p.dataKey === "futurePrice");
+
+  let price: number | null = null;
+  let kindLabel: string;
+
+  if (pastEntry?.value != null && !Number.isNaN(Number(pastEntry.value))) {
+    price = Number(pastEntry.value);
+    kindLabel = row.kind === "now" ? "現在の価格" : "過去の価格";
+  } else if (futureEntry?.value != null && !Number.isNaN(Number(futureEntry.value))) {
+    price = Number(futureEntry.value);
+    kindLabel = row.kind === "now" ? "現在の価格" : "将来の目安";
+  } else if (row.kind === "past" || (row.kind === "macro" && row.pastPrice != null)) {
+    price = row.pastPrice ?? null;
+    kindLabel = "過去の価格";
+  } else if (row.kind === "now") {
+    price = row.pastPrice ?? row.futurePrice;
+    kindLabel = "現在の価格";
+  } else {
+    price = row.futurePrice ?? row.pastPrice ?? null;
+    kindLabel = "将来の目安";
+  }
 
   if (price == null) return null;
-
-  const kindLabel =
-    row.kind === "past" ? "過去の価格" : row.kind === "now" ? "現在の価格" : "将来の目安";
 
   const timeLabel = label === "いま" ? "いま（アプリを開いた時点）" : label ?? "";
 
