@@ -38,6 +38,7 @@ EXCHANGE_RATE_LIMITS: dict[str, float] = {
     "coingecko_global": 0.5,
     "coingecko_tether": 0.5,
     "coingecko_global_chart": 0.5,
+    "tradingview": 2.0,
 }
 
 

@@ -1,9 +1,32 @@
 from __future__ import annotations
 
-from app.schemas.extended_market import MacroContextSnapshot
+from app.schemas.extended_market import MacroContextSnapshot, UsdtDominanceSnapshot
 
 MACRO_CONTEXT_CACHE_TTL = 900
 MACRO_CONTEXT_LAST_GOOD_TTL = 86400
+
+
+def usdt_dominance_has_history(usdt: UsdtDominanceSnapshot | None) -> bool:
+    return usdt is not None and len(usdt.history or []) > 0
+
+
+def merge_usdt_dominance(
+    fresh: UsdtDominanceSnapshot | None,
+    last_good: UsdtDominanceSnapshot | None,
+) -> UsdtDominanceSnapshot | None:
+    if fresh is None:
+        return last_good
+    if last_good is None:
+        return fresh
+    if (
+        fresh.source != last_good.source
+        and (fresh.history or [])
+        and (last_good.history or [])
+    ):
+        return fresh
+    if not (fresh.history or []) and (last_good.history or []):
+        return fresh.model_copy(update={"history": last_good.history})
+    return fresh
 
 
 def macro_context_has_data(snapshot: MacroContextSnapshot) -> bool:
@@ -26,8 +49,9 @@ def merge_macro_context(
         return fresh
 
     updates: dict = {}
-    if fresh.usdt_dominance is None and last_good.usdt_dominance is not None:
-        updates["usdt_dominance"] = last_good.usdt_dominance
+    merged_usdt = merge_usdt_dominance(fresh.usdt_dominance, last_good.usdt_dominance)
+    if merged_usdt is not fresh.usdt_dominance:
+        updates["usdt_dominance"] = merged_usdt
     if fresh.equity_markets is None and last_good.equity_markets is not None:
         updates["equity_markets"] = last_good.equity_markets
     if fresh.options is None and last_good.options is not None:

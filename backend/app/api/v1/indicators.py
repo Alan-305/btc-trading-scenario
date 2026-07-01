@@ -7,7 +7,7 @@ from app.collectors.http_client import CollectorHttpClient
 from app.dependencies import get_alternative_me, get_coinglass, get_http_client, get_redis_cache
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
-from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
+from app.integrations.usdt_dominance import UsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.equity_indices import EquityIndicesClient
 from app.integrations.finnhub_calendar import MacroEventsService
@@ -27,6 +27,7 @@ from app.services.macro_context_cache import (
     MACRO_CONTEXT_LAST_GOOD_TTL,
     macro_context_has_data,
     merge_macro_context,
+    usdt_dominance_has_history,
 )
 from app.storage.redis_cache import AppCache
 
@@ -61,23 +62,26 @@ async def sentiment(
 
 @router.get("/macro", response_model=MacroContextSnapshot)
 async def macro_context(
+    refresh: bool = False,
     http: CollectorHttpClient = Depends(get_http_client),
     cache: AppCache = Depends(get_redis_cache),
 ):
     cache_key = AppCache.MACRO_CONTEXT_KEY
     last_good_key = f"{AppCache.MACRO_CONTEXT_KEY}:last_good"
 
-    cached_raw = await cache.get_json(cache_key)
-    if cached_raw:
-        return MacroContextSnapshot.model_validate(cached_raw)
-
     last_good_raw = await cache.get_json(last_good_key)
     last_good = MacroContextSnapshot.model_validate(last_good_raw) if last_good_raw else None
+
+    if not refresh:
+        cached_raw = await cache.get_json(cache_key)
+        if cached_raw:
+            cached = MacroContextSnapshot.model_validate(cached_raw)
+            return merge_macro_context(cached, last_good)
 
     options_client = DeribitOptionsClient(http)
     etf_client = BtcEtfFlowClient(http)
     onchain_client = OnChainMetricsClient(http)
-    usdt_client = CoingeckoUsdtDominanceClient(http)
+    usdt_client = UsdtDominanceClient(http)
     equity_client = EquityIndicesClient(http)
     options, etf, onchain, usdt, equity = await asyncio.gather(
         options_client.fetch_snapshot(),
@@ -111,13 +115,8 @@ async def macro_context(
     if macro_context_has_data(response):
         payload = response.model_dump(mode="json")
         await cache.set_json(cache_key, payload, ttl=MACRO_CONTEXT_CACHE_TTL)
-        if response.usdt_dominance:
+        if usdt_dominance_has_history(response.usdt_dominance):
             await cache.set_json(last_good_key, payload, ttl=MACRO_CONTEXT_LAST_GOOD_TTL)
-        elif last_good and last_good.usdt_dominance:
-            merged_payload = response.model_copy(
-                update={"usdt_dominance": last_good.usdt_dominance}
-            ).model_dump(mode="json")
-            await cache.set_json(last_good_key, merged_payload, ttl=MACRO_CONTEXT_LAST_GOOD_TTL)
 
     return response
 

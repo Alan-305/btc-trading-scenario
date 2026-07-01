@@ -32,6 +32,22 @@ class CollectorHttpClient:
         resp.raise_for_status()
         return resp.json()
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=0.5, max=4))
+    async def post_json(
+        self,
+        url: str,
+        *,
+        json: dict | None = None,
+        headers: dict | None = None,
+        rate_limit_key: str | None = None,
+    ):
+        if rate_limit_key:
+            await self._rate_limiters.get(rate_limit_key).acquire()
+
+        resp = await self._client.post(url, json=json, headers=headers)
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_text(
         self,
         url: str,

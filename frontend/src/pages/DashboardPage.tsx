@@ -267,14 +267,14 @@ export function DashboardPage() {
     [setRefreshing],
   );
 
-  const loadMacro = useCallback(async () => {
+  const loadMacro = useCallback(async (refresh = false) => {
     setMacroLoading(true);
     setMacroEventsLoading(true);
     setMacroError(null);
     try {
       const [macro, events] = await Promise.all([
-        api.getMacroContext(),
-        api.getMacroEvents(7).catch((eventError) => {
+        api.getMacroContext(refresh),
+        api.getMacroEvents(7, refresh).catch((eventError) => {
           console.warn("macro-events fetch failed", eventError);
           return null;
         }),
@@ -343,7 +343,7 @@ export function DashboardPage() {
     setRefreshing("macro", true);
     setMacroError(null);
     try {
-      setMacroContext(await api.getMacroContext());
+      setMacroContext(await api.getMacroContext(true));
     } catch (e) {
       setMacroContext(null);
       setMacroError(e instanceof Error ? e.message : "マクロデータの取得に失敗しました");
@@ -416,7 +416,7 @@ export function DashboardPage() {
       setSessions(sess);
       setRiskZones(zones);
       setOpenedAt((prev) => (refresh || !prev ? new Date() : prev));
-      void loadMacro();
+      void loadMacro(refresh);
     } catch (e) {
       setError(e instanceof Error ? e.message : "読み込みに失敗しました");
     } finally {
@@ -432,8 +432,7 @@ export function DashboardPage() {
     void loadChart(candleInterval, true);
     void loadEntryChart(true);
     void loadHeatmap(heatmapExchange);
-    void loadMacro();
-  }, [load, loadChart, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange, loadMacro]);
+  }, [load, loadChart, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange]);
 
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {

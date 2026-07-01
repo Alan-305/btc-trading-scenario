@@ -7,7 +7,7 @@ from app.collectors.http_client import CollectorHttpClient
 from app.integrations.finnhub_calendar import MacroEventsService
 from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
-from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
+from app.integrations.usdt_dominance import UsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.equity_indices import EquityIndicesClient
 from app.integrations.derivatives_provider import DerivativesProvider
@@ -58,7 +58,7 @@ class ScenarioBuilder:
         deribit_options: DeribitOptionsClient | None = None,
         etf_flows: BtcEtfFlowClient | None = None,
         onchain: OnChainMetricsClient | None = None,
-        usdt_dominance: CoingeckoUsdtDominanceClient | None = None,
+        usdt_dominance: UsdtDominanceClient | None = None,
         equity_indices: EquityIndicesClient | None = None,
         http: CollectorHttpClient | None = None,
     ):

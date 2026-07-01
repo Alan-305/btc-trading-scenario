@@ -11,7 +11,7 @@ from app.config import Settings, get_settings
 from app.integrations.alternative_me import AlternativeMeClient
 from app.integrations.binance_klines import BinanceKlinesClient
 from app.integrations.btc_etf_flows import BtcEtfFlowClient
-from app.integrations.coingecko_usdt_dominance import CoingeckoUsdtDominanceClient
+from app.integrations.usdt_dominance import UsdtDominanceClient
 from app.integrations.deribit_options import DeribitOptionsClient
 from app.integrations.equity_indices import EquityIndicesClient
 from app.integrations.derivatives_provider import DerivativesProvider
@@ -80,7 +80,7 @@ def get_scenario_builder(
         deribit_options=DeribitOptionsClient(http),
         etf_flows=BtcEtfFlowClient(http),
         onchain=OnChainMetricsClient(http),
-        usdt_dominance=CoingeckoUsdtDominanceClient(http),
+        usdt_dominance=UsdtDominanceClient(http),
         equity_indices=EquityIndicesClient(http),
         liquidation_feed=LiquidationFeed(OkxLiquidationClient(http)),
         http=http,

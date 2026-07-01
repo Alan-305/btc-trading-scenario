@@ -29,6 +29,13 @@ export function UsdtDominanceChart({
     dominance: p.value,
   }));
 
+  const values = data.map((p) => p.dominance);
+  const minVal = Math.min(...values, current);
+  const maxVal = Math.max(...values, current);
+  const span = Math.max(maxVal - minVal, 0.01);
+  const pad = Math.max(span * 0.25, 0.02);
+  const yDomain: [number, number] = [minVal - pad, maxVal + pad];
+
   if (!data.length) {
     return <p className="text-sm text-content-muted">履歴なし</p>;
   }
@@ -39,7 +46,7 @@ export function UsdtDominanceChart({
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <p className="font-english text-lg font-semibold text-slate-100">{current.toFixed(2)}%</p>
+        <p className="font-english text-lg font-semibold text-slate-100">{current.toFixed(3)}%</p>
         <p className="font-japanese text-xs text-content-secondary">
           {trendLabel}
           {change7d != null ? `（7日 ${change7d >= 0 ? "+" : ""}${change7d.toFixed(2)}pt）` : ""}
@@ -56,12 +63,12 @@ export function UsdtDominanceChart({
             interval="preserveStartEnd"
           />
           <YAxis
-            domain={["auto", "auto"]}
+            domain={yDomain}
             tick={{ fill: MACRO_CHART.axis, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
-            width={42}
-            tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+            width={48}
+            tickFormatter={(v: number) => `${v.toFixed(2)}%`}
           />
           <Tooltip
             contentStyle={{

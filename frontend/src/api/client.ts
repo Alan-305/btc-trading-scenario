@@ -72,7 +72,8 @@ export const api = {
   buildScenario: (research: ResearchContextItem[] = []) =>
     postJson<ScenarioResponse>("/api/v1/scenario", { research }),
   getSentiment: () => fetchJson<SentimentIndicators>("/api/v1/indicators/sentiment"),
-  getMacroContext: () => fetchJson<MacroContextSnapshot>("/api/v1/indicators/macro"),
+  getMacroContext: (refresh = false) =>
+    fetchJson<MacroContextSnapshot>("/api/v1/indicators/macro", refresh),
   getMacroEvents: (days = 7, refresh = false) =>
     fetchJson<import("../types/macro-events").MacroEventsResponse>(
       `/api/v1/indicators/macro-events?days=${days}`,
