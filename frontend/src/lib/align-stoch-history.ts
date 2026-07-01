@@ -57,7 +57,7 @@ export function alignStochToCandles(
 
 /** Align stoch series to entry chart rows (same `ts` labels). */
 export function alignStochToChartRows(
-  rows: { ts: string; isoTs?: string; kind: "past" | "now" | "future" }[],
+  rows: { ts: string; isoTs?: string; kind: "past" | "now" | "future" | "macro" }[],
   series: StochSeriesPoint[],
 ): AlignedStochRow[] {
   return rows.map((row) => {

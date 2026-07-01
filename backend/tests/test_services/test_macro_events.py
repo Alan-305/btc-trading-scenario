@@ -50,5 +50,25 @@ def test_forex_factory_csv_row_parsed():
     ev = _parse_row(row, 0, start, end)
     assert ev is not None
     assert ev.country == "US"
-    assert ev.scheduled_at.hour == 16
+    assert ev.scheduled_at.hour == 12
     assert ev.scheduled_at.minute == 30
+
+
+def test_forex_factory_json_nfp_jst_evening():
+    start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    end = datetime(2026, 7, 31, tzinfo=timezone.utc)
+    row = {
+        "title": "Non-Farm Employment Change",
+        "country": "USD",
+        "date": "2026-07-02T08:30:00-04:00",
+        "impact": "High",
+    }
+    ev = _parse_row(row, 0, start, end)
+    assert ev is not None
+    from zoneinfo import ZoneInfo
+
+    jst = ev.scheduled_at.astimezone(ZoneInfo("Asia/Tokyo"))
+    assert jst.month == 7
+    assert jst.day == 2
+    assert jst.hour == 21
+    assert jst.minute == 30

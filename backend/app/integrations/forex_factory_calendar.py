@@ -65,8 +65,8 @@ class ForexFactoryCalendarClient:
     ) -> list[MacroEvent]:
         rows: list[dict] = []
         for url, parser in (
-            (FF_THIS_WEEK_CSV, _parse_csv_feed),
             (FF_THIS_WEEK_JSON, _parse_json_feed),
+            (FF_THIS_WEEK_CSV, _parse_csv_feed),
         ):
             parsed = await self._fetch_feed(url, parser)
             if parsed:
@@ -197,9 +197,9 @@ def _parse_scheduled(row: dict, currency: str) -> datetime | None:
         return None
 
     hour, minute = _parse_ff_time(str(row.get("time") or ""))
-    tz = ET if currency == "USD" else timezone.utc
-    local = datetime(year, month, day, hour, minute, tzinfo=tz)
-    return local.astimezone(timezone.utc)
+    # Fair Economy CSV timestamps are UTC (JSON feed uses explicit ET offsets).
+    local = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+    return local
 
 
 def _parse_ff_time(time_raw: str) -> tuple[int, int]:

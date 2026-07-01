@@ -12,11 +12,10 @@ import {
 import { ChartViewportFrame } from "./ChartViewportFrame";
 import { EntryStochasticPane, ENTRY_STOCH_HEIGHT } from "./EntryStochasticPane";
 import { alignStochToChartRows } from "../../lib/align-stoch-history";
-import { alignMacroEventsToChartRows } from "../../lib/align-macro-events";
+import { mergeMacroEventMarkers, upcomingHighImpactEvents } from "../../lib/align-macro-events";
 import { macroEventMarkerLabel } from "../dashboard/EconomicCalendarPanel";
 import { buildEntryGuide } from "../../lib/entry-guide";
 import { findMtfGate } from "../../lib/mtf-entry-gate";
-import { upcomingHighImpactEvents } from "../../lib/align-macro-events";
 import type { StochSeriesPoint } from "../../types/market";
 import type { MacroEvent } from "../../types/macro-events";
 import type {
@@ -71,7 +70,7 @@ const ENTRY_ZONE_STROKE = "#bae6fd";
 interface ChartRow {
   ts: string;
   isoTs?: string;
-  kind: "past" | "now" | "future";
+  kind: "past" | "now" | "future" | "macro";
   pastPrice: number | null;
   futurePrice: number | null;
 }
@@ -133,6 +132,7 @@ function buildChartRows(
   currentPrice: number,
   forecast: ForecastPoint[],
   horizonId: ScenarioHorizonId,
+  nowIso: string,
 ): ChartRow[] {
   const past = history.map((h) => ({
     ts: h.ts,
@@ -144,6 +144,7 @@ function buildChartRows(
 
   const nowRow: ChartRow = {
     ts: "いま",
+    isoTs: nowIso,
     kind: "now",
     pastPrice: currentPrice,
     futurePrice: currentPrice,
@@ -151,6 +152,7 @@ function buildChartRows(
 
   const future = forecast.map((f, i) => ({
     ts: formatFutureLabel(f.ts, horizonId, i),
+    isoTs: f.ts,
     kind: "future" as const,
     pastPrice: null,
     futurePrice: f.price,
@@ -286,14 +288,21 @@ export function ScenarioPriceChart({
       }
     : swingGuide;
 
-  const chartData = buildChartRows(history, currentPrice, forecast, horizonId);
+  const { chartData, macroMarkers } = useMemo(() => {
+    const baseRows = buildChartRows(
+      history,
+      currentPrice,
+      forecast,
+      horizonId,
+      openedAt.toISOString(),
+    );
+    const merged = mergeMacroEventMarkers(baseRows, macroEvents, openedAt.getTime());
+    return { chartData: merged.rows, macroMarkers: merged.markers };
+  }, [history, currentPrice, forecast, horizonId, openedAt, macroEvents]);
+
   const stochRows = useMemo(
     () => alignStochToChartRows(chartData, stochSeries),
     [chartData, stochSeries],
-  );
-  const macroMarkers = useMemo(
-    () => alignMacroEventsToChartRows(chartData, macroEvents),
-    [chartData, macroEvents],
   );
 
   const peakLevels = useMemo(
