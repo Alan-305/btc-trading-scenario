@@ -23,7 +23,7 @@ class CoingeckoUsdtDominanceClient:
             tether_chart = await self.http.get_json(
                 f"{BASE}/coins/tether/market_chart",
                 params={"vs_currency": "usd", "days": 7},
-                rate_limit_key="coingecko_tether",
+                rate_limit_key="coingecko",
             )
         except Exception:
             tether_chart = None
@@ -33,7 +33,7 @@ class CoingeckoUsdtDominanceClient:
                 total_chart = await self.http.get_json(
                     f"{BASE}/global/market_cap_chart",
                     params={"days": 7},
-                    rate_limit_key="coingecko_global_chart",
+                    rate_limit_key="coingecko",
                 )
                 history = _build_dominance_history(tether_chart, total_chart)
             except Exception:
@@ -52,10 +52,16 @@ class CoingeckoUsdtDominanceClient:
         )
 
     async def _fetch_current_dominance(self) -> float | None:
+        dom = await self._from_global_endpoint()
+        if dom is not None:
+            return dom
+        return await self._from_tether_market_data()
+
+    async def _from_global_endpoint(self) -> float | None:
         try:
             global_data = await self.http.get_json(
                 f"{BASE}/global",
-                rate_limit_key="coingecko_global",
+                rate_limit_key="coingecko",
             )
         except Exception:
             return None
@@ -65,6 +71,43 @@ class CoingeckoUsdtDominanceClient:
         if current_dom is None:
             return None
         return float(current_dom)
+
+    async def _from_tether_market_data(self) -> float | None:
+        """Fallback when /global is rate-limited: derive dominance from tether + bitcoin caps."""
+        try:
+            prices = await self.http.get_json(
+                f"{BASE}/simple/price",
+                params={
+                    "ids": "tether,bitcoin",
+                    "vs_currencies": "usd",
+                    "include_market_cap": "true",
+                },
+                rate_limit_key="coingecko",
+            )
+        except Exception:
+            return None
+
+        usdt_cap = (prices.get("tether") or {}).get("usd_market_cap")
+        btc_cap = (prices.get("bitcoin") or {}).get("usd_market_cap")
+        if not usdt_cap or not btc_cap or usdt_cap <= 0 or btc_cap <= 0:
+            return None
+
+        try:
+            global_data = await self.http.get_json(
+                f"{BASE}/global",
+                rate_limit_key="coingecko",
+            )
+            btc_dom = (global_data.get("data") or {}).get("market_cap_percentage", {}).get("btc")
+        except Exception:
+            btc_dom = None
+
+        if not btc_dom or btc_dom <= 0:
+            return None
+
+        total_cap = float(btc_cap) / (float(btc_dom) / 100)
+        if total_cap <= 0:
+            return None
+        return float(usdt_cap) / total_cap * 100
 
 
 def _build_dominance_history(

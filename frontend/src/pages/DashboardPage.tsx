@@ -16,6 +16,7 @@ import { IndicatorSignalHeader } from "../components/dashboard/IndicatorSignalHe
 import { MacroContextPanel } from "../components/dashboard/MacroContextPanel";
 import { EconomicCalendarPanel } from "../components/dashboard/EconomicCalendarPanel";
 import { EquityMarketsPanel } from "../components/dashboard/macro/EquityMarketsPanel";
+import { UsdtDominancePanel } from "../components/dashboard/macro/UsdtDominancePanel";
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
@@ -33,7 +34,11 @@ import { DataPanelMeta } from "../components/ui/DataPanelMeta";
 import { useAuth } from "../hooks/useAuth";
 import {
   type DashboardSection,
+  INDICATOR_NAV_TARGETS,
+  type IndicatorNavTarget,
   loadDashboardSection,
+  saveDashboardSection,
+  scrollToIndicatorAnchor,
 } from "../lib/dashboard-nav";
 import { normalizeHorizonId, isHodlHorizon } from "../lib/scenario-horizons";
 import { EXTERNAL_LINKS } from "../lib/external-links";
@@ -73,6 +78,7 @@ import {
   sessionsSignal,
   stochasticSignal,
   technicalSignal,
+  resolveUsdtDominance,
   usdtDominanceSignal,
 } from "../lib/indicator-signals";
 import type { MacroEventsResponse } from "../types/macro-events";
@@ -112,6 +118,7 @@ export function DashboardPage() {
     logout,
   } = useAuth(firebaseReady);
   const [activeSection, setActiveSection] = useState<DashboardSection>(loadDashboardSection);
+  const pendingScrollRef = useRef<IndicatorNavTarget | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -614,19 +621,63 @@ export function DashboardPage() {
     : [];
 
   const fgValue = sentiment?.fear_greed?.value ?? scenario?.indicators.fear_greed ?? null;
+  const usdtDominance = resolveUsdtDominance(macroContext?.usdt_dominance, scenario);
+  const macroContextWithUsdt = useMemo((): MacroContextSnapshot | null => {
+    if (!macroContext && !usdtDominance) return macroContext;
+    if (!macroContext) {
+      return {
+        options: null,
+        etf_flows: null,
+        onchain: null,
+        usdt_dominance: usdtDominance,
+        equity_markets: null,
+        fetched_at: usdtDominance?.timestamp ?? null,
+      };
+    }
+    if (macroContext.usdt_dominance || !usdtDominance) return macroContext;
+    return { ...macroContext, usdt_dominance: usdtDominance };
+  }, [macroContext, usdtDominance]);
+
+  const handleIndicatorNavigate = useCallback((target: IndicatorNavTarget) => {
+    pendingScrollRef.current = target;
+    setActiveSection(target.section);
+    saveDashboardSection(target.section);
+    setMobileMenuOpen(false);
+  }, []);
+
+  useEffect(() => {
+    const target = pendingScrollRef.current;
+    if (!target || activeSection !== target.section) return;
+    scrollToIndicatorAnchor(target.anchorId, () => {
+      pendingScrollRef.current = null;
+    });
+  }, [
+    activeSection,
+    macroLoading,
+    macroEventsLoading,
+    chartLoading,
+    heatmapLoading,
+    sessions,
+    macroContext,
+    technical,
+    snapshot,
+  ]);
 
   const signalStripItems = useMemo((): SignalStripItem[] => {
+    const targetFor = (id: string) =>
+      INDICATOR_NAV_TARGETS[id] ?? { section: "overview" as const, anchorId: "market-sessions" as const };
+
     const items: SignalStripItem[] = [
       {
         id: "technical",
         label: "テクニカル",
-        section: "technical",
+        target: targetFor("technical"),
         signal: technicalSignal(technical),
       },
       {
         id: "macro",
         label: "マクロ環境",
-        section: "context",
+        target: targetFor("macro"),
         signal: macroContext?.overall_summary_ja
           ? {
               stance: macroContext.overall_stance ?? "neutral",
@@ -638,49 +689,49 @@ export function DashboardPage() {
       {
         id: "equity-markets",
         label: "世界株",
-        section: "context",
+        target: targetFor("equity-markets"),
         signal: equityMarketsSignal(macroContext?.equity_markets),
       },
       {
         id: "stochastic",
         label: "ストキャス",
-        section: "technical",
+        target: targetFor("stochastic"),
         signal: stochasticSignal(technical),
       },
       {
         id: "usdt-dominance",
         label: "USDT.D",
-        section: "context",
-        signal: usdtDominanceSignal(macroContext?.usdt_dominance ?? null),
+        target: targetFor("usdt-dominance"),
+        signal: usdtDominanceSignal(usdtDominance),
       },
       {
         id: "fear-greed",
         label: "Fear & Greed",
-        section: "technical",
+        target: targetFor("fear-greed"),
         signal: fearGreedSignal(fgValue, sentiment?.fear_greed?.classification),
       },
       {
         id: "derivatives",
         label: "先物",
-        section: "technical",
+        target: targetFor("derivatives"),
         signal: coinglassSignal(sentiment?.coinglass ?? null),
       },
       {
         id: "heatmap",
         label: "板厚み",
-        section: "technical",
+        target: targetFor("heatmap"),
         signal: heatmapSignal(heatmap),
       },
       {
         id: "risk",
         label: "リキッド帯",
-        section: "technical",
+        target: targetFor("risk"),
         signal: riskZonesSignal(riskZones),
       },
       {
         id: "sessions",
         label: "世界時間",
-        section: "overview",
+        target: targetFor("sessions"),
         signal: sessionsSignal(sessions),
       },
     ];
@@ -688,12 +739,12 @@ export function DashboardPage() {
       items.push({
         id: "exchange",
         label: "取引所乖離",
-        section: "technical",
+        target: targetFor("exchange"),
         signal: exchangeSignal(snapshot.divergence_pct),
       });
     }
     return items;
-  }, [technical, macroContext, fgValue, sentiment, heatmap, riskZones, sessions, snapshot]);
+  }, [technical, macroContext, usdtDominance, fgValue, sentiment, heatmap, riskZones, sessions, snapshot]);
 
   const headerActions = (
     <>
@@ -740,7 +791,7 @@ export function DashboardPage() {
   );
 
   const candleSection = (
-    <section className="rounded-xl border border-surface-border bg-surface-card p-5">
+    <section id="indicator-stochastic" className="scroll-mt-24 rounded-xl border border-surface-border bg-surface-card p-5">
       <DataPanelMeta
         title={<h2 className="font-english text-sm font-medium text-slate-200">₿BTCUSDT</h2>}
         sourceHref={EXTERNAL_LINKS.tradingView}
@@ -896,7 +947,7 @@ export function DashboardPage() {
               />
             ) : null}
             {sessions && (
-              <div>
+              <div id="market-sessions" className="scroll-mt-24">
                 <IndicatorSignalHeader signal={sessionsSignal(sessions)} />
                 <MarketSessionsPanel
                   data={sessions}
@@ -905,7 +956,7 @@ export function DashboardPage() {
                 />
               </div>
             )}
-            <OverviewSignalStrip items={signalStripItems} onNavigate={setActiveSection} />
+            <OverviewSignalStrip items={signalStripItems} onNavigate={handleIndicatorNavigate} />
           </div>
         );
 
@@ -916,7 +967,7 @@ export function DashboardPage() {
               <IndicatorSignalHeader signal={technicalSignal(technical)} />
               {candleSection}
             </div>
-            <div>
+            <div id="indicator-technical" className="scroll-mt-24">
               <IndicatorSignalHeader signal={technicalSignal(technical)} />
               <TechnicalAnalysisPanel
                 data={technical}
@@ -926,7 +977,7 @@ export function DashboardPage() {
               />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div>
+              <div id="risk-zones" className="scroll-mt-24">
                 <IndicatorSignalHeader signal={riskZonesSignal(riskZones)} />
                 <RiskZonesPanel
                   data={riskZones}
@@ -934,7 +985,7 @@ export function DashboardPage() {
                   refreshing={isRefreshing("riskZones")}
                 />
               </div>
-              <div>
+              <div id="fear-greed" className="scroll-mt-24">
                 <IndicatorSignalHeader
                   signal={fearGreedSignal(fgValue, sentiment?.fear_greed?.classification)}
                 />
@@ -949,7 +1000,7 @@ export function DashboardPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <div>
+              <div id="heatmap" className="scroll-mt-24">
                 <IndicatorSignalHeader signal={heatmapSignal(heatmap)} />
                 <VolumeHeatmap
                   cells={heatmap}
@@ -963,7 +1014,7 @@ export function DashboardPage() {
                 />
               </div>
               {snapshot && (
-                <div>
+                <div id="exchange-divergence" className="scroll-mt-24">
                   <IndicatorSignalHeader signal={exchangeSignal(snapshot.divergence_pct)} />
                   <ExchangeDivergence
                     tickers={snapshot.tickers}
@@ -975,7 +1026,7 @@ export function DashboardPage() {
                 </div>
               )}
             </div>
-            <div>
+            <div id="derivatives" className="scroll-mt-24">
               <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
               <CoinglassPanel
                 data={sentiment?.coinglass ?? null}
@@ -989,6 +1040,14 @@ export function DashboardPage() {
       case "context":
         return (
           <div className="space-y-6">
+            <div id="usdt-dominance" className="scroll-mt-24">
+              <IndicatorSignalHeader signal={usdtDominanceSignal(usdtDominance)} />
+              <UsdtDominancePanel
+                data={usdtDominance}
+                onRefresh={() => void refreshMacroContextOnly()}
+                refreshing={isRefreshing("macro")}
+              />
+            </div>
             <div>
               <IndicatorSignalHeader signal={equityMarketsSignal(macroContext?.equity_markets)} />
               <EquityMarketsPanel
@@ -998,14 +1057,16 @@ export function DashboardPage() {
                 refreshing={isRefreshing("macro")}
               />
             </div>
-            <EconomicCalendarPanel
-              data={macroEvents}
-              loading={macroEventsLoading}
-              onRefresh={() => void refreshMacroEventsOnly()}
-              refreshing={isRefreshing("macroEvents")}
-            />
+            <div id="macro-calendar" className="scroll-mt-24">
+              <EconomicCalendarPanel
+                data={macroEvents}
+                loading={macroEventsLoading}
+                onRefresh={() => void refreshMacroEventsOnly()}
+                refreshing={isRefreshing("macroEvents")}
+              />
+            </div>
             <MacroContextPanel
-              data={macroContext}
+              data={macroContextWithUsdt}
               loading={macroLoading}
               error={macroError}
               onRefresh={() => void refreshMacroContextOnly()}

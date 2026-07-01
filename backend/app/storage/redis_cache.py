@@ -41,6 +41,7 @@ class RedisCache:
     COINGLASS_KEY = "indicators:coinglass"
     SCENARIO_KEY = "scenario:latest"
     MACRO_EVENTS_KEY = "indicators:macro_events"
+    MACRO_CONTEXT_KEY = "indicators:macro_context"
 
     def __init__(self, redis_url: str | None = None, default_ttl: int | None = None):
         settings = get_settings()
@@ -94,6 +95,7 @@ class AppCache:
     COINGLASS_KEY = RedisCache.COINGLASS_KEY
     SCENARIO_KEY = RedisCache.SCENARIO_KEY
     MACRO_EVENTS_KEY = RedisCache.MACRO_EVENTS_KEY
+    MACRO_CONTEXT_KEY = RedisCache.MACRO_CONTEXT_KEY
 
     def __init__(self) -> None:
         settings = get_settings()

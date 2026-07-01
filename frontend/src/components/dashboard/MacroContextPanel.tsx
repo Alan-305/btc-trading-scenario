@@ -6,7 +6,6 @@ import { MacroSignalBadge, MacroSummaryText } from "./macro/MacroCommentary";
 import { EtfFlowChart } from "./macro/EtfFlowChart";
 import { OnChainChart } from "./macro/OnChainChart";
 import { DvolChart, PutCallOiChart } from "./macro/OptionsCharts";
-import { UsdtDominancePanel } from "./macro/UsdtDominancePanel";
 
 interface MacroContextPanelProps extends DataRefreshProps {
   data: MacroContextSnapshot | null;
@@ -80,12 +79,6 @@ export function MacroContextPanel({
         </div>
         <MacroSummaryText summary={data.overall_summary_ja ?? ""} />
       </header>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {data.usdt_dominance ? (
-          <UsdtDominancePanel data={data.usdt_dominance} onRefresh={onRefresh} refreshing={refreshing} />
-        ) : null}
-      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         {etf_flows && (

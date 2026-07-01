@@ -1,5 +1,55 @@
 export type DashboardSection = "overview" | "technical" | "context" | "records" | "invite";
 
+export type IndicatorAnchorId =
+  | "indicator-technical"
+  | "indicator-stochastic"
+  | "equity-markets"
+  | "macro-environment"
+  | "usdt-dominance"
+  | "fear-greed"
+  | "derivatives"
+  | "heatmap"
+  | "risk-zones"
+  | "market-sessions"
+  | "exchange-divergence"
+  | "macro-calendar";
+
+export interface IndicatorNavTarget {
+  section: DashboardSection;
+  anchorId: IndicatorAnchorId;
+}
+
+/** Maps indicator summary card ids to scroll targets within each section. */
+export const INDICATOR_NAV_TARGETS: Record<string, IndicatorNavTarget> = {
+  technical: { section: "technical", anchorId: "indicator-technical" },
+  stochastic: { section: "technical", anchorId: "indicator-stochastic" },
+  macro: { section: "context", anchorId: "macro-environment" },
+  "equity-markets": { section: "context", anchorId: "equity-markets" },
+  "usdt-dominance": { section: "context", anchorId: "usdt-dominance" },
+  "fear-greed": { section: "technical", anchorId: "fear-greed" },
+  derivatives: { section: "technical", anchorId: "derivatives" },
+  heatmap: { section: "technical", anchorId: "heatmap" },
+  risk: { section: "technical", anchorId: "risk-zones" },
+  sessions: { section: "overview", anchorId: "market-sessions" },
+  exchange: { section: "technical", anchorId: "exchange-divergence" },
+};
+
+export function scrollToIndicatorAnchor(
+  anchorId: IndicatorAnchorId,
+  onDone?: () => void,
+  retries = 12,
+): void {
+  const el = document.getElementById(anchorId);
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    onDone?.();
+    return;
+  }
+  if (retries > 0) {
+    window.setTimeout(() => scrollToIndicatorAnchor(anchorId, onDone, retries - 1), 120);
+  }
+}
+
 export const DASHBOARD_SECTION_STORAGE_KEY = "btc-dashboard-section";
 
 const LEGACY_SECTION_MAP: Record<string, DashboardSection> = {

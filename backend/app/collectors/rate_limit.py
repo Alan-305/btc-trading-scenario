@@ -34,6 +34,10 @@ EXCHANGE_RATE_LIMITS: dict[str, float] = {
     "mempool": 2.0,
     "coinglass": 2.0,
     "alternative_me": 1.0,
+    "coingecko": 0.5,
+    "coingecko_global": 0.5,
+    "coingecko_tether": 0.5,
+    "coingecko_global_chart": 0.5,
 }
 
 

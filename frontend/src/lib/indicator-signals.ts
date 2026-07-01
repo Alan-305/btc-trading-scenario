@@ -5,6 +5,7 @@ import type {
   GlobalEquitySnapshot,
   HeatmapCell,
   MacroStance,
+  ScenarioResponse,
   UsdtDominanceSnapshot,
 } from "../types/scenario";
 
@@ -64,6 +65,29 @@ export function stochasticSignal(data: TechnicalAnalysis | null): IndicatorSigna
     signalJa: data.stoch_signal_ja || "様子見",
     summaryJa: data.stoch_summary_ja || `%K ${data.stoch_k.toFixed(0)}・%D ${data.stoch_d.toFixed(0)}`,
   };
+}
+
+export function usdtDominanceFromScenario(
+  scenario: ScenarioResponse | null,
+): UsdtDominanceSnapshot | null {
+  const pct = scenario?.indicators?.usdt_dominance_pct;
+  if (pct == null) return null;
+  const trend = scenario?.indicators?.usdt_dominance_trend;
+  return {
+    dominance_pct: pct,
+    change_7d_pct: scenario?.indicators?.usdt_dominance_change_7d_pct ?? null,
+    trend: trend === "rising" || trend === "falling" || trend === "stable" ? trend : "stable",
+    history: [],
+    source: "scenario",
+    timestamp: null,
+  };
+}
+
+export function resolveUsdtDominance(
+  macro: UsdtDominanceSnapshot | null | undefined,
+  scenario: ScenarioResponse | null,
+): UsdtDominanceSnapshot | null {
+  return macro ?? usdtDominanceFromScenario(scenario);
 }
 
 export function usdtDominanceSignal(data: UsdtDominanceSnapshot | null): IndicatorSignal {

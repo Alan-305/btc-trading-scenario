@@ -1,17 +1,17 @@
-import type { DashboardSection } from "../../lib/dashboard-nav";
+import type { IndicatorNavTarget } from "../../lib/dashboard-nav";
 import type { IndicatorSignal } from "../../lib/indicator-signals";
 import { MACRO_STANCE_STYLE } from "./macro/MacroCommentary";
 
 export interface SignalStripItem {
   id: string;
   label: string;
-  section: DashboardSection;
+  target: IndicatorNavTarget;
   signal: IndicatorSignal;
 }
 
 interface OverviewSignalStripProps {
   items: SignalStripItem[];
-  onNavigate: (section: DashboardSection) => void;
+  onNavigate: (target: IndicatorNavTarget) => void;
 }
 
 export function OverviewSignalStrip({ items, onNavigate }: OverviewSignalStripProps) {
@@ -32,7 +32,7 @@ export function OverviewSignalStrip({ items, onNavigate }: OverviewSignalStripPr
             <button
               key={item.id}
               type="button"
-              onClick={() => onNavigate(item.section)}
+              onClick={() => onNavigate(item.target)}
               className="min-h-[44px] rounded-lg border border-surface-border/70 bg-surface-elevated/40 px-3 py-3 text-left transition hover:border-content-muted hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
             >
               <div className="mb-1.5 flex items-center justify-between gap-2">

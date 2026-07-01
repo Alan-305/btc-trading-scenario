@@ -14,14 +14,20 @@ from app.integrations.finnhub_calendar import MacroEventsService
 from app.integrations.derivatives_provider import DerivativesProvider
 from app.integrations.onchain_metrics import OnChainMetricsClient
 from app.schemas.macro_events import MacroEventsResponse
-from app.schemas.extended_market import MacroContextSnapshot
+from app.schemas.extended_market import MacroContextSnapshot, UsdtDominanceSnapshot
 from app.schemas.market import SentimentIndicators
 from app.services.macro_events_cache import (
     is_live_macro_response,
     merge_with_last_good,
     should_bypass_short_cache,
 )
-from app.services.macro_analysis import enrich_macro_context
+from app.services.macro_analysis import enrich_macro_context, enrich_usdt_dominance
+from app.services.macro_context_cache import (
+    MACRO_CONTEXT_CACHE_TTL,
+    MACRO_CONTEXT_LAST_GOOD_TTL,
+    macro_context_has_data,
+    merge_macro_context,
+)
 from app.storage.redis_cache import AppCache
 
 router = APIRouter()
@@ -54,7 +60,20 @@ async def sentiment(
 
 
 @router.get("/macro", response_model=MacroContextSnapshot)
-async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
+async def macro_context(
+    http: CollectorHttpClient = Depends(get_http_client),
+    cache: AppCache = Depends(get_redis_cache),
+):
+    cache_key = AppCache.MACRO_CONTEXT_KEY
+    last_good_key = f"{AppCache.MACRO_CONTEXT_KEY}:last_good"
+
+    cached_raw = await cache.get_json(cache_key)
+    if cached_raw:
+        return MacroContextSnapshot.model_validate(cached_raw)
+
+    last_good_raw = await cache.get_json(last_good_key)
+    last_good = MacroContextSnapshot.model_validate(last_good_raw) if last_good_raw else None
+
     options_client = DeribitOptionsClient(http)
     etf_client = BtcEtfFlowClient(http)
     onchain_client = OnChainMetricsClient(http)
@@ -67,7 +86,11 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
         usdt_client.fetch_snapshot(),
         equity_client.fetch_snapshot(),
     )
-    return enrich_macro_context(
+
+    if usdt is None:
+        usdt = await _usdt_from_scenario_cache(cache)
+
+    fresh = enrich_macro_context(
         MacroContextSnapshot(
             options=options,
             etf_flows=etf,
@@ -83,6 +106,39 @@ async def macro_context(http: CollectorHttpClient = Depends(get_http_client)):
             ),
         )
     )
+    response = merge_macro_context(fresh, last_good)
+
+    if macro_context_has_data(response):
+        payload = response.model_dump(mode="json")
+        await cache.set_json(cache_key, payload, ttl=MACRO_CONTEXT_CACHE_TTL)
+        if response.usdt_dominance:
+            await cache.set_json(last_good_key, payload, ttl=MACRO_CONTEXT_LAST_GOOD_TTL)
+        elif last_good and last_good.usdt_dominance:
+            merged_payload = response.model_copy(
+                update={"usdt_dominance": last_good.usdt_dominance}
+            ).model_dump(mode="json")
+            await cache.set_json(last_good_key, merged_payload, ttl=MACRO_CONTEXT_LAST_GOOD_TTL)
+
+    return response
+
+
+async def _usdt_from_scenario_cache(cache: AppCache) -> UsdtDominanceSnapshot | None:
+    raw = await cache.get_json(AppCache.SCENARIO_KEY)
+    if not raw:
+        return None
+    indicators = raw.get("indicators") or {}
+    pct = indicators.get("usdt_dominance_pct")
+    if pct is None:
+        return None
+    snap = UsdtDominanceSnapshot(
+        dominance_pct=float(pct),
+        change_7d_pct=indicators.get("usdt_dominance_change_7d_pct"),
+        trend=indicators.get("usdt_dominance_trend") or "stable",
+        history=[],
+        source="scenario_cache",
+        timestamp=datetime.now(timezone.utc),
+    )
+    return enrich_usdt_dominance(snap)
 
 
 def _latest_timestamp(*values: datetime | None) -> datetime:
