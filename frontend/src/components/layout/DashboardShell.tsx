@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import {
   DASHBOARD_NAV_INVITE,
   DASHBOARD_NAV_MAIN,
+  DASHBOARD_NAV_SUPPORT,
   type DashboardNavItem,
   type DashboardSection,
   saveDashboardSection,
@@ -26,6 +27,7 @@ function activeNavItem(
   const main = DASHBOARD_NAV_MAIN.find((n) => n.id === section);
   if (main) return main;
   if (showInviteNav && section === DASHBOARD_NAV_INVITE.id) return DASHBOARD_NAV_INVITE;
+  if (section === DASHBOARD_NAV_SUPPORT.id) return DASHBOARD_NAV_SUPPORT;
   return DASHBOARD_NAV_MAIN.find((n) => n.id === "overview");
 }
 
@@ -69,6 +71,7 @@ function NavIcon({ id, active }: { id: DashboardSection; active: boolean }) {
     context: "M12 3a9 9 0 100 18 9 9 0 000-18z",
     records: "M6 4h12v16H6z",
     invite: "M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2M9 11a4 4 0 100-8 4 4 0 000 8m12 4v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
+    support: "M4 4h16v14H5.17L4 19.17V4zm4 4h8M8 12h5",
   };
   return (
     <svg className={`h-5 w-5 shrink-0 ${color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -128,6 +131,12 @@ export function DashboardShell({
           />
         </>
       ) : null}
+      <div className="my-2 border-t border-surface-border/80" aria-hidden />
+      <NavButton
+        item={DASHBOARD_NAV_SUPPORT}
+        active={activeSection === DASHBOARD_NAV_SUPPORT.id}
+        onClick={() => selectSection(DASHBOARD_NAV_SUPPORT.id)}
+      />
     </nav>
   );
 

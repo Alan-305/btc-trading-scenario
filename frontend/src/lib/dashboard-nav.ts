@@ -1,4 +1,4 @@
-export type DashboardSection = "overview" | "technical" | "context" | "records" | "invite";
+export type DashboardSection = "overview" | "technical" | "context" | "records" | "invite" | "support";
 
 export type IndicatorAnchorId =
   | "indicator-technical"
@@ -77,12 +77,19 @@ export const DASHBOARD_NAV_INVITE: DashboardNavItem = {
   description: "メンバーへの招待リンク送信",
 };
 
+export const DASHBOARD_NAV_SUPPORT: DashboardNavItem = {
+  id: "support",
+  label: "サポート",
+  description: "不具合報告・お問い合わせ",
+};
+
 /** @deprecated Use DASHBOARD_NAV_MAIN */
 export const DASHBOARD_NAV = DASHBOARD_NAV_MAIN;
 
 const ALL_SECTIONS: DashboardSection[] = [
   ...DASHBOARD_NAV_MAIN.map((n) => n.id),
   DASHBOARD_NAV_INVITE.id,
+  DASHBOARD_NAV_SUPPORT.id,
 ];
 
 export function normalizeDashboardSection(raw: string | null | undefined): DashboardSection | null {

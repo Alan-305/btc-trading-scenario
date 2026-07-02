@@ -139,3 +139,86 @@ def send_paper_trade_fill_email(
     if response.status_code >= 400:
         detail = response.text.strip() or response.reason_phrase
         raise RuntimeError(f"約定通知メールの送信に失敗しました（Resend {response.status_code}）: {detail}")
+
+
+_SUPPORT_CATEGORY_LABELS = {
+    "bug": "不具合・エラー",
+    "feature": "機能の要望",
+    "account": "アカウント・ログイン",
+    "other": "その他",
+}
+
+
+def _support_html(
+    *,
+    from_email: str,
+    category: str,
+    subject: str,
+    message: str,
+) -> str:
+    category_ja = _SUPPORT_CATEGORY_LABELS.get(category, category)
+    escaped_message = message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    escaped_subject = subject.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return f"""\
+<!DOCTYPE html>
+<html lang="ja">
+<body style="font-family:sans-serif;line-height:1.6;color:#1e293b;">
+  <p>BTC Trading Scenario からサポートお問い合わせが届きました。</p>
+  <table style="border-collapse:collapse;margin:16px 0;font-size:14px;">
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">送信者</td><td>{from_email}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">カテゴリ</td><td>{category_ja}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">件名</td><td>{escaped_subject}</td></tr>
+  </table>
+  <p style="font-weight:600;margin:16px 0 8px;">お問い合わせ内容</p>
+  <pre style="white-space:pre-wrap;background:#f1f5f9;padding:12px;border-radius:8px;font-size:14px;">{escaped_message}</pre>
+  <p style="font-size:12px;color:#64748b;">返信は送信者メールアドレス宛に行ってください。</p>
+</body>
+</html>"""
+
+
+def send_support_email(
+    *,
+    from_email: str,
+    category: str,
+    subject: str,
+    message: str,
+    settings: Settings | None = None,
+) -> None:
+    settings = settings or get_settings()
+    if not settings.resend_api_key:
+        raise RuntimeError(
+            "RESEND_API_KEY が未設定です。サポートメールを送信できません。"
+        )
+    if not settings.resend_from_email:
+        raise RuntimeError(
+            "RESEND_FROM_EMAIL が未設定です。サポートメールを送信できません。"
+        )
+
+    category_ja = _SUPPORT_CATEGORY_LABELS.get(category, category)
+    to_email = settings.support_email.strip()
+    if not to_email:
+        raise RuntimeError("サポート宛先メールが未設定です。")
+
+    response = httpx.post(
+        RESEND_API_URL,
+        headers={
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": settings.resend_from_email,
+            "to": [to_email],
+            "reply_to": [from_email],
+            "subject": f"[BTC Scenario] {category_ja}: {subject}",
+            "html": _support_html(
+                from_email=from_email,
+                category=category,
+                subject=subject,
+                message=message,
+            ),
+        },
+        timeout=30.0,
+    )
+    if response.status_code >= 400:
+        detail = response.text.strip() or response.reason_phrase
+        raise RuntimeError(f"サポートメールの送信に失敗しました（Resend {response.status_code}）: {detail}")

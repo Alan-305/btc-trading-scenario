@@ -102,6 +102,8 @@ export const api = {
     postJson<AccuracySummary>("/api/v1/scenario/evaluate", predictions),
   sendInvite: (email: string) =>
     postJson<{ email: string; message: string }>("/api/v1/invites", { email }),
+  sendSupport: (body: { category: string; subject: string; message: string }) =>
+    postJson<{ message: string }>("/api/v1/support", body),
   summarizeResearch: (body: ResearchSummarizeRequest) =>
     postJson<ResearchSummarizeResponse>("/api/v1/research/summarize", body),
   notifyPaperTradeFill: (body: import("../types/paper-trade").PaperTradeFillNotifyRequest) =>

@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     app_public_url: str = "https://nexus-btc-trading.web.app"
+    support_email: str = "support@nexus-learning.com"
 
     finnhub_api_key: str = ""
 

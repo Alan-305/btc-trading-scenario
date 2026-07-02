@@ -22,6 +22,7 @@ import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboa
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
+import { SupportPanel } from "../components/support/SupportPanel";
 import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
 import { PaperTradePanel } from "../components/paper-trade/PaperTradePanel";
@@ -1122,6 +1123,9 @@ export function DashboardPage() {
 
       case "invite":
         return <InvitePanel userEmail={user?.email} />;
+
+      case "support":
+        return <SupportPanel userEmail={user?.email} />;
 
       default:
         return null;
