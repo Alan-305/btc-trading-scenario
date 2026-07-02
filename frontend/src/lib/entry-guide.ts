@@ -9,6 +9,7 @@ export type EntryStatus =
   | "near_tp"
   | "near_sl"
   | "watch"
+  | "htf_blocked"
   | "trend_reversal"
   | "wait_timing";
 
@@ -127,7 +128,7 @@ export function buildEntryGuide(
   if (inZone) {
     if (macro?.mtfEntryBlocked) {
       return {
-        status: "watch",
+        status: "htf_blocked",
         headline: "上位足が逆方向のため様子見",
         detail:
           `$${low.toLocaleString()} 〜 $${high.toLocaleString()} の帯内ですが、` +

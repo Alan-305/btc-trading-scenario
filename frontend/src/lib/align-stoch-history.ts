@@ -55,14 +55,19 @@ export function alignStochToCandles(
   });
 }
 
-/** Align stoch series to entry chart rows (same `ts` labels). */
+/** Align stoch series to entry chart rows (same `ts` labels). Stops at 「いま」—no future projection. */
 export function alignStochToChartRows(
   rows: { ts: string; isoTs?: string; kind: "past" | "now" | "future" | "macro" }[],
   series: StochSeriesPoint[],
 ): AlignedStochRow[] {
   let lastKnown: AlignedStochRow | null = null;
+  const nowIdx = rows.findIndex((row) => row.kind === "now");
 
-  return rows.map((row) => {
+  return rows.map((row, idx) => {
+    if (nowIdx >= 0 && idx > nowIdx) {
+      return { ts: row.ts, k: null, d: null, cross: null };
+    }
+
     if (row.isoTs) {
       const targetMs = new Date(row.isoTs).getTime();
       if (!Number.isNaN(targetMs)) {

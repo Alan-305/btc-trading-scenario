@@ -53,6 +53,8 @@ const STATUS_BADGE: Record<string, string> = {
   passed: "bg-surface-elevated text-content-primary",
   neutral: "bg-surface-elevated text-content-secondary",
   watch: "bg-surface-elevated text-content-secondary",
+  htf_blocked:
+    "border-2 border-amber-400/80 bg-amber-500/30 text-amber-50 font-bold shadow-[0_0_12px_rgba(245,158,11,0.35)] ring-1 ring-amber-300/40",
   near_tp: "bg-accent-green/20 text-accent-green",
   near_sl: "bg-accent-red/20 text-accent-red",
   trend_reversal: "bg-accent-amber/25 text-amber-100",
@@ -520,7 +522,11 @@ export function ScenarioPriceChart({
         refreshLabel="エントリーチャートを更新"
         headerActions={
           <div className="flex flex-col items-end gap-1">
-            <span className={`rounded-full px-3 py-1 text-xs font-medium ${badgeClass}`}>
+            <span
+              className={`rounded-lg px-3 py-1.5 font-japanese ${
+                guide.status === "htf_blocked" ? "text-sm" : "text-xs font-medium"
+              } ${badgeClass}`}
+            >
               {guide.headline}
             </span>
             <span className="text-xs text-content-muted">{SIDE_LABEL[entry.side]}</span>
@@ -529,16 +535,31 @@ export function ScenarioPriceChart({
         className="mb-4"
       />
 
-      <div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-surface-border/60 bg-surface/50 px-4 py-3">
-        <div>
-          <p className="text-[10px] text-content-muted">いまの価格</p>
-          <p className="font-english text-xl font-semibold text-white">
-            ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-        <div className="text-sm text-content-secondary">
-          <p>{guide.detail}</p>
-          <p className="mt-1 text-xs text-content-muted">{guide.action}</p>
+      <div className="mb-4 space-y-3">
+        {guide.status === "htf_blocked" ? (
+          <div
+            className="rounded-lg border-2 border-amber-400/70 bg-amber-500/15 px-4 py-3"
+            role="status"
+          >
+            <p className="font-japanese text-base font-bold tracking-wide text-amber-50">
+              {guide.headline}
+            </p>
+            <p className="mt-1 font-japanese text-sm text-amber-100/90">{guide.action}</p>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-surface-border/60 bg-surface/50 px-4 py-3">
+          <div>
+            <p className="text-[10px] text-content-muted">いまの価格</p>
+            <p className="font-english text-xl font-semibold text-white">
+              ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+          </div>
+          <div className="text-sm text-content-secondary">
+            <p>{guide.detail}</p>
+            {guide.status !== "htf_blocked" ? (
+              <p className="mt-1 text-xs text-content-muted">{guide.action}</p>
+            ) : null}
+          </div>
         </div>
       </div>
 
