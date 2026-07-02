@@ -6,6 +6,7 @@ from app.api.v1.scenario import router as scenario_router
 from app.api.v1.indicators import router as indicators_router
 from app.api.v1.research import router as research_router
 from app.api.v1.invites import router as invites_router
+from app.api.v1.paper_trades import router as paper_trades_router
 from app.api.v1.support import router as support_router
 from app.api.v1.internal.collect import router as collect_router
 from app.dependencies import require_invited_user
