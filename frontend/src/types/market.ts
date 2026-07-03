@@ -66,6 +66,18 @@ export interface TechnicalAnalysis {
   stoch_summary_ja?: string;
   stoch_stance?: MacroStance;
   stoch_series?: StochSeriesPoint[];
+  ichimoku_tenkan?: number | null;
+  ichimoku_kijun?: number | null;
+  ichimoku_senkou_a?: number | null;
+  ichimoku_senkou_b?: number | null;
+  ichimoku_cloud_top?: number | null;
+  ichimoku_cloud_bottom?: number | null;
+  ichimoku_price_vs_cloud?: "above" | "below" | "inside" | null;
+  ichimoku_signal?: "sanyaku_kouten" | "sanyaku_gyakuten" | "neutral" | null;
+  ichimoku_signal_ja?: string;
+  ichimoku_summary_ja?: string;
+  ichimoku_stance?: MacroStance;
+  ichimoku_roles_met?: number;
   trend: MacroTrend | "neutral";
   summary_ja: string;
   overlay_series?: OverlayPoint[];

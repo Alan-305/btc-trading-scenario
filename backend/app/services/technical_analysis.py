@@ -6,6 +6,7 @@ from app.schemas.candles import (
     BollingerValues,
     Candle,
     CandleInterval,
+    IchimokuSeriesPoint,
     MacdValues,
     OverlaySeriesPoint,
     StochSeriesPoint,
@@ -324,6 +325,189 @@ def _stoch_stance(
     return "neutral"
 
 
+def _midpoint(highs: np.ndarray, lows: np.ndarray, end: int, period: int) -> float | None:
+    start = end - period + 1
+    if start < 0:
+        return None
+    return float((np.max(highs[start : end + 1]) + np.min(lows[start : end + 1])) / 2)
+
+
+def _ichimoku(
+    candles: list[Candle],
+) -> tuple[
+    list[IchimokuSeriesPoint],
+    float | None,
+    float | None,
+    float | None,
+    float | None,
+    str | None,
+    str | None,
+    int,
+]:
+    """TradingView-standard Ichimoku (9/26/52, displacement 26)."""
+    n = len(candles)
+    if n < 52 + 26:
+        return [], None, None, None, None, None, None, 0
+
+    highs = np.array([c.high for c in candles], dtype=float)
+    lows = np.array([c.low for c in candles], dtype=float)
+    closes = np.array([c.close for c in candles], dtype=float)
+    displacement = 26
+
+    tenkan = np.full(n, np.nan)
+    kijun = np.full(n, np.nan)
+    senkou_a = np.full(n, np.nan)
+    senkou_b = np.full(n, np.nan)
+
+    for i in range(8, n):
+        val = _midpoint(highs, lows, i, 9)
+        if val is not None:
+            tenkan[i] = val
+    for i in range(25, n):
+        val = _midpoint(highs, lows, i, 26)
+        if val is not None:
+            kijun[i] = val
+    for i in range(25, n):
+        if not np.isnan(tenkan[i]) and not np.isnan(kijun[i]):
+            target = i + displacement
+            if target < n:
+                senkou_a[target] = (tenkan[i] + kijun[i]) / 2
+    for i in range(51, n):
+        val = _midpoint(highs, lows, i, 52)
+        if val is not None:
+            target = i + displacement
+            if target < n:
+                senkou_b[target] = val
+
+    series: list[IchimokuSeriesPoint] = []
+    for i, c in enumerate(candles):
+        series.append(
+            IchimokuSeriesPoint(
+                ts=c.ts,
+                tenkan=round(float(tenkan[i]), 2) if not np.isnan(tenkan[i]) else None,
+                kijun=round(float(kijun[i]), 2) if not np.isnan(kijun[i]) else None,
+                senkou_a=round(float(senkou_a[i]), 2) if not np.isnan(senkou_a[i]) else None,
+                senkou_b=round(float(senkou_b[i]), 2) if not np.isnan(senkou_b[i]) else None,
+            )
+        )
+
+    idx = n - 1
+    t = float(tenkan[idx]) if not np.isnan(tenkan[idx]) else None
+    k = float(kijun[idx]) if not np.isnan(kijun[idx]) else None
+    sa = float(senkou_a[idx]) if not np.isnan(senkou_a[idx]) else None
+    sb = float(senkou_b[idx]) if not np.isnan(senkou_b[idx]) else None
+
+    price_vs_cloud: str | None = None
+    if sa is not None and sb is not None:
+        top = max(sa, sb)
+        bottom = min(sa, sb)
+        if closes[idx] > top:
+            price_vs_cloud = "above"
+        elif closes[idx] < bottom:
+            price_vs_cloud = "below"
+        else:
+            price_vs_cloud = "inside"
+
+    signal, roles = _ichimoku_sanyaku(
+        tenkan_above_kijun=t is not None and k is not None and t > k,
+        tenkan_below_kijun=t is not None and k is not None and t < k,
+        price_vs_cloud=price_vs_cloud,
+        chikou_bullish=idx >= 26 and closes[idx] > closes[idx - 26],
+        chikou_bearish=idx >= 26 and closes[idx] < closes[idx - 26],
+    )
+    return series, t, k, sa, sb, price_vs_cloud, signal, roles
+
+
+def _ichimoku_sanyaku(
+    *,
+    tenkan_above_kijun: bool,
+    tenkan_below_kijun: bool,
+    price_vs_cloud: str | None,
+    chikou_bullish: bool,
+    chikou_bearish: bool,
+) -> tuple[str | None, int]:
+    bull_roles = 0
+    bear_roles = 0
+    if tenkan_above_kijun:
+        bull_roles += 1
+    if tenkan_below_kijun:
+        bear_roles += 1
+    if price_vs_cloud == "above":
+        bull_roles += 1
+    elif price_vs_cloud == "below":
+        bear_roles += 1
+    if chikou_bullish:
+        bull_roles += 1
+    elif chikou_bearish:
+        bear_roles += 1
+
+    if bull_roles == 3:
+        return "sanyaku_kouten", 3
+    if bear_roles == 3:
+        return "sanyaku_gyakuten", 3
+    return None, max(bull_roles, bear_roles)
+
+
+def _analyze_ichimoku(
+    *,
+    tenkan: float | None,
+    kijun: float | None,
+    senkou_a: float | None,
+    senkou_b: float | None,
+    price_vs_cloud: str | None,
+    signal: str | None,
+    roles_met: int,
+    price: float,
+) -> tuple[str, str, str]:
+    if tenkan is None or kijun is None:
+        return "neutral", "様子見", "一目均衡表の計算に十分なローソク足がありません。"
+
+    parts: list[str] = [
+        f"転換線 ${tenkan:,.0f}・基準線 ${kijun:,.0f}",
+    ]
+    if senkou_a is not None and senkou_b is not None:
+        top = max(senkou_a, senkou_b)
+        bottom = min(senkou_a, senkou_b)
+        parts.append(f"雲 ${bottom:,.0f}〜${top:,.0f}")
+    if price_vs_cloud == "above":
+        parts.append("価格は雲の上")
+    elif price_vs_cloud == "below":
+        parts.append("価格は雲の下")
+    elif price_vs_cloud == "inside":
+        parts.append("価格は雲の中")
+
+    if signal == "sanyaku_kouten":
+        parts.append("三役好転（転換線＞基準線・雲上・遅行が価格上）で買い環境")
+        return "bullish", "上昇支援", "。".join(parts) + "。"
+    if signal == "sanyaku_gyakuten":
+        parts.append("三役逆転（転換線＜基準線・雲下・遅行が価格下）で売り環境")
+        return "bearish", "下落の症候", "。".join(parts) + "。"
+
+    if roles_met == 2:
+        if tenkan > kijun and price_vs_cloud == "above":
+            parts.append("好転要素が2つ。三役好転まであと1つ")
+            return "caution", "様子見", "。".join(parts) + "。"
+        if tenkan < kijun and price_vs_cloud == "below":
+            parts.append("逆転要素が2つ。三役逆転まであと1つ")
+            return "caution", "様子見", "。".join(parts) + "。"
+
+    if tenkan > kijun:
+        parts.append("転換線が基準線より上で短期は強気寄り")
+    elif tenkan < kijun:
+        parts.append("転換線が基準線より下で短期は弱気寄り")
+    else:
+        parts.append("転換線と基準線が拮抗")
+    return "neutral", "様子見", "。".join(parts) + "。"
+
+
+def _ichimoku_stance(signal: str | None, stance_from_analyze: str) -> str:
+    if signal == "sanyaku_kouten":
+        return "bullish"
+    if signal == "sanyaku_gyakuten":
+        return "bearish"
+    return stance_from_analyze
+
+
 def _build_overlay_series(candles: list[Candle]) -> list[OverlaySeriesPoint]:
     if not candles:
         return []
@@ -357,6 +541,7 @@ def _combine_signals(
     adx: float | None,
     last_cross: str | None,
     stoch_zone: str,
+    ichimoku_signal: str | None = None,
 ) -> tuple[str, float, float]:
     """Weighted, regime-aware signal combination → (trend, bull_score, bear_score).
 
@@ -430,6 +615,11 @@ def _combine_signals(
     elif stoch_zone == "overbought":
         bear += stoch_w * 0.5
 
+    if ichimoku_signal == "sanyaku_kouten":
+        bull += 1.5
+    elif ichimoku_signal == "sanyaku_gyakuten":
+        bear += 1.5
+
     margin = 0.5
     if bull - bear > margin:
         trend = "bullish"
@@ -490,6 +680,26 @@ class TechnicalAnalysisService:
         )
         stoch_stance_val = _stoch_stance(stoch_k, stoch_d, last_cross, stoch_zone)
 
+        ich_series, i_tenkan, i_kijun, i_sa, i_sb, i_cloud, i_signal, i_roles = _ichimoku(
+            candles
+        )
+        i_cloud_top = None
+        i_cloud_bottom = None
+        if i_sa is not None and i_sb is not None:
+            i_cloud_top = round(max(i_sa, i_sb), 2)
+            i_cloud_bottom = round(min(i_sa, i_sb), 2)
+        i_stance_raw, i_signal_ja, i_summary_ja = _analyze_ichimoku(
+            tenkan=i_tenkan,
+            kijun=i_kijun,
+            senkou_a=i_sa,
+            senkou_b=i_sb,
+            price_vs_cloud=i_cloud,
+            signal=i_signal,
+            roles_met=i_roles,
+            price=price,
+        )
+        ichimoku_stance_val = _ichimoku_stance(i_signal, i_stance_raw)
+
         trend, _bull_score, _bear_score = _combine_signals(
             price=price,
             rsi=rsi,
@@ -501,6 +711,7 @@ class TechnicalAnalysisService:
             adx=adx_14,
             last_cross=last_cross,
             stoch_zone=stoch_zone,
+            ichimoku_signal=i_signal,
         )
 
         parts: list[str] = []
@@ -532,6 +743,8 @@ class TechnicalAnalysisService:
             parts.append(f"ADX(14) {adx_14:.0f}（{regime}）")
         if stoch_k is not None and stoch_d is not None:
             parts.append(f"Stoch {stoch_signal_ja}")
+        if i_signal_ja:
+            parts.append(f"Ichimoku {i_signal_ja}")
 
         summary = "・".join(parts) if parts else f"現在価格 ${price:,.0f} 付近を分析中です。"
 
@@ -557,6 +770,19 @@ class TechnicalAnalysisService:
             stoch_summary_ja=stoch_summary_ja,
             stoch_stance=stoch_stance_val,  # type: ignore[arg-type]
             stoch_series=stoch_series,
+            ichimoku_tenkan=round(i_tenkan, 2) if i_tenkan is not None else None,
+            ichimoku_kijun=round(i_kijun, 2) if i_kijun is not None else None,
+            ichimoku_senkou_a=round(i_sa, 2) if i_sa is not None else None,
+            ichimoku_senkou_b=round(i_sb, 2) if i_sb is not None else None,
+            ichimoku_cloud_top=i_cloud_top,
+            ichimoku_cloud_bottom=i_cloud_bottom,
+            ichimoku_price_vs_cloud=i_cloud,  # type: ignore[arg-type]
+            ichimoku_signal=i_signal,  # type: ignore[arg-type]
+            ichimoku_signal_ja=i_signal_ja,
+            ichimoku_summary_ja=i_summary_ja,
+            ichimoku_stance=ichimoku_stance_val,  # type: ignore[arg-type]
+            ichimoku_roles_met=i_roles,
+            ichimoku_series=ich_series,
             trend=trend,
             summary_ja=summary,
             overlay_series=overlay_series,

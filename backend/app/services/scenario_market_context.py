@@ -44,6 +44,7 @@ class ScenarioMarketContext:
     equity_markets: GlobalEquitySnapshot | None = None
     research: list[ResearchContextItem] = field(default_factory=list)
     mtf: MtfAnalysis | None = None
+    daily_technical: TechnicalAnalysisResponse | None = None
 
     def to_writer_facts(
         self,
@@ -110,6 +111,15 @@ class ScenarioMarketContext:
                     "summary_ja": self.technical.stoch_summary_ja,
                     "stance": self.technical.stoch_stance,
                 }
+        if self.daily_technical and self.daily_technical.ichimoku_signal:
+            facts.setdefault("technical_analysis", {})
+            facts["technical_analysis"]["ichimoku_daily"] = {
+                "signal": self.daily_technical.ichimoku_signal,
+                "signal_ja": self.daily_technical.ichimoku_signal_ja,
+                "summary_ja": self.daily_technical.ichimoku_summary_ja,
+                "stance": self.daily_technical.ichimoku_stance,
+                "price_vs_cloud": self.daily_technical.ichimoku_price_vs_cloud,
+            }
 
         if self.mtf:
             facts["multi_timeframe"] = {

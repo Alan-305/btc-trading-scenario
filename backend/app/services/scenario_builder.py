@@ -100,6 +100,7 @@ class ScenarioBuilder:
         cg = await self.coinglass.fetch_snapshot()
 
         technical = None
+        daily_technical = None
         mtf = None
         if self.klines:
             try:
@@ -116,10 +117,12 @@ class ScenarioBuilder:
                     analyses[iv] = (result, self.technical.analyze(result, interval=iv))
                 if "4h" in analyses:
                     technical = analyses["4h"][1]
+                daily_technical = analyses["1d"][1] if "1d" in analyses else None
                 if analyses:
                     mtf = build_mtf_analysis(analyses)
             except Exception:
                 technical = None
+                daily_technical = None
                 mtf = None
 
         heatmap_cells = self.heatmap.compute(snapshot.orderbooks, reference_price=ref_price)
@@ -155,6 +158,7 @@ class ScenarioBuilder:
             equity_markets=equity,
             research=research or [],
             mtf=mtf,
+            daily_technical=daily_technical,
         )
 
     async def _build_directional(
@@ -314,6 +318,18 @@ class ScenarioBuilder:
             stoch_k=context.technical.stoch_k if context.technical else None,
             stoch_d=context.technical.stoch_d if context.technical else None,
             stoch_last_cross=context.technical.stoch_last_cross if context.technical else None,
+            ichimoku_signal=(
+                context.daily_technical.ichimoku_signal if context.daily_technical else None
+            ),
+            ichimoku_signal_ja=(
+                context.daily_technical.ichimoku_signal_ja if context.daily_technical else None
+            ),
+            ichimoku_stance=(
+                context.daily_technical.ichimoku_stance if context.daily_technical else None
+            ),
+            ichimoku_summary_ja=(
+                context.daily_technical.ichimoku_summary_ja if context.daily_technical else None
+            ),
             mtf_summary_ja=context.mtf.summary_ja if context.mtf else None,
             mtf_htf_aligned=gate.htf_aligned if gate else None,
             mtf_entry_blocked=gate.entry_blocked if gate else None,

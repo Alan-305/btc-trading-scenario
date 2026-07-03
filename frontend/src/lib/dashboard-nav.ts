@@ -3,6 +3,7 @@ export type DashboardSection = "overview" | "technical" | "context" | "records" 
 export type IndicatorAnchorId =
   | "indicator-technical"
   | "indicator-stochastic"
+  | "indicator-ichimoku"
   | "equity-markets"
   | "macro-environment"
   | "usdt-dominance"
@@ -23,6 +24,7 @@ export interface IndicatorNavTarget {
 export const INDICATOR_NAV_TARGETS: Record<string, IndicatorNavTarget> = {
   technical: { section: "technical", anchorId: "indicator-technical" },
   stochastic: { section: "technical", anchorId: "indicator-stochastic" },
+  ichimoku: { section: "technical", anchorId: "indicator-ichimoku" },
   macro: { section: "context", anchorId: "macro-environment" },
   "equity-markets": { section: "context", anchorId: "equity-markets" },
   "usdt-dominance": { section: "context", anchorId: "usdt-dominance" },

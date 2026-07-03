@@ -67,6 +67,33 @@ export function stochasticSignal(data: TechnicalAnalysis | null): IndicatorSigna
   };
 }
 
+export function ichimokuSignal(data: TechnicalAnalysis | null): IndicatorSignal {
+  if (!data || data.ichimoku_tenkan == null) {
+    return { stance: "neutral", signalJa: "様子見", summaryJa: "一目均衡表データがありません。" };
+  }
+  const stance: MacroStance =
+    data.ichimoku_stance && data.ichimoku_stance !== "caution" ? data.ichimoku_stance : "neutral";
+  if (data.ichimoku_signal === "sanyaku_kouten") {
+    return {
+      stance: "bullish",
+      signalJa: "三役好転",
+      summaryJa: data.ichimoku_summary_ja || "三役好転で買い環境です。",
+    };
+  }
+  if (data.ichimoku_signal === "sanyaku_gyakuten") {
+    return {
+      stance: "bearish",
+      signalJa: "三役逆転",
+      summaryJa: data.ichimoku_summary_ja || "三役逆転で売り環境です。",
+    };
+  }
+  return {
+    stance,
+    signalJa: data.ichimoku_signal_ja || "様子見",
+    summaryJa: data.ichimoku_summary_ja || "三役は未成立です。",
+  };
+}
+
 export function usdtDominanceFromScenario(
   scenario: ScenarioResponse | null,
 ): UsdtDominanceSnapshot | null {

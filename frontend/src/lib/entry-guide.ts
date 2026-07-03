@@ -35,6 +35,7 @@ export interface MacroHints {
   stochCross?: "gc" | "dc" | null;
   stochK?: number | null;
   stochZone?: string | null;
+  ichimokuSignal?: "sanyaku_kouten" | "sanyaku_gyakuten" | "neutral" | null;
   macroEventWithinHours?: number | null;
   mtfEntryBlocked?: boolean | null;
   mtfEntryTimingReady?: boolean | null;
@@ -303,6 +304,9 @@ function collectReversalSignals(
     if (macro?.stochCross === "dc" || (macro?.stochK != null && macro.stochK >= 80)) {
       signals.push("ストキャスが戻り売り寄り");
     }
+    if (macro?.ichimokuSignal === "sanyaku_gyakuten") {
+      signals.push("日足一目が三役逆転");
+    }
     if (entryMid > 0 && price < entryMid * (1 - TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上下落`);
     }
@@ -317,6 +321,9 @@ function collectReversalSignals(
     if (macro?.usdtDominanceTrend === "falling") signals.push("USDT.Dが低下（リスクオン）");
     if (macro?.stochCross === "gc" || (macro?.stochK != null && macro.stochK <= 20)) {
       signals.push("ストキャスが反発寄り");
+    }
+    if (macro?.ichimokuSignal === "sanyaku_kouten") {
+      signals.push("日足一目が三役好転");
     }
     if (entryMid > 0 && price > entryMid * (1 + TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上上昇`);
@@ -414,6 +421,8 @@ function formatMacroNote(macro?: MacroHints): string {
   if (macro.usdtDominanceTrend === "falling") parts.push("USDT.Dは低下傾向");
   if (macro.stochCross === "gc") parts.push("ストキャス直近GC");
   if (macro.stochCross === "dc") parts.push("ストキャス直近DC");
+  if (macro.ichimokuSignal === "sanyaku_kouten") parts.push("日足三役好転");
+  if (macro.ichimokuSignal === "sanyaku_gyakuten") parts.push("日足三役逆転");
   if (!parts.length) return "";
   return `（${parts.join("・")}）`;
 }

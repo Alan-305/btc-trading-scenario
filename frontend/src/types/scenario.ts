@@ -37,6 +37,10 @@ export interface ScenarioIndicators {
   stoch_k?: number | null;
   stoch_d?: number | null;
   stoch_last_cross?: "gc" | "dc" | null;
+  ichimoku_signal?: "sanyaku_kouten" | "sanyaku_gyakuten" | "neutral" | null;
+  ichimoku_signal_ja?: string | null;
+  ichimoku_stance?: string | null;
+  ichimoku_summary_ja?: string | null;
   mtf_summary_ja?: string | null;
   mtf_htf_aligned?: boolean | null;
   mtf_entry_blocked?: boolean | null;

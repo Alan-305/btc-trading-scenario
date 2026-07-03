@@ -20,6 +20,7 @@ import { UsdtDominancePanel } from "../components/dashboard/macro/UsdtDominanceP
 import { MarketSessionsPanel } from "../components/dashboard/MarketSessionsPanel";
 import { OverviewSignalStrip, type SignalStripItem } from "../components/dashboard/OverviewSignalStrip";
 import { RiskZonesPanel } from "../components/dashboard/RiskZonesPanel";
+import { IchimokuPanel } from "../components/dashboard/IchimokuPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { SupportPanel } from "../components/support/SupportPanel";
@@ -77,6 +78,7 @@ import {
   heatmapSignal,
   riskZonesSignal,
   sessionsSignal,
+  ichimokuSignal,
   stochasticSignal,
   technicalSignal,
   resolveUsdtDominance,
@@ -155,6 +157,9 @@ export function DashboardPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [openedAt, setOpenedAt] = useState<Date | null>(null);
   const [candleInterval, setCandleInterval] = useState<CandleInterval>("4h");
+  const [ichimokuInterval, setIchimokuInterval] = useState<CandleInterval>("1d");
+  const [ichimokuTechnical, setIchimokuTechnical] = useState<TechnicalAnalysis | null>(null);
+  const [ichimokuLoading, setIchimokuLoading] = useState(false);
   const [chartLoading, setChartLoading] = useState(false);
   const [activeHorizonId, setActiveHorizonId] = useState<ScenarioHorizonId>("today");
   const [activeBranch, setActiveBranch] = useState<TradeBranch>("bullish");
@@ -263,6 +268,22 @@ export function DashboardPage() {
       } finally {
         setHeatmapLoading(false);
         setRefreshing("heatmap", false);
+      }
+    },
+    [setRefreshing],
+  );
+
+  const loadIchimoku = useCallback(
+    async (interval: CandleInterval, refresh = false) => {
+      setIchimokuLoading(true);
+      setRefreshing("ichimoku", true);
+      try {
+        setIchimokuTechnical(await api.getTechnical(interval, refresh));
+      } catch {
+        setIchimokuTechnical(null);
+      } finally {
+        setIchimokuLoading(false);
+        setRefreshing("ichimoku", false);
       }
     },
     [setRefreshing],
@@ -431,9 +452,10 @@ export function DashboardPage() {
   const handleRefresh = useCallback(() => {
     void load(true);
     void loadChart(candleInterval, true);
+    void loadIchimoku(ichimokuInterval, true);
     void loadEntryChart(true);
     void loadHeatmap(heatmapExchange);
-  }, [load, loadChart, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange]);
+  }, [load, loadChart, loadIchimoku, ichimokuInterval, loadEntryChart, candleInterval, loadHeatmap, heatmapExchange]);
 
   useEffect(() => {
     if (!firebaseReady || !canAccessApp) {
@@ -464,7 +486,7 @@ export function DashboardPage() {
       return;
     }
     skipIntervalChartLoad.current = true;
-    void Promise.all([loadRef.current(), loadChart(candleInterval), loadEntryChart()]);
+    void Promise.all([loadRef.current(), loadChart(candleInterval), loadEntryChart(), loadIchimoku(ichimokuInterval)]);
     // ログイン中はシナリオ再分析を自動実行しない（手動の「再分析」のみ）
     const scenarioPollId = user
       ? null
@@ -478,7 +500,12 @@ export function DashboardPage() {
       if (scenarioPollId != null) clearInterval(scenarioPollId);
       clearInterval(clockId);
     };
-  }, [canAccessApp, user, loadChart, loadEntryChart, candleInterval]);
+  }, [canAccessApp, user, loadChart, loadEntryChart, loadIchimoku, candleInterval, ichimokuInterval]);
+
+  useEffect(() => {
+    if (!canAccessApp) return;
+    void loadIchimoku(ichimokuInterval);
+  }, [canAccessApp, ichimokuInterval, loadIchimoku]);
 
   useEffect(() => {
     if (!canAccessApp) return;
@@ -699,6 +726,12 @@ export function DashboardPage() {
         signal: stochasticSignal(technical),
       },
       {
+        id: "ichimoku",
+        label: "一目均衡表",
+        target: targetFor("ichimoku"),
+        signal: ichimokuSignal(ichimokuTechnical),
+      },
+      {
         id: "usdt-dominance",
         label: "USDT.D",
         target: targetFor("usdt-dominance"),
@@ -744,7 +777,7 @@ export function DashboardPage() {
       });
     }
     return items;
-  }, [technical, macroContext, usdtDominance, fgValue, sentiment, heatmap, riskZones, sessions, snapshot]);
+  }, [technical, ichimokuTechnical, macroContext, usdtDominance, fgValue, sentiment, heatmap, riskZones, sessions, snapshot]);
 
   const headerActions = (
     <>
@@ -981,6 +1014,17 @@ export function DashboardPage() {
                 interval={candleInterval}
                 onRefresh={() => void loadChart(candleInterval, true)}
                 refreshing={isRefreshing("chart") || chartLoading}
+              />
+            </div>
+            <div id="indicator-ichimoku" className="scroll-mt-24">
+              <IndicatorSignalHeader signal={ichimokuSignal(ichimokuTechnical)} />
+              <IchimokuPanel
+                data={ichimokuTechnical}
+                interval={ichimokuInterval}
+                onIntervalChange={setIchimokuInterval}
+                loading={ichimokuLoading}
+                onRefresh={() => void loadIchimoku(ichimokuInterval, true)}
+                refreshing={isRefreshing("ichimoku") || ichimokuLoading}
               />
             </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

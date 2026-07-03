@@ -195,3 +195,15 @@ def test_prediction_evaluator_direction():
     assert summary.total == 1
     assert summary.evaluations[0].trend_correct is True
     assert summary.direction_accuracy_pct == 100.0
+
+
+def test_ichimoku_sanyaku_kouten_on_uptrend():
+    # 78+ bars for full ichimoku; steady uptrend should lean bullish
+    closes = [50_000 + i * 120 for i in range(120)]
+    candles = _make_candles(closes)
+    svc = TechnicalAnalysisService()
+    result = svc.analyze(candles, interval="1d")
+    assert result.ichimoku_tenkan is not None
+    assert result.ichimoku_kijun is not None
+    assert result.ichimoku_summary_ja
+    assert len(result.ichimoku_series) == len(candles)

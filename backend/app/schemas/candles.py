@@ -55,6 +55,14 @@ class StochSeriesPoint(BaseModel):
     cross: Literal["gc", "dc"] | None = None
 
 
+class IchimokuSeriesPoint(BaseModel):
+    ts: datetime
+    tenkan: float | None = None
+    kijun: float | None = None
+    senkou_a: float | None = None
+    senkou_b: float | None = None
+
+
 class TechnicalAnalysisResponse(BaseModel):
     symbol: str
     interval: CandleInterval
@@ -77,6 +85,19 @@ class TechnicalAnalysisResponse(BaseModel):
     stoch_summary_ja: str = ""
     stoch_stance: Literal["bullish", "bearish", "neutral", "reversal", "caution"] = "neutral"
     stoch_series: list[StochSeriesPoint] = Field(default_factory=list)
+    ichimoku_tenkan: float | None = None
+    ichimoku_kijun: float | None = None
+    ichimoku_senkou_a: float | None = None
+    ichimoku_senkou_b: float | None = None
+    ichimoku_cloud_top: float | None = None
+    ichimoku_cloud_bottom: float | None = None
+    ichimoku_price_vs_cloud: Literal["above", "below", "inside"] | None = None
+    ichimoku_signal: Literal["sanyaku_kouten", "sanyaku_gyakuten", "neutral"] | None = None
+    ichimoku_signal_ja: str = ""
+    ichimoku_summary_ja: str = ""
+    ichimoku_stance: Literal["bullish", "bearish", "neutral", "reversal", "caution"] = "neutral"
+    ichimoku_roles_met: int = 0
+    ichimoku_series: list[IchimokuSeriesPoint] = Field(default_factory=list)
     trend: Literal["bullish", "bearish", "neutral"] = "neutral"
     summary_ja: str = ""
     overlay_series: list[OverlaySeriesPoint] = Field(default_factory=list)

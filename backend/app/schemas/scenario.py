@@ -51,6 +51,10 @@ class ScenarioIndicators(BaseModel):
     stoch_k: float | None = None
     stoch_d: float | None = None
     stoch_last_cross: str | None = None
+    ichimoku_signal: str | None = None
+    ichimoku_signal_ja: str | None = None
+    ichimoku_stance: str | None = None
+    ichimoku_summary_ja: str | None = None
     mtf_summary_ja: str | None = None
     mtf_htf_aligned: bool | None = None
     mtf_entry_blocked: bool | None = None

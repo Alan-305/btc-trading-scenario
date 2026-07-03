@@ -259,6 +259,17 @@ class ScenarioInference:
         elif ta and ta.stoch_zone == "overbought":
             bearish_score += 1
 
+        daily = context.daily_technical
+        if daily and daily.ichimoku_signal == "sanyaku_kouten":
+            bullish_score += 2
+        elif daily and daily.ichimoku_signal == "sanyaku_gyakuten":
+            bearish_score += 2
+        elif daily and daily.ichimoku_roles_met == 2:
+            if daily.ichimoku_price_vs_cloud == "above":
+                bullish_score += 1
+            elif daily.ichimoku_price_vs_cloud == "below":
+                bearish_score += 1
+
         if context.mtf:
             layers = layer_by_interval(context.mtf)
             weekly = layers.get("1w")

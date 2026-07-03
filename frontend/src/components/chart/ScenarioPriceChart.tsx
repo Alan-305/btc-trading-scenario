@@ -282,6 +282,7 @@ export function ScenarioPriceChart({
       usdtDominanceTrend: indicators?.usdt_dominance_trend,
       stochCross: indicators?.stoch_last_cross,
       stochK: indicators?.stoch_k,
+      ichimokuSignal: indicators?.ichimoku_signal,
       macroEventWithinHours,
       mtfEntryBlocked: mtfGate?.entry_blocked ?? indicators?.mtf_entry_blocked,
       mtfEntryTimingReady: mtfGate?.entry_timing_ready ?? indicators?.mtf_entry_timing_ready,
