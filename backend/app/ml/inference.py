@@ -167,17 +167,18 @@ class ScenarioInference:
             elif price < ta.ema_200:
                 bearish_score += 1
 
-        ls_ratio = coinglass.long_short_ratio if coinglass else None
-        if ls_ratio is None and coinglass and coinglass.exchanges:
-            for ex in coinglass.exchanges:
-                if ex.long_short_ratio is not None:
-                    ls_ratio = ex.long_short_ratio
-                    break
-        if ls_ratio is not None:
-            if ls_ratio > 1.15:
-                bearish_score += 1
-            elif ls_ratio < 0.85:
-                bullish_score += 1
+        if coinglass:
+            from app.services.long_short_analysis import score_long_short_contrarian
+
+            ls_bull, ls_bear = score_long_short_contrarian(
+                coinglass.long_short_ratio,
+                coinglass.long_short_position_ratio,
+                coinglass.top_trader_long_short_ratio,
+                coinglass.long_short_ratio_change_24h,
+                coinglass.funding_rate,
+            )
+            bullish_score += ls_bull
+            bearish_score += ls_bear
 
         if context.heatmap:
             if context.heatmap.bid_heavy_below_price:

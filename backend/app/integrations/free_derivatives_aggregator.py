@@ -14,6 +14,7 @@ from app.integrations.futures_base import BaseFuturesClient, ExchangeDerivatives
 from app.integrations.okx_futures import OkxFuturesClient
 from app.integrations.whitebit_futures import WhitebitFuturesClient
 from app.schemas.market import CoinglassSnapshot, ExchangeDerivatives
+from app.services.long_short_analysis import analyze_long_short
 
 logger = structlog.get_logger()
 
@@ -24,6 +25,17 @@ CLIENT_REGISTRY: dict[str, type[BaseFuturesClient]] = {
     "whitebit": WhitebitFuturesClient,
     "bitget": BitgetFuturesClient,
 }
+
+
+def _first(values: list[float | None]) -> float | None:
+    for v in values:
+        if v is not None:
+            return v
+    return None
+
+
+def _avg(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
 
 
 class FreeDerivativesAggregator:
@@ -59,25 +71,41 @@ class FreeDerivativesAggregator:
                 funding_rate=r.funding_rate,
                 open_interest_usd=r.open_interest_usd,
                 long_short_ratio=r.long_short_ratio,
+                long_short_position_ratio=r.long_short_position_ratio,
+                top_trader_long_short_ratio=r.top_trader_long_short_ratio,
+                long_short_ratio_prev_24h=r.long_short_ratio_prev_24h,
+                long_short_ratio_change_24h=r.long_short_ratio_change_24h,
                 mark_price=r.mark_price,
                 quote_currency=r.quote_currency or ("JPY" if r.exchange == "bitbank" else "USD"),
             )
             for r in rows
         ]
 
-        # OI total across USD-margined venues
         oi_total = sum(e.open_interest_usd for e in exchanges if e.open_interest_usd)
         funding_vals = [e.funding_rate for e in exchanges if e.funding_rate is not None]
         ls_vals = [e.long_short_ratio for e in exchanges if e.long_short_ratio is not None]
 
-        avg_funding = sum(funding_vals) / len(funding_vals) if funding_vals else None
-        avg_ls = sum(ls_vals) / len(ls_vals) if ls_vals else None
+        avg_funding = _avg(funding_vals)
+        avg_ls = _avg(ls_vals)
+        position_ls = _first([e.long_short_position_ratio for e in exchanges])
+        top_ls = _first([e.top_trader_long_short_ratio for e in exchanges])
+        prev_24h = _first([e.long_short_ratio_prev_24h for e in exchanges])
+        change_24h = _first([e.long_short_ratio_change_24h for e in exchanges])
+
+        signal, signal_ja, summary_ja, stance = analyze_long_short(
+            avg_ls,
+            position_ls,
+            top_ls,
+            change_24h,
+            avg_funding,
+        )
 
         logger.info(
             "derivatives_aggregated",
             source="free_aggregate",
             exchanges=[e.exchange for e in exchanges],
             count=len(exchanges),
+            long_short_signal=signal,
         )
 
         return CoinglassSnapshot(
@@ -85,6 +113,14 @@ class FreeDerivativesAggregator:
             funding_rate=avg_funding,
             liquidation_24h_usd=None,
             long_short_ratio=avg_ls,
+            long_short_position_ratio=position_ls,
+            top_trader_long_short_ratio=top_ls,
+            long_short_ratio_prev_24h=prev_24h,
+            long_short_ratio_change_24h=change_24h,
+            long_short_signal=signal,
+            long_short_signal_ja=signal_ja,
+            long_short_summary_ja=summary_ja,
+            long_short_stance=stance,
             source="free_aggregate",
             exchanges=exchanges,
             timestamp=datetime.now(timezone.utc),

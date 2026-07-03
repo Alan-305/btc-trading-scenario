@@ -13,6 +13,10 @@ class ExchangeDerivativesRow:
     funding_rate: float | None = None
     open_interest_usd: float | None = None
     long_short_ratio: float | None = None
+    long_short_position_ratio: float | None = None
+    top_trader_long_short_ratio: float | None = None
+    long_short_ratio_prev_24h: float | None = None
+    long_short_ratio_change_24h: float | None = None
     mark_price: float | None = None
     quote_currency: str | None = None
 

@@ -21,7 +21,19 @@ async def test_binance_futures_fetch():
         return_value=httpx.Response(200, json={"symbol": "BTCUSDT", "openInterest": "50000"})
     )
     respx.get(f"{BN_BASE}/futures/data/globalLongShortAccountRatio").mock(
-        return_value=httpx.Response(200, json=[{"longShortRatio": "1.25"}])
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"longShortRatio": "1.10"},
+                {"longShortRatio": "1.25"},
+            ],
+        )
+    )
+    respx.get(f"{BN_BASE}/futures/data/globalLongShortPositionRatio").mock(
+        return_value=httpx.Response(200, json=[{"longShortRatio": "1.18"}])
+    )
+    respx.get(f"{BN_BASE}/futures/data/topLongShortAccountRatio").mock(
+        return_value=httpx.Response(200, json=[{"longShortRatio": "0.92"}])
     )
 
     from app.collectors.http_client import CollectorHttpClient
@@ -34,6 +46,10 @@ async def test_binance_futures_fetch():
     assert row.exchange == "binance"
     assert row.funding_rate == pytest.approx(0.0001)
     assert row.open_interest_usd == pytest.approx(5_000_000_000)
+    assert row.long_short_ratio == pytest.approx(1.25)
+    assert row.long_short_position_ratio == pytest.approx(1.18)
+    assert row.top_trader_long_short_ratio == pytest.approx(0.92)
+    assert row.long_short_ratio_change_24h == pytest.approx(0.15)
 
 
 @pytest.mark.asyncio
@@ -164,6 +180,12 @@ async def test_free_derivatives_aggregator(monkeypatch):
         return_value=httpx.Response(200, json={"openInterest": "100"})
     )
     respx.get(f"{BN_BASE}/futures/data/globalLongShortAccountRatio").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    respx.get(f"{BN_BASE}/futures/data/globalLongShortPositionRatio").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    respx.get(f"{BN_BASE}/futures/data/topLongShortAccountRatio").mock(
         return_value=httpx.Response(200, json=[])
     )
     respx.get(f"{BYBIT_BASE}/tickers").mock(

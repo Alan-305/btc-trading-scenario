@@ -330,6 +330,30 @@ class ScenarioBuilder:
             ichimoku_summary_ja=(
                 context.daily_technical.ichimoku_summary_ja if context.daily_technical else None
             ),
+            long_short_ratio=(
+                context.derivatives.long_short_ratio if context.derivatives else None
+            ),
+            long_short_position_ratio=(
+                context.derivatives.long_short_position_ratio if context.derivatives else None
+            ),
+            top_trader_long_short_ratio=(
+                context.derivatives.top_trader_long_short_ratio if context.derivatives else None
+            ),
+            long_short_ratio_change_24h=(
+                context.derivatives.long_short_ratio_change_24h if context.derivatives else None
+            ),
+            long_short_signal=(
+                context.derivatives.long_short_signal if context.derivatives else None
+            ),
+            long_short_signal_ja=(
+                context.derivatives.long_short_signal_ja if context.derivatives else None
+            ),
+            long_short_stance=(
+                context.derivatives.long_short_stance if context.derivatives else None
+            ),
+            long_short_summary_ja=(
+                context.derivatives.long_short_summary_ja if context.derivatives else None
+            ),
             mtf_summary_ja=context.mtf.summary_ja if context.mtf else None,
             mtf_htf_aligned=gate.htf_aligned if gate else None,
             mtf_entry_blocked=gate.entry_blocked if gate else None,

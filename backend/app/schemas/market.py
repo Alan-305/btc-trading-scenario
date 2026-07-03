@@ -65,6 +65,10 @@ class ExchangeDerivatives(BaseModel):
     funding_rate: float | None = None
     open_interest_usd: float | None = None
     long_short_ratio: float | None = None
+    long_short_position_ratio: float | None = None
+    top_trader_long_short_ratio: float | None = None
+    long_short_ratio_prev_24h: float | None = None
+    long_short_ratio_change_24h: float | None = None
     mark_price: float | None = None
     quote_currency: str | None = None  # USD, JPY, etc.
 
@@ -74,6 +78,23 @@ class CoinglassSnapshot(BaseModel):
     funding_rate: float | None = None
     liquidation_24h_usd: float | None = None
     long_short_ratio: float | None = None
+    long_short_position_ratio: float | None = None
+    top_trader_long_short_ratio: float | None = None
+    long_short_ratio_prev_24h: float | None = None
+    long_short_ratio_change_24h: float | None = None
+    long_short_signal: (
+        Literal[
+            "overheated_long",
+            "overheated_short",
+            "divergence",
+            "rapid_change",
+            "neutral",
+        ]
+        | None
+    ) = None
+    long_short_signal_ja: str = ""
+    long_short_summary_ja: str = ""
+    long_short_stance: Literal["bullish", "bearish", "neutral", "caution"] = "neutral"
     source: str | None = None  # free_aggregate | binance | coinglass | none
     exchanges: list[ExchangeDerivatives] = Field(default_factory=list)
     timestamp: datetime

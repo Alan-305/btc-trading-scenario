@@ -9,6 +9,7 @@ export type IndicatorAnchorId =
   | "usdt-dominance"
   | "fear-greed"
   | "derivatives"
+  | "long-short-ratio"
   | "heatmap"
   | "risk-zones"
   | "market-sessions"
@@ -30,6 +31,7 @@ export const INDICATOR_NAV_TARGETS: Record<string, IndicatorNavTarget> = {
   "usdt-dominance": { section: "context", anchorId: "usdt-dominance" },
   "fear-greed": { section: "technical", anchorId: "fear-greed" },
   derivatives: { section: "technical", anchorId: "derivatives" },
+  "long-short-ratio": { section: "technical", anchorId: "long-short-ratio" },
   heatmap: { section: "technical", anchorId: "heatmap" },
   risk: { section: "technical", anchorId: "risk-zones" },
   sessions: { section: "overview", anchorId: "market-sessions" },

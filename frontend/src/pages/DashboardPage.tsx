@@ -10,6 +10,7 @@ import { TechnicalLinkedChart } from "../components/chart/TechnicalLinkedChart";
 import { ScenarioPriceChart } from "../components/chart/ScenarioPriceChart";
 import { AccuracyPanel } from "../components/dashboard/AccuracyPanel";
 import { CoinglassPanel } from "../components/dashboard/CoinglassPanel";
+import { LongShortRatioPanel } from "../components/dashboard/LongShortRatioPanel";
 import { ExchangeDivergence } from "../components/dashboard/ExchangeDivergence";
 import { FearGreedMeter } from "../components/dashboard/FearGreedMeter";
 import { IndicatorSignalHeader } from "../components/dashboard/IndicatorSignalHeader";
@@ -72,6 +73,7 @@ import { subscribePaperTrades, createPaperTrade } from "../lib/firestore-paper-t
 import { subscribeResearchItems } from "../lib/firestore-research";
 import {
   coinglassSignal,
+  longShortRatioSignal,
   equityMarketsSignal,
   exchangeSignal,
   fearGreedSignal,
@@ -750,6 +752,12 @@ export function DashboardPage() {
         signal: coinglassSignal(sentiment?.coinglass ?? null),
       },
       {
+        id: "long-short-ratio",
+        label: "L/S比率",
+        target: targetFor("long-short-ratio"),
+        signal: longShortRatioSignal(sentiment?.coinglass ?? null),
+      },
+      {
         id: "heatmap",
         label: "板厚み",
         target: targetFor("heatmap"),
@@ -1080,6 +1088,14 @@ export function DashboardPage() {
             <div id="derivatives" className="scroll-mt-24">
               <IndicatorSignalHeader signal={coinglassSignal(sentiment?.coinglass ?? null)} />
               <CoinglassPanel
+                data={sentiment?.coinglass ?? null}
+                onRefresh={() => void refreshSentimentOnly()}
+                refreshing={isRefreshing("sentiment")}
+              />
+            </div>
+            <div id="long-short-ratio" className="scroll-mt-24">
+              <IndicatorSignalHeader signal={longShortRatioSignal(sentiment?.coinglass ?? null)} />
+              <LongShortRatioPanel
                 data={sentiment?.coinglass ?? null}
                 onRefresh={() => void refreshSentimentOnly()}
                 refreshing={isRefreshing("sentiment")}

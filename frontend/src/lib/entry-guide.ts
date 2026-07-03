@@ -36,6 +36,13 @@ export interface MacroHints {
   stochK?: number | null;
   stochZone?: string | null;
   ichimokuSignal?: "sanyaku_kouten" | "sanyaku_gyakuten" | "neutral" | null;
+  longShortSignal?:
+    | "overheated_long"
+    | "overheated_short"
+    | "divergence"
+    | "rapid_change"
+    | "neutral"
+    | null;
   macroEventWithinHours?: number | null;
   mtfEntryBlocked?: boolean | null;
   mtfEntryTimingReady?: boolean | null;
@@ -71,6 +78,24 @@ export function buildEntryGuide(
       detail: `高インパクトの経済指標まで約${h}時間です。ボラティリティが急拡大しやすい時間帯です。`,
       action:
         "新規エントリーは控えめに。保有中ならサイズ縮小や指標後の値動き確認を優先してください。" +
+        macroNote,
+      distanceUsd: null,
+      distancePct: null,
+      direction: null,
+    };
+  }
+
+  if (macro?.longShortSignal === "divergence" || macro?.longShortSignal === "rapid_change") {
+    const detail =
+      macro.longShortSignal === "divergence"
+        ? "一般口座と大口トレーダーのロング／ショート偏りが逆向きです。"
+        : "ロング／ショート比率が短時間で急変しています。";
+    return {
+      status: "watch",
+      headline: "先物の偏りが不安定で様子見",
+      detail,
+      action:
+        "新規エントリーは控えめに。偏りが落ち着いてからエントリー帯を再確認してください。" +
         macroNote,
       distanceUsd: null,
       distancePct: null,
@@ -307,6 +332,9 @@ function collectReversalSignals(
     if (macro?.ichimokuSignal === "sanyaku_gyakuten") {
       signals.push("日足一目が三役逆転");
     }
+    if (macro?.longShortSignal === "overheated_long") {
+      signals.push("先物がロング過熱");
+    }
     if (entryMid > 0 && price < entryMid * (1 - TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上下落`);
     }
@@ -324,6 +352,9 @@ function collectReversalSignals(
     }
     if (macro?.ichimokuSignal === "sanyaku_kouten") {
       signals.push("日足一目が三役好転");
+    }
+    if (macro?.longShortSignal === "overheated_short") {
+      signals.push("先物がショート過熱");
     }
     if (entryMid > 0 && price > entryMid * (1 + TREND_REVERSAL_PRICE_PCT / 100)) {
       signals.push(`想定から${TREND_REVERSAL_PRICE_PCT}%以上上昇`);
@@ -423,6 +454,10 @@ function formatMacroNote(macro?: MacroHints): string {
   if (macro.stochCross === "dc") parts.push("ストキャス直近DC");
   if (macro.ichimokuSignal === "sanyaku_kouten") parts.push("日足三役好転");
   if (macro.ichimokuSignal === "sanyaku_gyakuten") parts.push("日足三役逆転");
+  if (macro.longShortSignal === "overheated_long") parts.push("先物ロング過熱");
+  if (macro.longShortSignal === "overheated_short") parts.push("先物ショート過熱");
+  if (macro.longShortSignal === "divergence") parts.push("L/S大口乖離");
+  if (macro.longShortSignal === "rapid_change") parts.push("L/S急変");
   if (!parts.length) return "";
   return `（${parts.join("・")}）`;
 }

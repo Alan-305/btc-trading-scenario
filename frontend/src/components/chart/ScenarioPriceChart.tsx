@@ -283,6 +283,7 @@ export function ScenarioPriceChart({
       stochCross: indicators?.stoch_last_cross,
       stochK: indicators?.stoch_k,
       ichimokuSignal: indicators?.ichimoku_signal,
+      longShortSignal: indicators?.long_short_signal,
       macroEventWithinHours,
       mtfEntryBlocked: mtfGate?.entry_blocked ?? indicators?.mtf_entry_blocked,
       mtfEntryTimingReady: mtfGate?.entry_timing_ready ?? indicators?.mtf_entry_timing_ready,

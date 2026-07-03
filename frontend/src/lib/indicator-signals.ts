@@ -189,6 +189,39 @@ export function fearGreedSignal(value: number | null, classification?: string): 
   };
 }
 
+export function longShortRatioSignal(data: CoinglassSnapshot | null): IndicatorSignal {
+  if (!data) {
+    return {
+      stance: "neutral",
+      signalJa: "様子見",
+      summaryJa: "ロング／ショート比率のデータがありません。",
+    };
+  }
+  if (data.long_short_signal_ja || data.long_short_summary_ja) {
+    const stance =
+      data.long_short_stance && data.long_short_stance !== "reversal"
+        ? data.long_short_stance
+        : "neutral";
+    return {
+      stance,
+      signalJa: data.long_short_signal_ja || "様子見",
+      summaryJa: data.long_short_summary_ja || "ロング／ショート比率を確認してください。",
+    };
+  }
+  if (data.long_short_ratio == null && data.long_short_position_ratio == null) {
+    return {
+      stance: "neutral",
+      signalJa: "様子見",
+      summaryJa: "ロング／ショート比率のデータがありません。",
+    };
+  }
+  return {
+    stance: "neutral",
+    signalJa: "様子見",
+    summaryJa: "ロング／ショート比率に大きな偏りはありません。",
+  };
+}
+
 export function coinglassSignal(data: CoinglassSnapshot | null): IndicatorSignal {
   if (!data) {
     return { stance: "neutral", signalJa: "様子見", summaryJa: "先物データがありません。" };
@@ -209,16 +242,6 @@ export function coinglassSignal(data: CoinglassSnapshot | null): IndicatorSignal
       parts.push(`Funding ${(fr * 100).toFixed(4)}% は中立圏です`);
     }
   }
-  if (data.long_short_ratio != null) {
-    if (data.long_short_ratio > 1.2) {
-      bearish += 1;
-      parts.push(`L/S比 ${data.long_short_ratio.toFixed(2)} とロング偏り`);
-    } else if (data.long_short_ratio < 0.85) {
-      bullish += 1;
-      parts.push(`L/S比 ${data.long_short_ratio.toFixed(2)} とショート偏り`);
-    }
-  }
-
   const stance =
     bearish >= 2 ? "bearish" : bullish >= 2 ? "bullish" : bearish > bullish ? "caution" : bullish > bearish ? "bullish" : "neutral";
   const signalJa =

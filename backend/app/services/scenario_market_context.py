@@ -76,6 +76,12 @@ class ScenarioMarketContext:
         if self.derivatives:
             facts["funding_rate"] = self.derivatives.funding_rate
             facts["long_short_ratio"] = self.derivatives.long_short_ratio
+            facts["long_short_position_ratio"] = self.derivatives.long_short_position_ratio
+            facts["top_trader_long_short_ratio"] = self.derivatives.top_trader_long_short_ratio
+            facts["long_short_ratio_change_24h"] = self.derivatives.long_short_ratio_change_24h
+            facts["long_short_signal"] = self.derivatives.long_short_signal
+            facts["long_short_signal_ja"] = self.derivatives.long_short_signal_ja
+            facts["long_short_summary_ja"] = self.derivatives.long_short_summary_ja
             facts["open_interest_usd"] = self.derivatives.open_interest_usd
             facts["derivatives_source"] = self.derivatives.source
             if self.derivatives.exchanges:

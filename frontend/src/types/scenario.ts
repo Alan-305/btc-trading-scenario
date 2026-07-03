@@ -1,5 +1,12 @@
 export type MacroTrend = "bullish" | "bearish" | "range";
 export type TradeSide = "long" | "short" | "neutral";
+export type LongShortSignal =
+  | "overheated_long"
+  | "overheated_short"
+  | "divergence"
+  | "rapid_change"
+  | "neutral";
+export type MacroStance = "bullish" | "bearish" | "neutral" | "caution" | "reversal";
 
 export interface EntryZone {
   side: TradeSide;
@@ -41,6 +48,14 @@ export interface ScenarioIndicators {
   ichimoku_signal_ja?: string | null;
   ichimoku_stance?: string | null;
   ichimoku_summary_ja?: string | null;
+  long_short_ratio?: number | null;
+  long_short_position_ratio?: number | null;
+  top_trader_long_short_ratio?: number | null;
+  long_short_ratio_change_24h?: number | null;
+  long_short_signal?: LongShortSignal | null;
+  long_short_signal_ja?: string | null;
+  long_short_stance?: string | null;
+  long_short_summary_ja?: string | null;
   mtf_summary_ja?: string | null;
   mtf_htf_aligned?: boolean | null;
   mtf_entry_blocked?: boolean | null;
@@ -212,6 +227,10 @@ export interface ExchangeDerivatives {
   funding_rate: number | null;
   open_interest_usd: number | null;
   long_short_ratio: number | null;
+  long_short_position_ratio?: number | null;
+  top_trader_long_short_ratio?: number | null;
+  long_short_ratio_prev_24h?: number | null;
+  long_short_ratio_change_24h?: number | null;
   mark_price: number | null;
   quote_currency: string | null;
 }
@@ -221,6 +240,14 @@ export interface CoinglassSnapshot {
   funding_rate: number | null;
   liquidation_24h_usd: number | null;
   long_short_ratio: number | null;
+  long_short_position_ratio?: number | null;
+  top_trader_long_short_ratio?: number | null;
+  long_short_ratio_prev_24h?: number | null;
+  long_short_ratio_change_24h?: number | null;
+  long_short_signal?: LongShortSignal | null;
+  long_short_signal_ja?: string;
+  long_short_summary_ja?: string;
+  long_short_stance?: MacroStance;
   source: string | null;
   exchanges: ExchangeDerivatives[];
   timestamp: string;
@@ -248,8 +275,6 @@ export interface HeatmapResponse {
 }
 
 export type HeatmapExchange = "all" | "whitebit" | "binance" | "bybit" | "bitget" | "coinbase";
-
-export type MacroStance = "bullish" | "bearish" | "neutral" | "reversal" | "caution";
 
 export interface MacroSeriesPoint {
   ts: string;

@@ -55,6 +55,14 @@ class ScenarioIndicators(BaseModel):
     ichimoku_signal_ja: str | None = None
     ichimoku_stance: str | None = None
     ichimoku_summary_ja: str | None = None
+    long_short_ratio: float | None = None
+    long_short_position_ratio: float | None = None
+    top_trader_long_short_ratio: float | None = None
+    long_short_ratio_change_24h: float | None = None
+    long_short_signal: str | None = None
+    long_short_signal_ja: str | None = None
+    long_short_stance: str | None = None
+    long_short_summary_ja: str | None = None
     mtf_summary_ja: str | None = None
     mtf_htf_aligned: bool | None = None
     mtf_entry_blocked: bool | None = None
