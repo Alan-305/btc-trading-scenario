@@ -29,6 +29,7 @@ import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
 import { PaperTradePanel } from "../components/paper-trade/PaperTradePanel";
 import { SavedSnapshotsPanel } from "../components/scenario/SavedSnapshotsPanel";
+import { ScenarioRecommendationHero } from "../components/scenario/ScenarioRecommendationHero";
 import { ScenarioCard } from "../components/scenario/ScenarioCard";
 import { TradeLevelsCard } from "../components/scenario/TradeLevelsCard";
 import { WatchScenarioCard } from "../components/scenario/WatchScenarioCard";
@@ -62,6 +63,7 @@ import {
 } from "../lib/firestore-snapshots";
 import {
   isWatchRecommended,
+  primaryRecommendation,
   recommendedBranch,
   resolveActiveHorizon,
   resolveDirectionalScenario,
@@ -920,28 +922,24 @@ export function DashboardPage() {
       case "overview":
         return (
           <div className="space-y-6">
-            {scenario?.watch && isWatchRecommended(scenario) ? (
-              <WatchScenarioCard
-                watch={scenario.watch}
-                isRecommended
-              />
-            ) : null}
             {scenario ? (
-              <ScenarioCard
+              <ScenarioRecommendationHero
                 scenario={scenario}
-                activeBranch={activeBranch}
-                onBranchChange={setActiveBranch}
-                activeHorizonId={activeHorizonId}
-                onHorizonChange={setActiveHorizonId}
-                onRefresh={() => void refreshScenarioOnly()}
-                refreshing={isRefreshing("scenario")}
-                watchScenarioAbove={isWatchRecommended(scenario)}
-              />
-            ) : null}
-            {scenario?.watch && !isWatchRecommended(scenario) ? (
-              <WatchScenarioCard
+                activeHorizon={activeHorizon}
                 watch={scenario.watch}
-                isRecommended={false}
+                entryBlocked={
+                  !isActiveHodl &&
+                  Boolean(
+                    scenario.indicators?.mtf_entry_blocked ??
+                      scenario.mtf_gates?.some((g) => g.entry_blocked),
+                  )
+                }
+                entryCaution={
+                  scenario.indicators?.mtf_summary_ja ??
+                  scenario.mtf_gates?.find((g) => g.side === activeHorizon?.entry.side)
+                    ?.gate_summary_ja ??
+                  null
+                }
               />
             ) : null}
             {openedAt && price > 0 && activeHorizon && scenario && entryHistory.length > 0 && (
@@ -962,6 +960,7 @@ export function DashboardPage() {
                 }
                 indicators={scenario.indicators}
                 branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
+                primaryRecommendation={primaryRecommendation(scenario)}
                 stochSeries={entryTechnical?.stoch_series ?? []}
                 macroEvents={macroEvents?.events ?? []}
                 mtfGates={scenario.mtf_gates}
@@ -971,6 +970,20 @@ export function DashboardPage() {
                 refreshing={isRefreshing("entryChart")}
               />
             )}
+            {scenario ? (
+              <ScenarioCard
+                scenario={scenario}
+                activeBranch={activeBranch}
+                onBranchChange={setActiveBranch}
+                activeHorizonId={activeHorizonId}
+                onHorizonChange={setActiveHorizonId}
+                onRefresh={() => void refreshScenarioOnly()}
+                refreshing={isRefreshing("scenario")}
+              />
+            ) : null}
+            {scenario?.watch && !isWatchRecommended(scenario) ? (
+              <WatchScenarioCard watch={scenario.watch} />
+            ) : null}
             {!isActiveHodl && activeHorizon && scenario ? (
               <CollapsibleSection
                 title="取引計画（レベル・数量）"

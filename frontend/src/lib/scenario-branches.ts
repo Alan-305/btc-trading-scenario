@@ -14,6 +14,19 @@ export function isWatchRecommended(scenario: ScenarioResponse): boolean {
   return scenario.macro_trend === "range";
 }
 
+export type PrimaryRecommendation = TradeBranch | "watch";
+
+export function primaryRecommendation(scenario: ScenarioResponse): PrimaryRecommendation {
+  if (isWatchRecommended(scenario)) return "watch";
+  return recommendedBranch(scenario);
+}
+
+export const PRIMARY_LABEL: Record<PrimaryRecommendation, string> = {
+  bullish: "上昇シナリオ",
+  bearish: "下落シナリオ",
+  watch: "様子見",
+};
+
 export function resolveDirectionalScenario(
   scenario: ScenarioResponse,
   branch: TradeBranch,

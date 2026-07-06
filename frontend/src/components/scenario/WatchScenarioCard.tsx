@@ -2,70 +2,62 @@ import type { WatchScenario } from "../../types/scenario";
 
 interface WatchScenarioCardProps {
   watch: WatchScenario;
-  isRecommended?: boolean;
+  /** いまのおすすめが様子見のときはヒーローに統合するため非表示 */
+  hidden?: boolean;
 }
 
-export function WatchScenarioCard({ watch, isRecommended }: WatchScenarioCardProps) {
+export function WatchScenarioCard({ watch, hidden = false }: WatchScenarioCardProps) {
+  if (hidden) return null;
+
   const low = Math.min(watch.range_low, watch.range_high);
   const high = Math.max(watch.range_low, watch.range_high);
 
   return (
     <article
       id="watch-scenario"
-      className={`scroll-mt-24 rounded-xl border bg-surface-card p-5 ${
-        isRecommended
-          ? "border-accent-amber/50 ring-1 ring-accent-amber/20"
-          : "border-accent-amber/30"
-      }`}
+      className="scroll-mt-24 rounded-xl border border-surface-border/70 bg-surface-card/80 p-4 opacity-90"
     >
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium text-slate-100">様子見シナリオ</h2>
-          {isRecommended ? (
-            <span className="rounded-full bg-accent-amber/20 px-2 py-0.5 text-[10px] font-medium text-amber-200">
-              いまのおすすめ
-            </span>
-          ) : null}
+          <h2 className="font-japanese text-sm font-medium text-content-secondary">
+            参考：様子見シナリオ
+          </h2>
         </div>
-        <span className="text-xs text-content-muted">
-          信頼度: {(watch.confidence * 100).toFixed(0)}%
+        <span className="font-japanese text-xs text-content-muted">
+          信頼度 {(watch.confidence * 100).toFixed(0)}%
         </span>
       </header>
 
-      <p className="whitespace-pre-wrap break-words font-japanese text-sm leading-relaxed text-slate-300">
+      <p className="whitespace-pre-wrap break-words font-japanese text-xs leading-relaxed text-content-muted">
         {watch.scenario_text_ja}
       </p>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-surface-border/60 pt-4 text-sm sm:grid-cols-4">
+      <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-surface-border/50 pt-3 text-xs sm:grid-cols-4">
         <div>
-          <dt className="text-xs text-content-muted">想定レンジ</dt>
-          <dd className="font-english text-slate-200">
+          <dt className="font-japanese text-content-muted">想定レンジ</dt>
+          <dd className="font-english text-content-secondary">
             ${low.toLocaleString()} – ${high.toLocaleString()}
           </dd>
         </div>
         {watch.support != null ? (
           <div>
-            <dt className="text-xs text-content-muted">支持（下抜け注意）</dt>
-            <dd className="font-english text-accent-red">${watch.support.toLocaleString()}</dd>
+            <dt className="font-japanese text-content-muted">支持</dt>
+            <dd className="font-english text-accent-red/80">${watch.support.toLocaleString()}</dd>
           </div>
         ) : null}
         {watch.resistance != null ? (
           <div>
-            <dt className="text-xs text-content-muted">抵抗（上抜け注目）</dt>
-            <dd className="font-english text-accent-green">
+            <dt className="font-japanese text-content-muted">抵抗</dt>
+            <dd className="font-english text-accent-green/80">
               ${watch.resistance.toLocaleString()}
             </dd>
           </div>
         ) : null}
         <div>
-          <dt className="text-xs text-content-muted">エントリー</dt>
-          <dd className="text-slate-300">見送り推奨</dd>
+          <dt className="font-japanese text-content-muted">エントリー</dt>
+          <dd className="font-japanese text-content-muted">見送り推奨</dd>
         </div>
       </dl>
-
-      <p className="mt-3 text-xs text-content-muted">
-        チャートは上昇・下落シナリオのタブで確認できます。レンジ内では新規エントリーを控えましょう。
-      </p>
     </article>
   );
 }

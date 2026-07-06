@@ -15,6 +15,8 @@ import { alignStochToChartRows } from "../../lib/align-stoch-history";
 import { mergeMacroEventMarkers, upcomingHighImpactEvents } from "../../lib/align-macro-events";
 import { macroEventMarkerLabel } from "../dashboard/EconomicCalendarPanel";
 import { buildEntryGuide } from "../../lib/entry-guide";
+import { presentEntryGuide } from "../../lib/scenario-presentation";
+import type { PrimaryRecommendation } from "../../lib/scenario-branches";
 import { findMtfGate } from "../../lib/mtf-entry-gate";
 import type { StochSeriesPoint } from "../../types/market";
 import type { MacroEvent } from "../../types/macro-events";
@@ -46,21 +48,6 @@ const SIDE_LABEL: Record<TradeSide, string> = {
   neutral: "様子見",
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  in_zone: "bg-accent-blue/20 text-accent-blue",
-  wait_pullback: "bg-accent-amber/20 text-amber-200",
-  wait_rally: "bg-accent-amber/20 text-amber-200",
-  passed: "bg-surface-elevated text-content-primary",
-  neutral: "bg-surface-elevated text-content-secondary",
-  watch: "bg-surface-elevated text-content-secondary",
-  htf_blocked:
-    "border-2 border-amber-400/80 bg-amber-500/30 text-amber-50 font-bold shadow-[0_0_12px_rgba(245,158,11,0.35)] ring-1 ring-amber-300/40",
-  near_tp: "bg-accent-green/20 text-accent-green",
-  near_sl: "bg-accent-red/20 text-accent-red",
-  trend_reversal: "bg-accent-amber/25 text-amber-100",
-  wait_timing: "bg-accent-amber/20 text-amber-200",
-};
-
 const BASE_POINT_WIDTH = 44;
 const PRICE_CHART_HEIGHT = 280;
 const CHART_LABEL_MARGIN = 72;
@@ -90,6 +77,7 @@ interface ScenarioPriceChartProps extends DataRefreshProps {
   periodHint?: string;
   indicators?: ScenarioIndicators;
   branchLabel?: string;
+  primaryRecommendation?: PrimaryRecommendation;
   stochSeries?: StochSeriesPoint[];
   macroEvents?: MacroEvent[];
   mtfGates?: MtfEntryGate[];
@@ -248,6 +236,7 @@ export function ScenarioPriceChart({
   periodHint = "7日間（4時間足）",
   indicators,
   branchLabel,
+  primaryRecommendation = "bullish",
   stochSeries = [],
   macroEvents = [],
   mtfGates = [],
@@ -305,6 +294,14 @@ export function ScenarioPriceChart({
       }
     : swingGuide;
 
+  const presentation = isHodl
+    ? {
+        headline: guide.headline,
+        badgeClass: "bg-violet-500/20 text-violet-200",
+        showCautionStrip: false,
+      }
+    : presentEntryGuide(guide, primaryRecommendation);
+
   const { chartData, macroMarkers } = useMemo(() => {
     const baseRows = buildChartRows(
       history,
@@ -359,7 +356,7 @@ export function ScenarioPriceChart({
     currentPrice,
   ]);
 
-  const badgeClass = STATUS_BADGE[guide.status] ?? STATUS_BADGE.neutral;
+  const badgeClass = presentation.badgeClass;
 
   const renderPriceChart = (contentWidth: number, yDomain: [number, number]) => (
     <ComposedChart
@@ -524,41 +521,35 @@ export function ScenarioPriceChart({
         refreshLabel="エントリーチャートを更新"
         headerActions={
           <div className="flex flex-col items-end gap-1">
-            <span
-              className={`rounded-lg px-3 py-1.5 font-japanese ${
-                guide.status === "htf_blocked" ? "text-sm" : "text-xs font-medium"
-              } ${badgeClass}`}
-            >
-              {guide.headline}
+            <span className={`rounded-lg px-3 py-1.5 font-japanese text-xs font-medium ${badgeClass}`}>
+              {presentation.headline}
             </span>
-            <span className="text-xs text-content-muted">{SIDE_LABEL[entry.side]}</span>
+            <span className="font-japanese text-xs text-content-muted">{SIDE_LABEL[entry.side]}</span>
           </div>
         }
         className="mb-4"
       />
 
       <div className="mb-4 space-y-3">
-        {guide.status === "htf_blocked" ? (
+        {presentation.showCautionStrip && presentation.subheadline ? (
           <div
-            className="rounded-lg border-2 border-amber-400/70 bg-amber-500/15 px-4 py-3"
+            className="rounded-lg border border-accent-amber/30 bg-accent-amber/10 px-3 py-2"
             role="status"
           >
-            <p className="font-japanese text-base font-bold tracking-wide text-amber-50">
-              {guide.headline}
-            </p>
-            <p className="mt-1 font-japanese text-sm text-amber-100/90">{guide.action}</p>
+            <p className="font-japanese text-xs font-medium text-amber-100">{presentation.subheadline}</p>
+            <p className="mt-1 font-japanese text-xs text-amber-100/80">{guide.action}</p>
           </div>
         ) : null}
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-surface-border/60 bg-surface/50 px-4 py-3">
           <div>
-            <p className="text-[10px] text-content-muted">いまの価格</p>
+            <p className="font-japanese text-[10px] text-content-muted">いまの価格</p>
             <p className="font-english text-xl font-semibold text-white">
               ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </p>
           </div>
-          <div className="text-sm text-content-secondary">
+          <div className="font-japanese text-sm text-content-secondary">
             <p>{guide.detail}</p>
-            {guide.status !== "htf_blocked" ? (
+            {!presentation.showCautionStrip ? (
               <p className="mt-1 text-xs text-content-muted">{guide.action}</p>
             ) : null}
           </div>

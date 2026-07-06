@@ -21,24 +21,30 @@ const BRANCH_LABEL: Record<TradeBranch, { text: string; color: string }> = {
   bearish: { text: "下落シナリオ", color: "text-accent-red" },
 };
 
-function branchTabClass(active: boolean, watchPrimary: boolean): string {
-  if (watchPrimary) {
-    return active
-      ? "bg-surface-elevated text-content-secondary ring-1 ring-accent-amber/30"
-      : "border border-surface-border/60 text-content-muted hover:border-accent-amber/25 hover:text-content-secondary";
+function branchTabClass(active: boolean, recommended: boolean, demoted: boolean): string {
+  if (demoted && !active) {
+    return "border border-surface-border/50 text-content-muted hover:border-surface-border";
   }
-  return active
-    ? "bg-accent-green/25 text-accent-green"
-    : "border border-surface-border text-content-secondary hover:border-content-muted";
+  if (active && recommended) {
+    return "bg-accent-green/25 text-accent-green ring-1 ring-accent-green/30";
+  }
+  if (active) {
+    return "bg-surface-elevated text-content-secondary ring-1 ring-surface-border";
+  }
+  return "border border-surface-border text-content-secondary hover:border-content-muted";
 }
 
-function branchTabClassBearish(active: boolean, watchPrimary: boolean): string {
-  if (watchPrimary) {
-    return branchTabClass(active, true);
+function branchTabClassBearish(active: boolean, recommended: boolean, demoted: boolean): string {
+  if (demoted && !active) {
+    return branchTabClass(active, recommended, demoted);
   }
-  return active
-    ? "bg-accent-red/25 text-accent-red"
-    : "border border-surface-border text-content-secondary hover:border-content-muted";
+  if (active && recommended) {
+    return "bg-accent-red/25 text-accent-red ring-1 ring-accent-red/30";
+  }
+  if (active) {
+    return "bg-surface-elevated text-content-secondary ring-1 ring-surface-border";
+  }
+  return "border border-surface-border text-content-secondary hover:border-content-muted";
 }
 
 interface ScenarioCardProps extends DataRefreshProps {
@@ -47,8 +53,6 @@ interface ScenarioCardProps extends DataRefreshProps {
   onBranchChange: (branch: TradeBranch) => void;
   activeHorizonId: ScenarioHorizonId;
   onHorizonChange: (id: ScenarioHorizonId) => void;
-  /** 様子見カードがこのカードより上に表示されているとき true */
-  watchScenarioAbove?: boolean;
 }
 
 export function ScenarioCard({
@@ -59,7 +63,6 @@ export function ScenarioCard({
   onHorizonChange,
   onRefresh,
   refreshing,
-  watchScenarioAbove = false,
 }: ScenarioCardProps) {
   const directional = resolveDirectionalScenario(scenario, activeBranch);
   const horizons = resolveHorizons(directional);
@@ -73,42 +76,22 @@ export function ScenarioCard({
     return null;
   }
 
-  const watchLinkLabel = watchScenarioAbove ? "上の様子見シナリオ" : "様子見シナリオ";
+  const demoted = watchPrimary;
 
   return (
     <article
-      className={`rounded-xl border bg-surface-card p-6 ${
-        watchPrimary ? "border-surface-border/80 opacity-95" : "border-surface-border"
+      className={`rounded-xl border bg-surface-card p-5 ${
+        demoted ? "border-surface-border/70 opacity-90" : "border-surface-border"
       }`}
     >
-      {watchPrimary ? (
-        <div className="mb-4 rounded-lg border border-accent-amber/30 bg-accent-amber/10 px-3 py-2.5">
-          <p className="font-japanese text-xs leading-relaxed text-amber-100/90">
-            指標が拮抗しており、いまは
-            <span className="font-medium text-amber-200"> 様子見 </span>
-            がおすすめです。
-            <a
-              href="#watch-scenario"
-              className="ml-1 font-medium text-accent-amber underline decoration-accent-amber/50 underline-offset-2 hover:text-amber-200"
-            >
-              {watchLinkLabel}
-            </a>
-            を先にご確認ください。下の上昇・下落は参考です。
-          </p>
-        </div>
-      ) : null}
-
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-medium text-slate-100">
-            {active.label}
-            {watchPrimary ? (
-              <span className="ml-2 font-japanese text-xs font-normal text-content-muted">
-                （参考）
-              </span>
-            ) : null}
+          <h2 className="font-japanese text-base font-medium text-slate-200">
+            {demoted ? "参考シナリオ（詳細）" : "シナリオ詳細"}
           </h2>
-          <p className="mt-1 text-xs text-content-muted">{active.period_hint}</p>
+          <p className="mt-1 font-japanese text-xs text-content-muted">
+            {active.label} · {active.period_hint}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <DataSourceActions
@@ -120,25 +103,24 @@ export function ScenarioCard({
             updatedAt={scenario.generated_at}
           />
           <span
-            className={`text-sm font-medium ${
-              watchPrimary ? "text-content-muted" : branchMeta.color
+            className={`font-japanese text-xs font-medium ${
+              demoted ? "text-content-muted" : branchMeta.color
             }`}
           >
-            {watchPrimary ? `${branchMeta.text}（参考）` : branchMeta.text}
+            {branchMeta.text}
+            {!demoted && activeBranch === recommended ? " ★" : ""}
           </span>
-          {!watchPrimary && activeBranch === recommended ? (
-            <span className="text-[10px] text-content-muted">いまのおすすめ</span>
-          ) : null}
         </div>
       </header>
 
       <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="トレードシナリオ">
         {(["bullish", "bearish"] as const).map((branch) => {
           const isActive = branch === activeBranch;
+          const isRecommended = branch === recommended && !watchPrimary;
           const tabClass =
             branch === "bullish"
-              ? branchTabClass(isActive, watchPrimary)
-              : branchTabClassBearish(isActive, watchPrimary);
+              ? branchTabClass(isActive, isRecommended, demoted)
+              : branchTabClassBearish(isActive, isRecommended, demoted);
           return (
             <button
               key={branch}
@@ -146,10 +128,11 @@ export function ScenarioCard({
               role="tab"
               aria-selected={isActive}
               onClick={() => onBranchChange(branch)}
-              className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-medium transition ${tabClass}`}
+              className={`min-h-[44px] rounded-lg px-3 py-2 font-japanese text-xs font-medium transition ${tabClass}`}
             >
-              {watchPrimary ? `${BRANCH_LABEL[branch].text}（参考）` : BRANCH_LABEL[branch].text}
-              {!watchPrimary && branch === recommended ? " ★" : ""}
+              {BRANCH_LABEL[branch].text}
+              {isRecommended ? " ★" : ""}
+              {demoted ? "（参考）" : ""}
             </button>
           );
         })}
@@ -163,9 +146,9 @@ export function ScenarioCard({
             role="tab"
             aria-selected={h.id === active.id}
             onClick={() => onHorizonChange(h.id)}
-            className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-medium transition ${
+            className={`min-h-[44px] rounded-lg px-3 py-2 font-japanese text-xs font-medium transition ${
               h.id === active.id
-                ? watchPrimary
+                ? demoted
                   ? "bg-surface-elevated text-content-secondary ring-1 ring-surface-border"
                   : h.id === "hodl"
                     ? "bg-violet-600 text-white"
@@ -192,15 +175,15 @@ export function ScenarioCard({
       ) : null}
 
       <p
-        className={`mt-4 whitespace-pre-wrap break-words font-japanese leading-relaxed ${
-          watchPrimary ? "text-content-muted" : "text-slate-300"
+        className={`mt-4 whitespace-pre-wrap break-words font-japanese text-sm leading-relaxed ${
+          demoted ? "text-content-muted" : "text-slate-300"
         }`}
       >
         {active.scenario_text_ja}
       </p>
 
       {scenario.data_sources && (
-        <p className="mt-3 text-xs text-content-muted">
+        <p className="mt-3 font-japanese text-xs text-content-muted">
           統合データ: テクニカル
           {scenario.data_sources.includes_risk_zones ? "・リスクゾーン" : ""}
           {scenario.data_sources.includes_sessions ? "・セッション" : ""}
@@ -215,7 +198,7 @@ export function ScenarioCard({
             : ""}
         </p>
       )}
-      <footer className="mt-4 flex items-center justify-between text-xs text-content-muted">
+      <footer className="mt-4 flex items-center justify-between font-japanese text-xs text-content-muted">
         <span>信頼度: {(directional.confidence * 100).toFixed(0)}%</span>
         <span>{scenario.disclaimer}</span>
       </footer>
