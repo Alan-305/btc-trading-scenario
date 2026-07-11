@@ -47,7 +47,13 @@ class ScenarioBranches:
 class ScenarioInference:
     """Rule-based signal engine using full dashboard market context + user research."""
 
-    WATCH_SCORE_DIFF_THRESHOLD = 2
+    # Absolute score gap required before naming a directional primary.
+    # Below this, top recommendation is 様子見 — entry is left to the user.
+    WATCH_SCORE_DIFF_THRESHOLD = 5
+    # Winner must also lead by this ratio (e.g. 14 vs 10 ≈ 1.4).
+    WATCH_SCORE_RATIO_THRESHOLD = 1.35
+    # Winning side needs enough absolute conviction (not a thin 6–0 on sparse data).
+    WATCH_MIN_WINNER_SCORE = 8
 
     def __init__(self):
         self.features = FeatureEngine()
@@ -98,7 +104,7 @@ class ScenarioInference:
             feat.reference_price,
             context,
         )
-        primary_trend = self._pick_primary_trend(bullish_score, bearish_score)
+        primary_trend = self._pick_primary_trend(bullish_score, bearish_score, context)
 
         return ScenarioBranches(
             bullish=bullish,
@@ -294,13 +300,36 @@ class ScenarioInference:
 
         return bullish_score, bearish_score
 
-    def _pick_primary_trend(self, bullish_score: int, bearish_score: int) -> MacroTrend:
-        diff = abs(bullish_score - bearish_score)
+    def _pick_primary_trend(
+        self,
+        bullish_score: int,
+        bearish_score: int,
+        context: ScenarioMarketContext | None = None,
+    ) -> MacroTrend:
+        """Only return bullish/bearish when the lead is clear; otherwise 様子見."""
+        winner = max(bullish_score, bearish_score)
+        loser = min(bullish_score, bearish_score)
+        diff = winner - loser
+
         if diff <= self.WATCH_SCORE_DIFF_THRESHOLD:
             return "range"
-        if bullish_score > bearish_score:
-            return "bullish"
-        return "bearish"
+        if winner < self.WATCH_MIN_WINNER_SCORE:
+            return "range"
+        if loser > 0 and (winner / loser) < self.WATCH_SCORE_RATIO_THRESHOLD:
+            return "range"
+
+        trend: MacroTrend = "bullish" if bullish_score > bearish_score else "bearish"
+
+        # Weekly MTF against the scored direction → do not claim a clear primary.
+        if context and context.mtf:
+            weekly = layer_by_interval(context.mtf).get("1w")
+            if weekly:
+                if trend == "bullish" and weekly.trend == "bearish":
+                    return "range"
+                if trend == "bearish" and weekly.trend == "bullish":
+                    return "range"
+
+        return trend
 
     def _directional_confidence(self, own_score: int, other_score: int) -> float:
         total = own_score + other_score + 1
@@ -400,20 +429,20 @@ class ScenarioInference:
         closeness = 1 - min(1.0, diff / (total + 1))
         confidence = round(max(0.4, min(0.88, 0.45 + closeness * 0.4)), 2)
 
-        if diff <= 2:
+        if diff <= self.WATCH_SCORE_DIFF_THRESHOLD:
             stance = "拮抗"
-            action = "新規エントリーを見送り、ブレイクを待ちましょう"
+            action = "新規エントリーを見送り、方向が明確になるのを待ちましょう"
         elif bearish_score > bullish_score:
-            stance = "下降材料優勢"
-            action = "下落シナリオのエントリー帯まで戻りを待ちましょう"
+            stance = "下降材料優勢だが断定はまだ早い"
+            action = "参考の下落シナリオを確認しつつ、エントリー可否は慎重に判断してください"
         else:
-            stance = "上昇材料優勢"
-            action = "上昇シナリオのエントリー帯まで押し目を待ちましょう"
+            stance = "上昇材料優勢だが断定はまだ早い"
+            action = "参考の上昇シナリオを確認しつつ、エントリー可否は慎重に判断してください"
 
         rationale = (
             f"上昇材料スコア {bullish_score}・下降材料スコア {bearish_score}（{stance}）。"
+            f"差が{self.WATCH_SCORE_DIFF_THRESHOLD}点以下、または比率・週足と矛盾する場合は様子見を最優先します。"
             f"レンジ ${min(range_low, range_high):,.0f}〜${max(range_low, range_high):,.0f} では{action}。"
-            f"上抜け・下抜けで各シナリオを検討してください。"
         )
 
         return WatchInference(

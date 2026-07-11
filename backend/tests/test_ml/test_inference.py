@@ -94,12 +94,38 @@ def test_predict_branches_returns_bullish_and_bearish():
     assert branches.watch.range_high > branches.watch.range_low
 
 
-def test_watch_primary_when_scores_close():
+def test_pick_primary_requires_clear_lead():
     inference = ScenarioInference()
-    ctx = _context()
-    branches = inference.predict_branches(ctx.snapshot, ctx.fear_greed, None, ctx)
-    if abs(branches.bullish_score - branches.bearish_score) <= ScenarioInference.WATCH_SCORE_DIFF_THRESHOLD:
-        assert branches.primary_trend == "range"
+    assert inference._pick_primary_trend(10, 9) == "range"
+    assert inference._pick_primary_trend(12, 10) == "range"  # diff 2
+    assert inference._pick_primary_trend(14, 10) == "range"  # diff 4 < 5
+    # diff 6, ratio 1.5, winner >= 8
+    assert inference._pick_primary_trend(15, 9) == "bullish"
+    assert inference._pick_primary_trend(9, 15) == "bearish"
+    # thin winner score
+    assert inference._pick_primary_trend(7, 1) == "range"
+
+
+def test_pick_primary_defers_when_weekly_conflicts():
+    from app.schemas.mtf import MtfAnalysis, MtfTimeframeLayer
+
+    inference = ScenarioInference()
+    mtf = MtfAnalysis(
+        layers=[
+            MtfTimeframeLayer(
+                interval="1w",
+                label_ja="週足",
+                trend="bearish",
+                support=None,
+                resistance=None,
+                summary_ja="下降",
+            )
+        ],
+        summary_ja="週足下降",
+    )
+    ctx = _context(mtf=mtf)
+    assert inference._pick_primary_trend(16, 8, ctx) == "range"
+    assert inference._pick_primary_trend(8, 16, ctx) == "bearish"
 
 
 def test_usdt_rising_biases_bearish():

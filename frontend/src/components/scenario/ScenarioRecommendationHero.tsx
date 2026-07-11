@@ -6,6 +6,8 @@ import type {
 import {
   PRIMARY_LABEL,
   primaryRecommendation,
+  recommendedBranch,
+  resolveActiveHorizon,
   resolveDirectionalScenario,
 } from "../../lib/scenario-branches";
 import { HERO_THEME } from "../../lib/scenario-presentation";
@@ -13,10 +15,12 @@ import { isHodlHorizon } from "../../lib/scenario-horizons";
 
 interface ScenarioRecommendationHeroProps {
   scenario: ScenarioResponse;
-  activeHorizon: ScenarioHorizonBundle | null;
+  /** Horizon belonging to the primary recommendation (not a reference tab). */
+  recommendedHorizon: ScenarioHorizonBundle | null;
   watch?: WatchScenario | null;
   entryBlocked?: boolean;
   entryCaution?: string | null;
+  viewingReference?: boolean;
 }
 
 function excerpt(text: string, maxLen = 160): string {
@@ -27,10 +31,11 @@ function excerpt(text: string, maxLen = 160): string {
 
 export function ScenarioRecommendationHero({
   scenario,
-  activeHorizon,
+  recommendedHorizon,
   watch,
   entryBlocked = false,
   entryCaution,
+  viewingReference = false,
 }: ScenarioRecommendationHeroProps) {
   const primary = primaryRecommendation(scenario);
   const theme = HERO_THEME[primary];
@@ -50,13 +55,19 @@ export function ScenarioRecommendationHero({
           >
             いまのおすすめ
           </span>
-          <h2 id="scenario-primary-heading" className={`font-japanese text-xl font-semibold ${theme.title}`}>
+          <h2
+            id="scenario-primary-heading"
+            className={`font-japanese text-xl font-semibold ${theme.title}`}
+          >
             {label}
           </h2>
           <span className="font-japanese text-xs text-content-muted">
             信頼度 {(watch.confidence * 100).toFixed(0)}%
           </span>
         </div>
+        <p className="mb-3 font-japanese text-xs leading-relaxed text-amber-100/90">
+          上昇・下落を断定できるほどの材料の差はありません。エントリーの可否はご自身で判断してください。下の上昇・下落は参考です。
+        </p>
         <p className="font-japanese text-sm leading-relaxed text-slate-200">
           {excerpt(watch.scenario_text_ja, 220)}
         </p>
@@ -86,18 +97,15 @@ export function ScenarioRecommendationHero({
             <dd className="font-japanese text-slate-300">見送り推奨</dd>
           </div>
         </dl>
-        <p className="mt-3 font-japanese text-xs text-content-muted">
-          下の上昇・下落シナリオは参考です。レンジ内では新規エントリーを控えましょう。
-        </p>
       </section>
     );
   }
 
-  const directional = resolveDirectionalScenario(
-    scenario,
-    primary === "watch" ? "bullish" : primary,
-  );
-  const horizon = activeHorizon;
+  const branch = primary === "watch" ? recommendedBranch(scenario) : primary;
+  const directional = resolveDirectionalScenario(scenario, branch);
+  const horizon =
+    recommendedHorizon ??
+    resolveActiveHorizon(directional, "today");
   const isHodl = horizon ? isHodlHorizon(horizon.id, horizon.horizon_mode) : false;
   const confidence = directional?.confidence ?? scenario.confidence;
   const entryLow = horizon
@@ -118,7 +126,10 @@ export function ScenarioRecommendationHero({
         >
           いまのおすすめ
         </span>
-        <h2 id="scenario-primary-heading" className={`font-japanese text-xl font-semibold ${theme.title}`}>
+        <h2
+          id="scenario-primary-heading"
+          className={`font-japanese text-xl font-semibold ${theme.title}`}
+        >
           {label}
         </h2>
         {horizon ? (
@@ -128,6 +139,12 @@ export function ScenarioRecommendationHero({
           信頼度 {(confidence * 100).toFixed(0)}%
         </span>
       </div>
+
+      {viewingReference ? (
+        <p className="mb-3 font-japanese text-xs text-content-muted">
+          下のチャートは参考タブの表示です。おすすめ本体は上記の{label}です。
+        </p>
+      ) : null}
 
       {entryBlocked ? (
         <div className="mb-3 rounded-lg border border-accent-amber/30 bg-accent-amber/10 px-3 py-2">
@@ -151,13 +168,19 @@ export function ScenarioRecommendationHero({
           <span className="font-english text-slate-200">
             ${entryLow.toLocaleString()} – ${entryHigh.toLocaleString()}
           </span>
-          （{horizon?.entry.side === "long" ? "ロング" : horizon?.entry.side === "short" ? "ショート" : "—"}）
+          （
+          {horizon?.entry.side === "long"
+            ? "ロング"
+            : horizon?.entry.side === "short"
+              ? "ショート"
+              : "—"}
+          ）
         </p>
       ) : null}
 
       {scenario.watch ? (
         <p className="mt-3 font-japanese text-xs text-content-muted">
-          様子見シナリオは下の参考欄で確認できます。
+          様子見シナリオは下の参考欄で確認できます。エントリーの可否はご自身で判断してください。
         </p>
       ) : null}
     </section>

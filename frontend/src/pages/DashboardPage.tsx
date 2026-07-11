@@ -208,12 +208,13 @@ export function DashboardPage() {
       hasInitializedScenarioSelection.current = false;
       return;
     }
+    // Always align the detail tab with the server primary when a new scenario arrives.
+    setActiveBranch(recommendedBranch(scenario));
     if (!hasInitializedScenarioSelection.current) {
       hasInitializedScenarioSelection.current = true;
-      setActiveBranch(recommendedBranch(scenario));
       setActiveHorizonId("today");
     }
-  }, [scenario]);
+  }, [scenario?.generated_at]);
 
   const loadChart = useCallback(
     async (interval: CandleInterval, refresh = false) => {
@@ -919,15 +920,39 @@ export function DashboardPage() {
 
   const renderSection = () => {
     switch (activeSection) {
-      case "overview":
+      case "overview": {
+        const primary = scenario ? primaryRecommendation(scenario) : null;
+        const recommended = scenario ? recommendedBranch(scenario) : "bullish";
+        const recommendedDirectional =
+          scenario && primary && primary !== "watch"
+            ? resolveDirectionalScenario(scenario, primary)
+            : null;
+        const recommendedHorizon = scenario
+          ? resolveActiveHorizon(
+              recommendedDirectional ??
+                (primary === "watch"
+                  ? resolveDirectionalScenario(scenario, recommended)
+                  : null),
+              normalizeHorizonId(activeHorizonId),
+            )
+          : null;
+        const viewingReference =
+          Boolean(scenario) &&
+          primary !== "watch" &&
+          activeBranch !== recommended;
+
         return (
           <div className="space-y-6">
             {scenario ? (
               <ScenarioRecommendationHero
                 scenario={scenario}
-                activeHorizon={activeHorizon}
+                recommendedHorizon={
+                  primary === "watch" ? null : recommendedHorizon
+                }
                 watch={scenario.watch}
+                viewingReference={viewingReference}
                 entryBlocked={
+                  primary !== "watch" &&
                   !isActiveHodl &&
                   Boolean(
                     scenario.indicators?.mtf_entry_blocked ??
@@ -936,8 +961,9 @@ export function DashboardPage() {
                 }
                 entryCaution={
                   scenario.indicators?.mtf_summary_ja ??
-                  scenario.mtf_gates?.find((g) => g.side === activeHorizon?.entry.side)
-                    ?.gate_summary_ja ??
+                  scenario.mtf_gates?.find(
+                    (g) => g.side === recommendedHorizon?.entry.side,
+                  )?.gate_summary_ja ??
                   null
                 }
               />
@@ -959,8 +985,16 @@ export function DashboardPage() {
                     : entryChartPeriodHint()
                 }
                 indicators={scenario.indicators}
-                branchLabel={activeBranch === "bullish" ? "上昇シナリオ" : "下落シナリオ"}
-                primaryRecommendation={primaryRecommendation(scenario)}
+                branchLabel={
+                  viewingReference
+                    ? `${activeBranch === "bullish" ? "上昇" : "下落"}シナリオ（参考）`
+                    : primary === "watch"
+                      ? `${activeBranch === "bullish" ? "上昇" : "下落"}シナリオ（参考）`
+                      : activeBranch === "bullish"
+                        ? "上昇シナリオ"
+                        : "下落シナリオ"
+                }
+                primaryRecommendation={primary ?? "watch"}
                 stochSeries={entryTechnical?.stoch_series ?? []}
                 macroEvents={macroEvents?.events ?? []}
                 mtfGates={scenario.mtf_gates}
@@ -1020,6 +1054,7 @@ export function DashboardPage() {
             <OverviewSignalStrip items={signalStripItems} onNavigate={handleIndicatorNavigate} />
           </div>
         );
+      }
 
       case "technical":
         return (
