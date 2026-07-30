@@ -60,7 +60,13 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from_email: str = ""
     app_public_url: str = "https://nexus-btc-trading.web.app"
+    # Public API base for email links (defaults to app URL when proxied via Firebase Hosting)
+    api_public_url: str = ""
     support_email: str = "support@nexus-learning.com"
+
+    # Morning digest email
+    morning_digest_enabled: bool = True
+    morning_digest_retry_count: int = 2
 
     finnhub_api_key: str = ""
 

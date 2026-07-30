@@ -84,7 +84,7 @@ export const DASHBOARD_NAV_INVITE: DashboardNavItem = {
 export const DASHBOARD_NAV_SUPPORT: DashboardNavItem = {
   id: "support",
   label: "サポート",
-  description: "不具合報告・お問い合わせ",
+  description: "通知設定・不具合報告・お問い合わせ",
 };
 
 /** @deprecated Use DASHBOARD_NAV_MAIN */

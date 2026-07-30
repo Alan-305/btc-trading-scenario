@@ -25,6 +25,8 @@ import { IchimokuPanel } from "../components/dashboard/IchimokuPanel";
 import { TechnicalAnalysisPanel } from "../components/dashboard/TechnicalAnalysisPanel";
 import { VolumeHeatmap } from "../components/dashboard/VolumeHeatmap";
 import { SupportPanel } from "../components/support/SupportPanel";
+import { NotificationSettingsPanel } from "../components/notifications/NotificationSettingsPanel";
+import { DigestStatusPanel } from "../components/notifications/DigestStatusPanel";
 import { DashboardShell } from "../components/layout/DashboardShell";
 import { ResearchPanel } from "../components/research/ResearchPanel";
 import { PaperTradePanel } from "../components/paper-trade/PaperTradePanel";
@@ -1233,7 +1235,13 @@ export function DashboardPage() {
         return <InvitePanel userEmail={user?.email} />;
 
       case "support":
-        return <SupportPanel userEmail={user?.email} />;
+        return (
+          <div className="mx-auto max-w-2xl space-y-6">
+            <NotificationSettingsPanel userId={user?.uid} />
+            <DigestStatusPanel isAdmin={showInviteNav} />
+            <SupportPanel userEmail={user?.email} />
+          </div>
+        );
 
       default:
         return null;

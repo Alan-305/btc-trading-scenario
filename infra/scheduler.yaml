@@ -1,7 +1,24 @@
-# Cloud Scheduler job (create via gcloud)
-# Lightweight: tickers + paper-trade TP/SL watch (no Gemini). Scenario builds on app open only.
+# Cloud Scheduler jobs (create via gcloud)
+#
+# 1) Lightweight: tickers + paper-trade TP/SL watch (no Gemini). Scenario builds on app open only.
 # gcloud scheduler jobs create http btc-collect-job \
 #   --schedule="*/5 * * * *" \
 #   --uri="https://btc-trading-api-xxx.run.app/api/v1/internal/collect" \
 #   --http-method=POST \
 #   --headers="X-Internal-Token=YOUR_TOKEN"
+#
+# 2) Morning digest: build scenario + email opted-in users (daily 07:00 JST = 22:00 UTC)
+# gcloud scheduler jobs create http btc-morning-digest-job \
+#   --schedule="0 22 * * *" \
+#   --time-zone="UTC" \
+#   --uri="https://btc-trading-api-xxx.run.app/api/v1/internal/morning-digest" \
+#   --http-method=POST \
+#   --headers="X-Internal-Token=YOUR_TOKEN"
+#
+# Dry-run test:
+# curl -X POST "https://btc-trading-api-xxx.run.app/api/v1/internal/morning-digest?dry_run=true" \
+#   -H "X-Internal-Token: YOUR_TOKEN"
+#
+# Firestore composite indexes (create if prompted by query errors):
+# - collection group "preferences": morningEmailEnabled ASC
+# - collection group "preferences": morningEmailUnsubscribeToken ASC

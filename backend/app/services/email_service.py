@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+import html
+from datetime import datetime, timezone
+
 import httpx
 
 from app.config import Settings, get_settings
+from app.schemas.market import MarketSnapshot
+from app.schemas.scenario import ScenarioHorizonBundle, ScenarioResponse
 
 RESEND_API_URL = "https://api.resend.com/emails"
+
+_TREND_LABELS = {
+    "bullish": "上昇",
+    "bearish": "下降",
+    "range": "レンジ",
+}
 
 
 def _invite_html(sign_in_link: str) -> str:
@@ -222,3 +233,163 @@ def send_support_email(
     if response.status_code >= 400:
         detail = response.text.strip() or response.reason_phrase
         raise RuntimeError(f"サポートメールの送信に失敗しました（Resend {response.status_code}）: {detail}")
+
+
+def _format_price(value: float) -> str:
+    return f"${value:,.0f}"
+
+
+def _truncate_text(text: str, max_len: int = 220) -> str:
+    cleaned = " ".join(text.split())
+    if len(cleaned) <= max_len:
+        return cleaned
+    return cleaned[: max_len - 1] + "…"
+
+
+def _horizon_row(horizon: ScenarioHorizonBundle) -> str:
+    trend = _TREND_LABELS.get(horizon.entry.side, horizon.entry.side)
+    zone = f"{_format_price(horizon.entry.zone_low)} – {_format_price(horizon.entry.zone_high)}"
+    stop = _format_price(horizon.exit.stop_loss)
+    tp = " / ".join(_format_price(price) for price in horizon.exit.take_profit[:2])
+    summary = html.escape(_truncate_text(horizon.scenario_text_ja))
+    return f"""\
+<tr>
+  <td style="padding:12px;border-top:1px solid #e2e8f0;vertical-align:top;">
+    <div style="font-weight:600;">{html.escape(horizon.label)}</div>
+    <div style="font-size:12px;color:#64748b;">{html.escape(horizon.period_hint)}</div>
+  </td>
+  <td style="padding:12px;border-top:1px solid #e2e8f0;vertical-align:top;">{trend}</td>
+  <td style="padding:12px;border-top:1px solid #e2e8f0;vertical-align:top;">{zone}</td>
+  <td style="padding:12px;border-top:1px solid #e2e8f0;vertical-align:top;">{tp}<br><span style="color:#dc2626;">SL {stop}</span></td>
+  <td style="padding:12px;border-top:1px solid #e2e8f0;vertical-align:top;font-size:13px;">{summary}</td>
+</tr>"""
+
+
+def _morning_digest_html(
+    *,
+    scenario: ScenarioResponse,
+    snapshot: MarketSnapshot,
+    reference_price: float,
+    unsubscribe_url: str,
+    app_url: str,
+) -> str:
+    generated_at = scenario.generated_at.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    trend = _TREND_LABELS.get(scenario.macro_trend, scenario.macro_trend)
+    confidence_pct = int(round(scenario.confidence * 100))
+    fear_greed = scenario.indicators.fear_greed
+    funding = scenario.indicators.funding_rate
+    divergence = scenario.indicators.divergence_max_pct
+
+    ticker_rows = []
+    for ticker in snapshot.tickers[:4]:
+        ticker_rows.append(
+            f"<tr><td style='padding:4px 12px 4px 0;color:#64748b;'>{html.escape(ticker.exchange)}</td>"
+            f"<td>{_format_price(float(ticker.last_price))}</td></tr>"
+        )
+
+    horizon_rows = "".join(_horizon_row(horizon) for horizon in scenario.horizons[:3])
+    summary = html.escape(_truncate_text(scenario.scenario_text_ja, 360))
+    disclaimer = html.escape(scenario.disclaimer)
+
+    fear_greed_text = str(fear_greed) if fear_greed is not None else "—"
+    funding_text = f"{funding * 100:.4f}%" if funding is not None else "—"
+    divergence_text = f"{divergence:.2f}%" if divergence is not None else "—"
+
+    return f"""\
+<!DOCTYPE html>
+<html lang="ja">
+<body style="font-family:sans-serif;line-height:1.6;color:#1e293b;max-width:720px;margin:0 auto;padding:16px;">
+  <p style="font-size:12px;color:#64748b;">BTC Trading Scenario · 毎朝ダイジェスト · {generated_at}</p>
+  <h1 style="font-size:20px;margin:0 0 8px;">本日の BTC シナリオ</h1>
+  <p style="margin:0 0 16px;">基準価格 <strong>{_format_price(reference_price)}</strong> · 全体方向 <strong>{trend}</strong> · 信頼度 <strong>{confidence_pct}%</strong></p>
+
+  <table style="border-collapse:collapse;margin:0 0 20px;font-size:14px;">
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">恐怖・強欲指数</td><td>{fear_greed_text}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">ファンディングレート</td><td>{funding_text}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#64748b;">取引所間乖離</td><td>{divergence_text}</td></tr>
+  </table>
+
+  <h2 style="font-size:16px;margin:24px 0 8px;">主要取引所価格</h2>
+  <table style="border-collapse:collapse;margin:0 0 20px;font-size:14px;">
+    {''.join(ticker_rows)}
+  </table>
+
+  <h2 style="font-size:16px;margin:24px 0 8px;">時間軸別シナリオ</h2>
+  <table style="border-collapse:collapse;width:100%;font-size:14px;">
+    <tr style="background:#f8fafc;">
+      <th style="padding:8px 12px;text-align:left;">時間軸</th>
+      <th style="padding:8px 12px;text-align:left;">方向</th>
+      <th style="padding:8px 12px;text-align:left;">エントリー帯</th>
+      <th style="padding:8px 12px;text-align:left;">利確 / 損切り</th>
+      <th style="padding:8px 12px;text-align:left;">要約</th>
+    </tr>
+    {horizon_rows}
+  </table>
+
+  <h2 style="font-size:16px;margin:24px 0 8px;">総合コメント</h2>
+  <p style="background:#f8fafc;padding:12px;border-radius:8px;font-size:14px;">{summary}</p>
+
+  <p style="margin:28px 0 16px;">
+    <a href="{html.escape(app_url)}" style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;">
+      ダッシュボードを開く
+    </a>
+  </p>
+
+  <p style="font-size:12px;color:#64748b;">{disclaimer}</p>
+  <p style="font-size:12px;color:#64748b;">
+    配信停止は
+    <a href="{html.escape(unsubscribe_url)}" style="color:#2563eb;">こちら</a>
+    からいつでも行えます。
+  </p>
+</body>
+</html>"""
+
+
+def send_morning_digest_email(
+    *,
+    to: str,
+    scenario: ScenarioResponse,
+    snapshot: MarketSnapshot,
+    reference_price: float,
+    unsubscribe_token: str,
+    settings: Settings | None = None,
+) -> None:
+    settings = settings or get_settings()
+    if not settings.resend_api_key:
+        raise RuntimeError(
+            "RESEND_API_KEY が未設定です。Resend の API キーと RESEND_FROM_EMAIL を .env に設定してください。"
+        )
+    if not settings.resend_from_email:
+        raise RuntimeError(
+            "RESEND_FROM_EMAIL が未設定です。Resend で認証済みの送信元アドレスを設定してください。"
+        )
+
+    app_url = settings.app_public_url.rstrip("/")
+    api_base = settings.api_public_url.rstrip("/") if settings.api_public_url else app_url
+    unsubscribe_url = f"{api_base}/api/v1/notifications/unsubscribe/{unsubscribe_token}"
+    today_label = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d")
+
+    response = httpx.post(
+        RESEND_API_URL,
+        headers={
+            "Authorization": f"Bearer {settings.resend_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": settings.resend_from_email,
+            "to": [to],
+            "subject": f"【BTC Scenario】本日のシナリオ — {today_label}",
+            "html": _morning_digest_html(
+                scenario=scenario,
+                snapshot=snapshot,
+                reference_price=reference_price,
+                unsubscribe_url=unsubscribe_url,
+                app_url=app_url,
+            ),
+        },
+        timeout=30.0,
+    )
+    if response.status_code >= 400:
+        detail = response.text.strip() or response.reason_phrase
+        raise RuntimeError(f"毎朝ダイジェストの送信に失敗しました（Resend {response.status_code}）: {detail}")
+
