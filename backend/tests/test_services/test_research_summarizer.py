@@ -12,7 +12,7 @@ def test_html_to_text_strips_tags():
 
 
 def test_gemini_error_message_quota():
-    msg = _gemini_error_message(GeminiClientError("gemini-2.5-flash: HTTP 429 quota exceeded"))
+    msg = _gemini_error_message(GeminiClientError("gemini-3.6-flash: HTTP 429 quota exceeded"))
     assert "利用上限" in msg
 
 

@@ -63,7 +63,7 @@ async def test_scenario_writer_uses_template_without_api_key():
 @pytest.mark.asyncio
 @respx.mock
 async def test_scenario_writer_uses_gemini_when_configured():
-    route = respx.post(f"{GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent").mock(
+    route = respx.post(f"{GEMINI_API_BASE}/models/gemini-3.6-flash:generateContent").mock(
         return_value=Response(
             200,
             json={
@@ -88,7 +88,14 @@ async def test_scenario_writer_uses_gemini_when_configured():
         )
     )
 
-    writer = ScenarioWriter(Settings(gemini_api_key="test-key", llm_provider="gemini"))
+    writer = ScenarioWriter(
+        Settings(
+            gemini_api_key="test-key",
+            llm_provider="gemini",
+            gemini_model="gemini-3.6-flash",
+            gemini_model_fallbacks="gemini-3.1-flash",
+        )
+    )
     text = await writer.generate(
         macro_trend="range",
         confidence=0.5,
@@ -108,7 +115,7 @@ async def test_scenario_writer_uses_gemini_when_configured():
 @pytest.mark.asyncio
 @respx.mock
 async def test_scenario_writer_falls_back_when_gemini_output_incomplete():
-    respx.post(f"{GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent").mock(
+    respx.post(f"{GEMINI_API_BASE}/models/gemini-3.6-flash:generateContent").mock(
         return_value=Response(
             200,
             json={
@@ -124,7 +131,14 @@ async def test_scenario_writer_falls_back_when_gemini_output_incomplete():
         )
     )
 
-    writer = ScenarioWriter(Settings(gemini_api_key="test-key", llm_provider="gemini"))
+    writer = ScenarioWriter(
+        Settings(
+            gemini_api_key="test-key",
+            llm_provider="gemini",
+            gemini_model="gemini-3.6-flash",
+            gemini_model_fallbacks="gemini-3.1-flash",
+        )
+    )
     text = await writer.generate(
         macro_trend="range",
         confidence=0.35,
@@ -143,13 +157,7 @@ async def test_scenario_writer_falls_back_when_gemini_output_incomplete():
 @pytest.mark.asyncio
 @respx.mock
 async def test_scenario_writer_falls_back_when_gemini_fails():
-    respx.post(f"{GEMINI_API_BASE}/models/gemini-2.5-flash:generateContent").mock(
-        return_value=Response(500, text="error")
-    )
-    respx.post(f"{GEMINI_API_BASE}/models/gemini-2.0-flash:generateContent").mock(
-        return_value=Response(500, text="error")
-    )
-    respx.post(f"{GEMINI_API_BASE}/models/gemini-2.5-flash-lite:generateContent").mock(
+    respx.post(f"{GEMINI_API_BASE}/models/gemini-3.6-flash:generateContent").mock(
         return_value=Response(500, text="error")
     )
 
@@ -157,6 +165,7 @@ async def test_scenario_writer_falls_back_when_gemini_fails():
         Settings(
             gemini_api_key="test-key",
             llm_provider="gemini",
+            gemini_model="gemini-3.6-flash",
             gemini_model_fallbacks="",
         )
     )

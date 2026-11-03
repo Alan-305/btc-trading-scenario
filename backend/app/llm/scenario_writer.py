@@ -6,7 +6,7 @@ import re
 import structlog
 
 from app.config import Settings, get_settings
-from app.llm.gemini_client import GeminiClient, GeminiClientError
+from app.llm.gemini_client import DEFAULT_GEMINI_MODELS, GeminiClient, GeminiClientError
 from app.schemas.scenario import MacroTrend, TradeSide
 from app.services.scenario_market_context import ScenarioMarketContext
 
@@ -23,6 +23,19 @@ SIDE_JA = {
     "short": "ショート",
     "neutral": "様子見",
 }
+
+SCENARIO_SYSTEM_INSTRUCTION = """あなたはBTCスイングトレード向けのシナリオ解説者です。
+同じ入力には同じ構成の文章を返し、指定された形式から外れないでください。
+
+【出力の形】
+- 日本語で3〜5文。シナリオ本文のみ（前置き・見出し・箇条書き・Markdownは書かない）
+- 文はすべて完結させ、途中で切らない
+- 高校生にもわかるやさしい日本語
+- 「不合格」などの否定的な評価語は使わない
+- 投資助言ではなく参考情報として書く
+- すべての価格は米ドル（USD）建てで書く（円・JPYは使わない）。各価格の直後に「ドル」と書く
+- 必ずエントリー帯・利確・損切りの数値を文中に含める
+"""
 
 
 class ScenarioWriter:
@@ -76,7 +89,10 @@ class ScenarioWriter:
         try:
             client = GeminiClient(self.settings.gemini_api_key, self._model_candidates())
             prompt = self._build_prompt(facts)
-            result = await client.generate_text(prompt)
+            result = await client.generate_text(
+                prompt,
+                system_instruction=SCENARIO_SYSTEM_INSTRUCTION,
+            )
             cleaned = _clean_scenario_text(result.text)
             cleaned = _enforce_usd_prices(cleaned, facts)
             if not cleaned or result.truncated or _is_incomplete_scenario(cleaned, facts):
@@ -92,39 +108,27 @@ class ScenarioWriter:
             return template
 
     def _model_candidates(self) -> tuple[str, ...]:
-        primary = (self.settings.gemini_model or "gemini-2.5-flash").strip()
+        primary = (self.settings.gemini_model or DEFAULT_GEMINI_MODELS[0]).strip()
         fallbacks = tuple(
             m.strip()
             for m in self.settings.gemini_model_fallbacks.split(",")
             if m.strip()
         )
-        ordered = (primary, *fallbacks, "gemini-2.0-flash", "gemini-2.5-flash-lite")
+        ordered = (primary, *fallbacks)
         return tuple(dict.fromkeys(ordered))
 
     def _build_prompt(self, facts: dict) -> str:
         facts_json = json.dumps(facts, ensure_ascii=False, indent=2)
-        return f"""あなたはBTCスイングトレード向けのシナリオ解説者です。
-以下のJSON（市場データ・テクニカル・リスクゾーン・セッション・板・ユーザー調査メモ）を根拠に、
-日本語で3〜5文の短いシナリオを書いてください。
+        return f"""以下のJSON（市場データ・テクニカル・リスクゾーン・セッション・板・ユーザー調査メモ）を根拠に、シナリオを書いてください。
 
 【厳守】
-- すべての価格は米ドル（USD）建てで書く（円・JPYは使わない）
 - JSONの entry_zone_low_usd / entry_zone_high_usd / take_profit_usd / stop_loss_usd / reference_price_usd の数値だけを価格として使う
 - risk_zones や technical_analysis の数値は補足説明にのみ使い、損切り・利確の数値として流用しない
 - JSONにない価格・数値・方向を作らない
 - user_research_summaries があれば要点に触れる（箇条書きの捏造禁止）
-- 投資助言ではなく参考情報として書く
-- 高校生にもわかるやさしい日本語
-- 箇条書き・見出し・Markdownは使わない
-- 「不合格」などの否定的な評価語は使わない
-- 必ずエントリー帯・利確・損切りの数値を文中に含める（各価格の直後に「ドル」と書く）
-- 3〜5文で完結させ、途中で切らない
 
 【入力データ】
-{facts_json}
-
-【出力】
-シナリオ本文のみ（3〜5文）。"""
+{facts_json}"""
 
     def _template(
         self,
