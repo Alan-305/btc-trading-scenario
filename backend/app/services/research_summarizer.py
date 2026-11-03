@@ -8,7 +8,7 @@ import httpx
 import structlog
 
 from app.config import Settings, get_settings
-from app.llm.gemini_client import GeminiClient, GeminiClientError
+from app.llm.gemini_client import DEFAULT_GEMINI_MODELS, GeminiClient, GeminiClientError
 from app.schemas.research import ResearchSummarizeRequest, ResearchSummarizeResponse
 
 logger = structlog.get_logger()
@@ -102,38 +102,24 @@ class ResearchSummarizer:
         )
         if primary:
             return (primary, *(m for m in fallbacks if m != primary))
-        return fallbacks or ("gemini-2.5-flash",)
+        return fallbacks or DEFAULT_GEMINI_MODELS
 
     async def _summarize_with_llm(self, title: str, content: str) -> str:
         if self.settings.llm_provider != "gemini" or not self.settings.gemini_api_key.strip():
             raise ValueError("AI要約機能は未設定です。管理者に GEMINI_API_KEY の設定を依頼してください。")
 
-        prompt = f"""あなたはBTCトレード向けの調査メモ要約者です。
-以下の資料を読み、「今後のシナリオ分析に使える要点」を日本語の箇条書きでまとめてください。
-
-【行数の目安（資料の情報量に応じて調整）】
-- 情報が少ない: {MIN_SUMMARY_BULLETS}〜3行
-- 普通: 4〜7行
-- 文字起こしなど情報が多い: 最大 {MAX_SUMMARY_BULLETS} 行（それ以上は書かない）
-- 重要度の高い順。重複・枝葉の細部は省略
-
-【厳守】
-- 各行は「・」で始める。合計 {MAX_SUMMARY_CHARS} 文字以内
-- 投資助言口調にしない。「〜の可能性」「〜に注意」など参考情報として
-- 資料にない具体価格を作らない
-- BTC/Bitcoin との関連が薄い場合はその旨を1行で
-- 見出し・Markdown・番号リストは使わない
+        prompt = f"""次の資料から、今後のシナリオ分析に使える要点をまとめてください。
 
 【タイトル】{title}
 
 【資料本文（抜粋）】
-{content[:8000]}
-
-【出力】
-箇条書きのみ（{MIN_SUMMARY_BULLETS}〜{MAX_SUMMARY_BULLETS} 行）。"""
+{content[:8000]}"""
         try:
             client = GeminiClient(self.settings.gemini_api_key, self._model_candidates())
-            result = await client.generate_text(prompt, temperature=0.2)
+            result = await client.generate_text(
+                prompt,
+                system_instruction=_summary_system_instruction(),
+            )
             summary = _normalize_summary(result.text)
             if not summary:
                 raise ValueError("AI要約が空で返されました。時間をおいて再度お試しください。")
@@ -141,6 +127,21 @@ class ResearchSummarizer:
         except GeminiClientError as exc:
             logger.warning("research_summarize_gemini_failed", error=str(exc))
             raise ValueError(_gemini_error_message(exc)) from exc
+
+
+def _summary_system_instruction() -> str:
+    return f"""あなたはBTCトレード向けの調査メモ要約者です。
+同じ資料には同じ型の要約を返し、指定された形式から外れないでください。
+
+【出力の形】
+- 日本語の箇条書きのみ。見出し・Markdown・番号リストは使わない
+- 各行は「・」で始める。合計 {MAX_SUMMARY_CHARS} 文字以内
+- 行数は情報量に応じて調整する。情報が少ないときは {MIN_SUMMARY_BULLETS}〜3行、普通は4〜7行、文字起こしなど情報が多いときは最大 {MAX_SUMMARY_BULLETS} 行（それ以上は書かない）
+- 重要度の高い順。重複・枝葉の細部は省略
+- 投資助言口調にしない。「〜の可能性」「〜に注意」など参考情報として書く
+- 資料にない具体価格を作らない
+- BTC/Bitcoin との関連が薄い場合はその旨を1行で書く
+"""
 
 
 def _normalize_summary(text: str) -> str:
